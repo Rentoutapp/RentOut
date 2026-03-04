@@ -1,5 +1,6 @@
 [versions]
 agp = "8.7.3"
+gradle = "8.11.1"
 android-compileSdk = "35"
 android-minSdk = "24"
 android-targetSdk = "35"
