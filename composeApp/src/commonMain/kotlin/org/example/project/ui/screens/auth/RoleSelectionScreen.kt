@@ -59,7 +59,7 @@ fun RoleSelectionScreen(
             Spacer(Modifier.height(72.dp))
 
             Text(
-                "I want to...",
+                "Who are you ?",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White,

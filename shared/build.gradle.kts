@@ -17,7 +17,7 @@ kotlin {
     iosSimulatorArm64()
 
     js {
-        outputModuleName = "shared"
+        moduleName = "shared"
         browser()
         binaries.library()
         generateTypeScriptDefinitions()

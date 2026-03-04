@@ -162,11 +162,11 @@ fun PaymentScreen(
                         Text("Order Summary", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(16.dp))
 
-                        OrderRow("Property", property.title, Icons.Default.Home, RentOutColors.IconBlue)
+                        OrderRow("Property", property.title, Icons.Default.Apartment, RentOutColors.IconBlue)
                         Spacer(Modifier.height(10.dp))
                         OrderRow("Location", property.city, Icons.Default.LocationOn, RentOutColors.IconRose)
                         Spacer(Modifier.height(10.dp))
-                        HorizontalDivider()
+                        Divider()
                         Spacer(Modifier.height(10.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -218,7 +218,7 @@ fun PaymentScreen(
 
                         Spacer(Modifier.height(16.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Lock, null, tint = RentOutColors.StatusApproved,
+                            Icon(Icons.Default.Shield, null, tint = RentOutColors.StatusApproved,
                                 modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
                             Text("Your payment is encrypted & secure", fontSize = 12.sp,

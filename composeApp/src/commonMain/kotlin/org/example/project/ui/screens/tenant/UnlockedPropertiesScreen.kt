@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package org.example.project.ui.screens.tenant
 
 import androidx.compose.animation.core.*

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package org.example.project.ui.screens.landlord
 
 import androidx.compose.animation.core.*
@@ -120,7 +122,7 @@ fun AddPropertyScreen(
                     RentOutTextField(
                         value = title, onValueChange = { title = it; titleErr = "" },
                         label = "Property Title",
-                        leadingIcon = Icons.Default.Home, leadingIconTint = RentOutColors.IconBlue,
+                        leadingIcon = Icons.Default.Apartment, leadingIconTint = RentOutColors.IconBlue,
                         isError = titleErr.isNotEmpty(), errorMessage = titleErr
                     )
                     Spacer(Modifier.height(14.dp))
@@ -155,7 +157,7 @@ fun AddPropertyScreen(
                         RentOutTextField(
                             value = rooms, onValueChange = { rooms = it; roomsErr = "" },
                             label = "Rooms",
-                            leadingIcon = Icons.Default.Bed, leadingIconTint = RentOutColors.IconBlue,
+                            leadingIcon = Icons.Default.Home, leadingIconTint = RentOutColors.IconBlue,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             isError = roomsErr.isNotEmpty(), errorMessage = roomsErr,
                             modifier = Modifier.weight(1f)
@@ -167,7 +169,7 @@ fun AddPropertyScreen(
                         RentOutTextField(
                             value = price, onValueChange = { price = it; priceErr = "" },
                             label = "Price (USD/mo)",
-                            leadingIcon = Icons.Default.AttachMoney, leadingIconTint = RentOutColors.IconGreen,
+                            leadingIcon = Icons.Default.Payments, leadingIconTint = RentOutColors.IconGreen,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             isError = priceErr.isNotEmpty(), errorMessage = priceErr,
                             modifier = Modifier.weight(1f)
@@ -175,7 +177,7 @@ fun AddPropertyScreen(
                         RentOutTextField(
                             value = bathrooms, onValueChange = { bathrooms = it },
                             label = "Bathrooms",
-                            leadingIcon = Icons.Default.Bathtub, leadingIconTint = RentOutColors.IconTeal,
+                            leadingIcon = Icons.Default.Star, leadingIconTint = RentOutColors.IconTeal,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
                         )
@@ -194,7 +196,7 @@ fun AddPropertyScreen(
                     RentOutTextField(
                         value = description, onValueChange = { description = it; descErr = "" },
                         label = "Describe the property...",
-                        leadingIcon = Icons.Default.Description, leadingIconTint = RentOutColors.IconSlate,
+                        leadingIcon = Icons.Default.Article, leadingIconTint = RentOutColors.IconSlate,
                         singleLine = false, maxLines = 5,
                         isError = descErr.isNotEmpty(), errorMessage = descErr
                     )
@@ -205,14 +207,14 @@ fun AddPropertyScreen(
                     RentOutTextField(
                         value = contact, onValueChange = { contact = it; contactErr = "" },
                         label = "Contact Number (hidden from tenants)",
-                        leadingIcon = Icons.Default.Phone, leadingIconTint = RentOutColors.IconAmber,
+                        leadingIcon = Icons.Default.Call, leadingIconTint = RentOutColors.IconAmber,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         isError = contactErr.isNotEmpty(), errorMessage = contactErr
                     )
 
                     Spacer(Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Lock, null, tint = RentOutColors.IconSlate, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Shield, null, tint = RentOutColors.IconSlate, modifier = Modifier.size(14.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(
                             "Your contact number is only revealed after a tenant pays \$10",
@@ -270,5 +272,5 @@ fun AddPropertyScreen(
 private fun SectionLabel(text: String) {
     Text(text, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
     Spacer(Modifier.height(2.dp))
-    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 }

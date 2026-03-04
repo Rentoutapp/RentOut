@@ -40,7 +40,6 @@ kotlin {
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
-            implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.animation)
 
             // Lifecycle & ViewModel
@@ -54,6 +53,8 @@ kotlin {
             implementation(libs.firebase.auth)
             implementation(libs.firebase.firestore)
             implementation(libs.firebase.storage)
+            implementation(libs.firebase.functions)
+            implementation(libs.firebase.database)
 
             // Kotlin Multiplatform utilities
             implementation(libs.kotlinx.serialization.json)
@@ -103,11 +104,13 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
     debugImplementation(libs.compose.uiTooling)
     // Firebase BOM — controls all Firebase SDK versions for Android
+    // The GitLive KMP SDK (commonMain) pulls in the native Android SDKs underneath.
+    // Only analytics is kept here as it has no KMP counterpart.
     implementation(platform(libs.firebase.bom))
     implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")
-    implementation("com.google.firebase:firebase-firestore")
-    implementation("com.google.firebase:firebase-storage")
 }

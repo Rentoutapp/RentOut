@@ -23,6 +23,9 @@ compose-navigation = "2.8.0-alpha10"
 coil = "3.0.4"
 firebase-bom = "33.7.0"
 material-icons-extended = "1.7.6"
+credentials = "1.5.0"
+credentialsPlayServicesAuth = "1.5.0"
+googleid = "1.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -48,6 +51,8 @@ compose-animation = { module = "org.jetbrains.compose.animation:animation", vers
 firebase-auth = { module = "dev.gitlive:firebase-auth", version.ref = "gitlive-firebase" }
 firebase-firestore = { module = "dev.gitlive:firebase-firestore", version.ref = "gitlive-firebase" }
 firebase-storage = { module = "dev.gitlive:firebase-storage", version.ref = "gitlive-firebase" }
+firebase-functions = { module = "dev.gitlive:firebase-functions", version.ref = "gitlive-firebase" }
+firebase-database = { module = "dev.gitlive:firebase-database", version.ref = "gitlive-firebase" }
 
 # Firebase Android SDK (androidMain — BOM declared inline in build.gradle.kts)
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
@@ -68,6 +73,9 @@ compose-navigation = { module = "org.jetbrains.androidx.navigation:navigation-co
 # Image Loading
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentialsPlayServicesAuth" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

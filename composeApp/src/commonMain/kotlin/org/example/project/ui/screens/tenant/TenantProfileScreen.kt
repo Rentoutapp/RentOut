@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package org.example.project.ui.screens.tenant
 
 import androidx.compose.animation.core.*
@@ -95,9 +97,9 @@ fun TenantProfileScreen(
                 horizontalArrangement = Arrangement.SpaceAround
             ) {
                 ProfileStat("🔑", "$unlockedCount", "Unlocked")
-                VerticalDivider(modifier = Modifier.height(40.dp))
+                Divider(modifier = Modifier.width(1.dp).height(40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                 ProfileStat("✅", "Tenant", "Role")
-                VerticalDivider(modifier = Modifier.height(40.dp))
+                Divider(modifier = Modifier.width(1.dp).height(40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                 ProfileStat("⭐", "Active", "Status")
             }
         }

@@ -1,31 +1,28 @@
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { onRequest } from "firebase-functions/v2/https";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { auth } from "firebase-functions/v1";
 
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 
-// ─── 1. onUserCreate — Set default role & status on signup ───────────────────
-export const onUserCreate = auth.user().onCreate(async (user) => {
+// ─── 1. onUserCreate — Set default role & status when user doc is first created ─
+// The client writes a minimal user doc on signup; this function fills in defaults.
+export const onUserCreate = onDocumentCreated("users/{uid}", async (event) => {
+  const data = event.data?.data();
+  if (!data) return;
   try {
-    logger.info(`New user created: ${user.uid} — ${user.email}`);
-    await db.collection("users").doc(user.uid).set({
-      uid:          user.uid,
-      name:         user.displayName ?? "",
-      email:        user.email ?? "",
-      role:         "tenant",        // default role — updated after role selection
-      status:       "active",
-      profilePhotoUrl: user.photoURL ?? "",
-      phoneNumber:  user.phoneNumber ?? "",
-      createdAt:    admin.firestore.FieldValue.serverTimestamp(),
+    logger.info(`New user doc created: ${event.params.uid}`);
+    await event.data?.ref.set({
+      role:      data.role      ?? "tenant",
+      status:    data.status    ?? "active",
+      createdAt: data.createdAt ?? admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
-    logger.info(`User document created for ${user.uid}`);
+    logger.info(`User defaults set for ${event.params.uid}`);
   } catch (error) {
-    logger.error(`Error creating user document: ${error}`);
+    logger.error(`Error setting user defaults: ${error}`);
   }
 });
 
@@ -151,31 +148,35 @@ export const verifyPesePay = onRequest(async (req, res) => {
 });
 
 // ─── 4. onPropertyStatusChange — Notify landlord when admin approves/rejects ──
-export const onPropertyStatusChange = onDocumentCreated(
+export const onPropertyStatusChange = onDocumentUpdated(
   "properties/{propertyId}",
   async (event) => {
-    const property = event.data?.data();
-    if (!property) return;
+    const before = event.data?.before.data();
+    const after  = event.data?.after.data();
+    if (!before || !after) return;
+
+    // Only fire when status actually changed
+    if (before.status === after.status) return;
+
+    // Only notify on status change to approved or rejected
+    if (!["approved", "rejected"].includes(after.status)) return;
 
     try {
-      // Only notify on status change to approved or rejected
-      if (!["approved", "rejected"].includes(property.status)) return;
-
-      const message = property.status === "approved"
-        ? `✅ Your property "${property.title}" has been approved and is now live!`
-        : `❌ Your property "${property.title}" was rejected. Please review and resubmit.`;
+      const message = after.status === "approved"
+        ? `✅ Your property "${after.title}" has been approved and is now live!`
+        : `❌ Your property "${after.title}" was rejected. Please review and resubmit.`;
 
       await db.collection("notifications").add({
-        userId:     property.landlordId,
-        title:      property.status === "approved" ? "Property Approved! 🎉" : "Property Rejected",
+        userId:     after.landlordId,
+        title:      after.status === "approved" ? "Property Approved! 🎉" : "Property Rejected",
         body:       message,
         propertyId: event.params.propertyId,
-        type:       `property_${property.status}`,
+        type:       `property_${after.status}`,
         read:       false,
         createdAt:  admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      logger.info(`Notification sent to landlord ${property.landlordId} for property ${event.params.propertyId}`);
+      logger.info(`Notification sent to landlord ${after.landlordId} for property ${event.params.propertyId}`);
     } catch (error) {
       logger.error(`Error sending property notification: ${error}`);
     }

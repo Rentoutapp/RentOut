@@ -137,10 +137,10 @@ fun PropertyDetailScreen(
                         horizontalArrangement = Arrangement.SpaceAround
                     ) {
                         DetailStat(Icons.Default.Bed, "${property.rooms}", "Bedrooms", RentOutColors.IconBlue)
-                        VerticalDivider(modifier = Modifier.height(40.dp))
+                        Divider(modifier = Modifier.width(1.dp).height(40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                         DetailStat(Icons.Default.Bathtub, "${property.bathrooms}", "Bathrooms", RentOutColors.IconTeal)
-                        VerticalDivider(modifier = Modifier.height(40.dp))
-                        DetailStat(Icons.Default.Home, property.propertyType.replaceFirstChar { it.uppercase() }, "Type", RentOutColors.IconPurple)
+                        Divider(modifier = Modifier.width(1.dp).height(40.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                        DetailStat(Icons.Default.Apartment, property.propertyType.replaceFirstChar { it.uppercase() }, "Type", RentOutColors.IconPurple)
                     }
                 }
 
@@ -164,7 +164,7 @@ fun PropertyDetailScreen(
                 }
 
                 Spacer(Modifier.height(24.dp))
-                HorizontalDivider()
+                Divider()
                 Spacer(Modifier.height(24.dp))
 
                 // ── Contact section ───────────────────────────────────────────
@@ -191,7 +191,7 @@ fun PropertyDetailScreen(
                                         .background(RentOutColors.StatusApproved.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Phone, null, tint = RentOutColors.StatusApproved, modifier = Modifier.size(22.dp))
+                                    Icon(Icons.Default.Call, null, tint = RentOutColors.StatusApproved, modifier = Modifier.size(22.dp))
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Column {
@@ -225,7 +225,7 @@ fun PropertyDetailScreen(
                                         .background(RentOutColors.IconAmber.copy(alpha = 0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Lock, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(22.dp))
+                                    Icon(Icons.Default.Shield, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(22.dp))
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Column {

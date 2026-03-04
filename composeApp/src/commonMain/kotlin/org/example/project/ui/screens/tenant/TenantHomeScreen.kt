@@ -153,12 +153,6 @@ fun TenantHomeScreen(
                             }) else null,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                                focusedBorderColor = RentOutColors.Primary,
-                                unfocusedBorderColor = Color.Transparent
-                            ),
                             singleLine = true
                         )
                     }
