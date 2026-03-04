@@ -20,3 +20,10 @@ node_modules/
 *.bin
 *.lock
 acli.exe
+
+# Screenshots and logs — keep folder structure, ignore content
+screenshots/*
+!screenshots/.gitkeep
+logs/*
+!logs/.gitkeep
+!logs/app.log.txt

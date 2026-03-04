@@ -1,0 +1,9 @@
+# RentOut — Application Log
+# --------------------------
+# This file is used to capture application logs.
+# Add log entries below in the format:
+#   [YYYY-MM-DD HH:MM:SS] [LEVEL] Message
+#
+# Example:
+#   [2026-03-04 22:38:56] [INFO] App started
+#   [2026-03-04 22:38:57] [ERROR] Firebase auth failed: invalid credentials

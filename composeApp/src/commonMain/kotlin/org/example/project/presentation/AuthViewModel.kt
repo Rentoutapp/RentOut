@@ -2,10 +2,15 @@ package org.example.project.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.gitlive.firebase.Firebase
+import dev.gitlive.firebase.auth.FirebaseAuth
+import dev.gitlive.firebase.auth.auth
+import dev.gitlive.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.example.project.data.model.AppSettings
 import org.example.project.data.model.User
 
 // ─── UI State ─────────────────────────────────────────────────────────────────
@@ -13,17 +18,21 @@ sealed class AuthState {
     object Idle      : AuthState()
     object Loading   : AuthState()
     data class Success(val user: User) : AuthState()
+    data class Registered(val email: String, val password: String) : AuthState()
     data class Error(val message: String) : AuthState()
     object Suspended : AuthState()
 }
 
 sealed class AuthEvent {
-    data class Login(val email: String, val password: String) : AuthEvent()
+    data class Login(val email: String, val password: String, val rememberMe: Boolean = false) : AuthEvent()
     data class Register(val name: String, val email: String, val password: String, val role: String) : AuthEvent()
     object Logout : AuthEvent()
 }
 
 class AuthViewModel : ViewModel() {
+
+    private val auth: FirebaseAuth = Firebase.auth
+    private val firestore = Firebase.firestore
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -31,35 +40,171 @@ class AuthViewModel : ViewModel() {
     private val _selectedRole = MutableStateFlow("")
     val selectedRole: StateFlow<String> = _selectedRole.asStateFlow()
 
+    /**
+     * True once the remember-me session check has completed.
+     * The UI should show a neutral loading state until this is true
+     * so the user never sees a flash of the intro screen before being
+     * auto-navigated to the dashboard.
+     */
+    private val _sessionChecked = MutableStateFlow(false)
+    val sessionChecked: StateFlow<Boolean> = _sessionChecked.asStateFlow()
+
+    /**
+     * True if the session check found a valid rememberMe=true session.
+     * App.kt uses this to decide which path to take from IntroScreen.
+     */
+    private val _rememberMeActive = MutableStateFlow(false)
+    val rememberMeActive: StateFlow<Boolean> = _rememberMeActive.asStateFlow()
+
+    init {
+        checkSession()
+    }
+
+    /**
+     * Called once at startup. Checks if Firebase still has an authenticated
+     * user AND that user had rememberMe=true in their app_settings.
+     * If both are true, auto-restores AuthState.Success so the UI can
+     * skip the role/auth screens entirely.
+     */
+    private fun checkSession() {
+        viewModelScope.launch {
+            try {
+                val firebaseUser = auth.currentUser
+                if (firebaseUser != null) {
+                    val settings = loadAppSettings(firebaseUser.uid)
+                    if (settings.rememberMe) {
+                        // Restore full user profile from Firestore
+                        val doc = firestore.collection("users").document(firebaseUser.uid).get()
+                        val role = doc.get("role") as? String ?: "tenant"
+                        val name = doc.get("name") as? String ?: firebaseUser.displayName ?: firebaseUser.email ?: ""
+                        val user = User(
+                            uid   = firebaseUser.uid,
+                            name  = name,
+                            email = firebaseUser.email ?: "",
+                            role  = role
+                        )
+                        _rememberMeActive.value = true
+                        _authState.value = if (role == "suspended") AuthState.Suspended else AuthState.Success(user)
+                    }
+                }
+            } catch (e: Exception) {
+                // Non-fatal — fall through to normal login flow
+                println("[Session] checkSession error: ${e.message}")
+            } finally {
+                _sessionChecked.value = true
+            }
+        }
+    }
+
     fun selectRole(role: String) {
         _selectedRole.value = role
     }
 
     fun onEvent(event: AuthEvent) {
         when (event) {
-            is AuthEvent.Login    -> login(event.email, event.password)
+            is AuthEvent.Login    -> login(event.email, event.password, event.rememberMe)
             is AuthEvent.Register -> register(event.name, event.email, event.password, event.role)
             is AuthEvent.Logout   -> logout()
         }
     }
 
-    private fun login(email: String, password: String) {
+    // ─── App Settings ──────────────────────────────────────────────────────────
+
+    /**
+     * Persists the user's app preferences to:
+     *   users/{uid}/app_settings/preferences
+     *
+     * Using merge = true so that future fields added to AppSettings
+     * don't wipe out fields written by other clients/versions.
+     */
+    private suspend fun saveAppSettings(uid: String, settings: AppSettings) {
+        firestore
+            .collection("users")
+            .document(uid)
+            .collection("app_settings")
+            .document("preferences")
+            .set(
+                mapOf(
+                    "rememberMe"        to settings.rememberMe,
+                    "lastLoginAt"       to settings.lastLoginAt,
+                    "lastLoginPlatform" to settings.lastLoginPlatform,
+                    "theme"             to settings.theme
+                ),
+                merge = true
+            )
+    }
+
+    /**
+     * Reads the user's app preferences from Firestore.
+     * Returns a default [AppSettings] if the document doesn't exist yet.
+     */
+    private suspend fun loadAppSettings(uid: String): AppSettings {
+        val doc = firestore
+            .collection("users")
+            .document(uid)
+            .collection("app_settings")
+            .document("preferences")
+            .get()
+
+        return if (doc.exists) {
+            AppSettings(
+                rememberMe        = doc.get("rememberMe")        as? Boolean ?: false,
+                lastLoginAt       = doc.get("lastLoginAt")       as? Long    ?: 0L,
+                lastLoginPlatform = doc.get("lastLoginPlatform") as? String  ?: "",
+                theme             = doc.get("theme")             as? String  ?: "system"
+            )
+        } else {
+            AppSettings()
+        }
+    }
+
+    // ─── Login ─────────────────────────────────────────────────────────────────
+
+    private fun login(email: String, password: String, rememberMe: Boolean) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                // Firebase auth login — stubbed for MVP scaffold; wire Firebase here
-                // val user = firebaseAuthRepository.login(email, password)
-                // Simulate for now with demo credentials
-                val demoUser = when (email.lowercase().trim()) {
-                    "landlord@rentout.demo" -> User(uid = "demo_landlord", name = "Demo Landlord", email = email, role = "landlord")
-                    "tenant@rentout.demo"   -> User(uid = "demo_tenant",   name = "Demo Tenant",   email = email, role = "tenant")
-                    "admin@rentout.demo"    -> User(uid = "demo_admin",    name = "Demo Admin",    email = email, role = "admin")
-                    else -> null
+                val result = auth.signInWithEmailAndPassword(email, password)
+                val firebaseUser = result.user
+                    ?: throw Exception("Login failed. Please try again.")
+
+                // Fetch user profile from Firestore
+                val doc = firestore.collection("users").document(firebaseUser.uid).get()
+                val role = doc.get("role") as? String ?: "tenant"
+                val name = doc.get("name") as? String ?: firebaseUser.displayName ?: email
+
+                val user = User(
+                    uid   = firebaseUser.uid,
+                    name  = name,
+                    email = firebaseUser.email ?: email,
+                    role  = role
+                )
+
+                // Persist app settings — always update lastLoginAt; honour the
+                // user's rememberMe choice by reading existing settings first so
+                // other fields (e.g. theme) are not reset.
+                // Isolated in its own try/catch so a settings write failure
+                // never blocks a successful login.
+                try {
+                    val existingSettings = loadAppSettings(firebaseUser.uid)
+                    saveAppSettings(
+                        uid = firebaseUser.uid,
+                        settings = existingSettings.copy(
+                            rememberMe        = rememberMe,
+                            lastLoginAt       = System.currentTimeMillis(),
+                            lastLoginPlatform = "android"
+                        )
+                    )
+                    println("[AppSettings] Saved — rememberMe=$rememberMe uid=${firebaseUser.uid}")
+                } catch (e: Exception) {
+                    // Non-fatal: log and continue. Never fail login over a settings write.
+                    println("[AppSettings] ERROR saving settings: ${e.message}")
                 }
-                if (demoUser != null && password == "demo1234!") {
-                    _authState.value = AuthState.Success(demoUser)
+
+                if (role == "suspended") {
+                    _authState.value = AuthState.Suspended
                 } else {
-                    _authState.value = AuthState.Error("Invalid email or password.")
+                    _authState.value = AuthState.Success(user)
                 }
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.message ?: "Login failed. Please try again.")
@@ -71,13 +216,30 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
-                // Firebase auth register — wire Firebase here
-                if (name.isBlank() || email.isBlank() || password.length < 6) {
-                    _authState.value = AuthState.Error("Please fill all fields correctly.")
-                    return@launch
-                }
-                val newUser = User(uid = "new_${System.currentTimeMillis()}", name = name, email = email, role = role)
-                _authState.value = AuthState.Success(newUser)
+                val result = auth.createUserWithEmailAndPassword(email, password)
+                val firebaseUser = result.user
+                    ?: throw Exception("Registration failed. Please try again.")
+
+                // Persist user profile in Firestore
+                val user = User(
+                    uid   = firebaseUser.uid,
+                    name  = name,
+                    email = firebaseUser.email ?: email,
+                    role  = role
+                )
+                firestore.collection("users").document(firebaseUser.uid).set(
+                    mapOf(
+                        "uid"    to user.uid,
+                        "name"   to user.name,
+                        "email"  to user.email,
+                        "role"   to user.role,
+                        "status" to user.status
+                    )
+                )
+
+                // Sign out immediately — user must explicitly log in
+                auth.signOut()
+                _authState.value = AuthState.Registered(email, password)
             } catch (e: Exception) {
                 _authState.value = AuthState.Error(e.message ?: "Registration failed. Please try again.")
             }
@@ -86,12 +248,35 @@ class AuthViewModel : ViewModel() {
 
     private fun logout() {
         viewModelScope.launch {
-            _authState.value = AuthState.Idle
+            try {
+                // Reset rememberMe before signing out so the next cold launch
+                // goes through the full role/auth flow as expected.
+                val uid = auth.currentUser?.uid
+                if (uid != null) {
+                    try {
+                        val existingSettings = loadAppSettings(uid)
+                        saveAppSettings(uid, existingSettings.copy(rememberMe = false))
+                        println("[Session] rememberMe reset to false for uid=$uid")
+                    } catch (e: Exception) {
+                        println("[Session] Failed to reset rememberMe: ${e.message}")
+                    }
+                }
+                auth.signOut()
+            } finally {
+                _rememberMeActive.value = false
+                _authState.value = AuthState.Idle
+            }
         }
     }
 
     fun clearError() {
         if (_authState.value is AuthState.Error) {
+            _authState.value = AuthState.Idle
+        }
+    }
+
+    fun clearRegistered() {
+        if (_authState.value is AuthState.Registered) {
             _authState.value = AuthState.Idle
         }
     }

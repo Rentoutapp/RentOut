@@ -4,7 +4,7 @@ object NavRoutes {
     // Auth flow
     const val INTRO          = "intro"
     const val ROLE_SELECTION = "role_selection"
-    const val AUTH           = "auth"
+    const val AUTH           = "auth?prefillEmail={prefillEmail}&prefillPassword={prefillPassword}"
     const val SPLASH         = "splash"
     const val SUSPENDED      = "suspended"
 
@@ -25,4 +25,9 @@ object NavRoutes {
     fun editProperty(propertyId: String) = "edit_property/$propertyId"
     fun propertyDetail(propertyId: String) = "property_detail/$propertyId"
     fun payment(propertyId: String) = "payment/$propertyId"
+    fun authWithPrefill(email: String, password: String) =
+        "auth?prefillEmail=${encodeArg(email)}&prefillPassword=${encodeArg(password)}"
+
+    private fun encodeArg(value: String) =
+        value.replace("@", "%40").replace("+", "%2B").replace(" ", "%20")
 }

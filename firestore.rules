@@ -55,6 +55,16 @@ service cloud.firestore {
 
       // Only admin can delete users
       allow delete: if isAdmin();
+
+      // ── App Settings Subcollection ─────────────────────────────────────────
+      // Stored at: users/{uid}/app_settings/preferences
+      // Must be nested inside the parent match block so Firestore evaluates
+      // this rule in the correct path hierarchy.
+      // Only the owning user can read or write their own settings.
+      match /app_settings/{document} {
+        allow read:  if isAuthenticated() && isOwner(userId);
+        allow write: if isAuthenticated() && isOwner(userId);
+      }
     }
 
     // ─── Properties Collection ────────────────────────────────────────────────

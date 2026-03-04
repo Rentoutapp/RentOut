@@ -6,9 +6,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import org.example.project.data.model.User
 import org.example.project.presentation.*
 import org.example.project.ui.navigation.NavRoutes
@@ -27,6 +29,8 @@ fun App() {
         val tenantViewModel: TenantViewModel = viewModel()
 
         val authState by authViewModel.authState.collectAsState()
+        val sessionChecked by authViewModel.sessionChecked.collectAsState()
+        val rememberMeActive by authViewModel.rememberMeActive.collectAsState()
         val selectedRole by authViewModel.selectedRole.collectAsState()
         val propertyListState by propertyViewModel.landlordProperties.collectAsState()
         val tenantPropertyState by propertyViewModel.tenantProperties.collectAsState()
@@ -40,6 +44,18 @@ fun App() {
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
 
+        // Wait for session check before rendering navigation — prevents a
+        // flash of IntroScreen for users with an active rememberMe session.
+        if (!sessionChecked) {
+            SplashScreen(
+                currentUserRole = null,
+                onNavigateToRole = {},
+                onNavigateToLandlord = {},
+                onNavigateToTenant = {}
+            )
+            return@RentOutTheme
+        }
+
         NavHost(
             navController = navController,
             startDestination = NavRoutes.INTRO,
@@ -51,7 +67,17 @@ fun App() {
             // ── INTRO ─────────────────────────────────────────────────────────
             composable(NavRoutes.INTRO) {
                 IntroScreen(
-                    onGetStarted = { navController.navigate(NavRoutes.ROLE_SELECTION) }
+                    onGetStarted = {
+                        if (rememberMeActive) {
+                            // Short path: Intro → Splash → Dashboard
+                            navController.navigate(NavRoutes.SPLASH) {
+                                popUpTo(NavRoutes.INTRO) { inclusive = false }
+                            }
+                        } else {
+                            // Normal path: Intro → Role Selection → Auth → Splash → Dashboard
+                            navController.navigate(NavRoutes.ROLE_SELECTION)
+                        }
+                    }
                 )
             }
 
@@ -60,28 +86,51 @@ fun App() {
                 RoleSelectionScreen(
                     onRoleSelected = { role ->
                         authViewModel.selectRole(role)
-                        navController.navigate(NavRoutes.AUTH)
+                        navController.navigate("auth?prefillEmail=&prefillPassword=")
                     }
                 )
             }
 
             // ── AUTH ──────────────────────────────────────────────────────────
-            composable(NavRoutes.AUTH) {
+            composable(
+                route = NavRoutes.AUTH,
+                arguments = listOf(
+                    navArgument("prefillEmail")    { type = NavType.StringType; defaultValue = "" },
+                    navArgument("prefillPassword") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) {
+                // When arriving after registration, pre-fill login fields
+                val prefillEmail    = it.arguments?.getString("prefillEmail")    ?: ""
+                val prefillPassword = it.arguments?.getString("prefillPassword") ?: ""
+                val initialTab      = 0  // always start on Login tab
+
                 AuthScreen(
                     selectedRole = selectedRole,
                     authState = authState,
-                    onLogin = { email, password ->
-                        authViewModel.onEvent(AuthEvent.Login(email, password))
+                    onLogin = { email, password, rememberMe ->
+                        authViewModel.onEvent(AuthEvent.Login(email, password, rememberMe))
                     },
                     onRegister = { name, email, password ->
                         authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole))
                     },
                     onBack = { navController.popBackStack() },
-                    onClearError = { authViewModel.clearError() }
+                    onClearError = { authViewModel.clearError() },
+                    prefillEmail = prefillEmail,
+                    prefillPassword = prefillPassword,
+                    initialTab = initialTab
                 )
                 // React to auth state
                 LaunchedEffect(authState) {
                     when (val state = authState) {
+                        is AuthState.Registered -> {
+                            // Account created — go back to login tab with credentials pre-filled
+                            authViewModel.clearRegistered()
+                            navController.navigate(
+                                NavRoutes.authWithPrefill(state.email, state.password)
+                            ) {
+                                popUpTo(NavRoutes.AUTH) { inclusive = true }
+                            }
+                        }
                         is AuthState.Success -> {
                             navController.navigate(NavRoutes.SPLASH) {
                                 popUpTo(NavRoutes.INTRO) { inclusive = true }

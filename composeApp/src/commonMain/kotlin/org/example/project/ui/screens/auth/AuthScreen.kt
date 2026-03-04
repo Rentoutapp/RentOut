@@ -36,16 +36,20 @@ import org.example.project.ui.theme.RentOutColors
 fun AuthScreen(
     selectedRole: String,
     authState: AuthState,
-    onLogin: (String, String) -> Unit,
+    onLogin: (String, String, Boolean) -> Unit,
     onRegister: (String, String, String) -> Unit,
     onBack: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
+    prefillEmail: String = "",
+    prefillPassword: String = "",
+    initialTab: Int = 0
 ) {
-    var selectedTab by remember { mutableStateOf(0) }  // 0=Login, 1=Register
+    var selectedTab by remember { mutableStateOf(initialTab) }
 
-    // Login fields
-    var loginEmail    by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf("") }
+    // Login fields — pre-filled when coming from registration
+    var loginEmail    by remember { mutableStateOf(prefillEmail) }
+    var loginPassword by remember { mutableStateOf(prefillPassword) }
+    var rememberMe    by remember { mutableStateOf(false) }
 
     // Register fields
     var regName     by remember { mutableStateOf("") }
@@ -221,13 +225,33 @@ fun AuthScreen(
                             isError = passwordError.isNotEmpty(),
                             errorMessage = passwordError
                         )
-                        Spacer(Modifier.height(8.dp))
-                        RentOutTextButton(
-                            text = "Forgot Password?",
-                            onClick = { /* TODO: password reset */ },
-                            modifier = Modifier.align(Alignment.End),
-                            color = RentOutColors.Primary
-                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = rememberMe,
+                                onCheckedChange = { rememberMe = it },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = RentOutColors.Primary,
+                                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Remember me",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable { rememberMe = !rememberMe }
+                            )
+                            Spacer(Modifier.weight(1f))
+                            RentOutTextButton(
+                                text = "Forgot Password?",
+                                onClick = { /* TODO: password reset */ },
+                                color = RentOutColors.Primary
+                            )
+                        }
                         Spacer(Modifier.height(24.dp))
                         RentOutPrimaryButton(
                             text = "Sign In",
@@ -235,24 +259,11 @@ fun AuthScreen(
                                 var valid = true
                                 if (loginEmail.isBlank()) { emailError = "Email is required"; valid = false }
                                 if (loginPassword.isBlank()) { passwordError = "Password is required"; valid = false }
-                                if (valid) onLogin(loginEmail.trim(), loginPassword)
+                                if (valid) onLogin(loginEmail.trim(), loginPassword, rememberMe)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             isLoading = isLoading
                         )
-                        Spacer(Modifier.height(16.dp))
-                        // Demo hint
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = RentOutColors.SurfaceVariant),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("Demo credentials:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = RentOutColors.Primary)
-                                Text("landlord@rentout.demo / demo1234!", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("tenant@rentout.demo / demo1234!", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
                     }
                 } else {
                     // REGISTER
