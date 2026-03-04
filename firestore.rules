@@ -43,14 +43,18 @@ service cloud.firestore {
 
       // Users can only create their own document on signup
       allow create: if isAuthenticated() && isOwner(userId)
-        && request.resource.data.keys().hasAll(['uid', 'name', 'email', 'role', 'status'])
+        && request.resource.data.keys().hasAll([
+            'uid', 'name', 'email', 'role', 'status',
+            'phoneNumber', 'profilePhotoUrl', 'createdAt'
+           ])
         && request.resource.data.status == 'active'
         && request.resource.data.role in ['landlord', 'tenant'];
 
-      // Users can update their own profile (but NOT role or status)
-      allow update: if isAuthenticated() && isOwner(userId)
+      // Users can update their own profile (but NOT role, status, or uid)
+      // Allowed fields: name, phoneNumber, profilePhotoUrl
+      allow update: if (isAuthenticated() && isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'status', 'uid'])
+            .hasAny(['role', 'status', 'uid', 'createdAt']))
         || isAdmin();
 
       // Only admin can delete users

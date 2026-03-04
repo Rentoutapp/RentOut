@@ -114,9 +114,10 @@ fun TenantHomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val (greeting, emoji) = rememberGreeting(user.name.ifBlank { "Tenant" })
                             Column {
-                                Text("Find Your", fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
-                                Text("Perfect Home 🔑", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                Text("$emoji  $greeting", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
+                                Text("Find Your Perfect Home 🔑", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Box(

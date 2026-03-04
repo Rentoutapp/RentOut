@@ -6,6 +6,8 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.FirebaseAuth
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
+import dev.gitlive.firebase.storage.storage
+import org.example.project.ui.util.buildStorageData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +27,15 @@ sealed class AuthState {
 
 sealed class AuthEvent {
     data class Login(val email: String, val password: String, val rememberMe: Boolean = false) : AuthEvent()
-    data class Register(val name: String, val email: String, val password: String, val role: String) : AuthEvent()
+    data class Register(
+        val name: String,
+        val email: String,
+        val password: String,
+        val role: String,
+        val phoneNumber: String = "",
+        val profilePhotoUrl: String = "",
+        val photoBytes: ByteArray? = null
+    ) : AuthEvent()
     object Logout : AuthEvent()
 }
 
@@ -33,6 +43,29 @@ class AuthViewModel : ViewModel() {
 
     private val auth: FirebaseAuth = Firebase.auth
     private val firestore = Firebase.firestore
+    private val storage = Firebase.storage
+
+    // ── Upload state ────────────────────────────────────────────────────────────
+    private val _uploadProgress = MutableStateFlow<Float?>(null)
+    val uploadProgress: StateFlow<Float?> = _uploadProgress.asStateFlow()
+
+    /**
+     * Uploads raw image bytes to Firebase Storage at:
+     *   profile_photos/{uid}/profile.jpg
+     * Returns the public download URL on success, or throws on failure.
+     *
+     * Uses [dev.gitlive.firebase.storage.StorageReference.putData] with a
+     * platform [dev.gitlive.firebase.storage.Data] instance built from the byte array,
+     * then fetches the download URL via [getDownloadUrl].
+     */
+    suspend fun uploadProfilePhoto(uid: String, imageBytes: ByteArray): String {
+        val ref = storage.reference.child("profile_photos/$uid/profile.jpg")
+        val metadata = dev.gitlive.firebase.storage.storageMetadata {
+            contentType = "image/jpeg"
+        }
+        ref.putData(buildStorageData(imageBytes), metadata)
+        return ref.getDownloadUrl()
+    }
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
@@ -78,10 +111,14 @@ class AuthViewModel : ViewModel() {
                         val role = doc.get("role") as? String ?: "tenant"
                         val name = doc.get("name") as? String ?: firebaseUser.displayName ?: firebaseUser.email ?: ""
                         val user = User(
-                            uid   = firebaseUser.uid,
-                            name  = name,
-                            email = firebaseUser.email ?: "",
-                            role  = role
+                            uid             = firebaseUser.uid,
+                            name            = name,
+                            email           = firebaseUser.email ?: "",
+                            role            = role,
+                            status          = doc.get("status")          as? String ?: "active",
+                            phoneNumber     = doc.get("phoneNumber")     as? String ?: "",
+                            profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: "",
+                            createdAt       = doc.get("createdAt")       as? Long   ?: 0L
                         )
                         _rememberMeActive.value = true
                         _authState.value = if (role == "suspended") AuthState.Suspended else AuthState.Success(user)
@@ -103,7 +140,10 @@ class AuthViewModel : ViewModel() {
     fun onEvent(event: AuthEvent) {
         when (event) {
             is AuthEvent.Login    -> login(event.email, event.password, event.rememberMe)
-            is AuthEvent.Register -> register(event.name, event.email, event.password, event.role)
+            is AuthEvent.Register -> register(
+                event.name, event.email, event.password, event.role,
+                event.phoneNumber, event.profilePhotoUrl, event.photoBytes
+            )
             is AuthEvent.Logout   -> logout()
         }
     }
@@ -174,10 +214,14 @@ class AuthViewModel : ViewModel() {
                 val name = doc.get("name") as? String ?: firebaseUser.displayName ?: email
 
                 val user = User(
-                    uid   = firebaseUser.uid,
-                    name  = name,
-                    email = firebaseUser.email ?: email,
-                    role  = role
+                    uid             = firebaseUser.uid,
+                    name            = name,
+                    email           = firebaseUser.email ?: email,
+                    role            = role,
+                    status          = doc.get("status")          as? String ?: "active",
+                    phoneNumber     = doc.get("phoneNumber")     as? String ?: "",
+                    profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: "",
+                    createdAt       = doc.get("createdAt")       as? Long   ?: 0L
                 )
 
                 // Persist app settings — always update lastLoginAt; honour the
@@ -212,7 +256,15 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    private fun register(name: String, email: String, password: String, role: String) {
+    private fun register(
+        name: String,
+        email: String,
+        password: String,
+        role: String,
+        phoneNumber: String = "",
+        profilePhotoUrl: String = "",
+        photoBytes: ByteArray? = null
+    ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
@@ -220,20 +272,41 @@ class AuthViewModel : ViewModel() {
                 val firebaseUser = result.user
                     ?: throw Exception("Registration failed. Please try again.")
 
+                val createdAt = System.currentTimeMillis()
+
+                // Upload photo to Firebase Storage if bytes are available
+                val finalPhotoUrl = if (photoBytes != null && photoBytes.isNotEmpty()) {
+                    try {
+                        uploadProfilePhoto(firebaseUser.uid, photoBytes)
+                    } catch (e: Exception) {
+                        println("[Storage] Photo upload failed: ${e.message}")
+                        profilePhotoUrl  // fall back to placeholder URI
+                    }
+                } else {
+                    profilePhotoUrl
+                }
+
                 // Persist user profile in Firestore
                 val user = User(
-                    uid   = firebaseUser.uid,
-                    name  = name,
-                    email = firebaseUser.email ?: email,
-                    role  = role
+                    uid             = firebaseUser.uid,
+                    name            = name,
+                    email           = firebaseUser.email ?: email,
+                    role            = role,
+                    status          = "active",
+                    phoneNumber     = phoneNumber,
+                    profilePhotoUrl = finalPhotoUrl,
+                    createdAt       = createdAt
                 )
                 firestore.collection("users").document(firebaseUser.uid).set(
                     mapOf(
-                        "uid"    to user.uid,
-                        "name"   to user.name,
-                        "email"  to user.email,
-                        "role"   to user.role,
-                        "status" to user.status
+                        "uid"             to user.uid,
+                        "name"            to user.name,
+                        "email"           to user.email,
+                        "role"            to user.role,
+                        "status"          to user.status,
+                        "phoneNumber"     to user.phoneNumber,
+                        "profilePhotoUrl" to user.profilePhotoUrl,
+                        "createdAt"       to user.createdAt
                     )
                 )
 

@@ -41,6 +41,7 @@ fun LandlordDashboardScreen(
     onEditProperty: (Property) -> Unit,
     onDeleteProperty: (String) -> Unit,
     onToggleAvailability: (String) -> Unit,
+    onProfileClick: () -> Unit,
     onLogout: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -70,34 +71,131 @@ fun LandlordDashboardScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Column {
+                    val greetingInfo = rememberGreetingInfo(user.name.ifBlank { "Landlord" })
+
+                    // Entrance animations — staggered so greeting fades in first,
+                    // then the name slides up beneath it.
+                    var headerVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { headerVisible = true }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Welcome back,", fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f))
-                            Text(user.name.ifBlank { "Landlord" }, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        // ── Left: greeting + name ──────────────────────────────
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+
+                            // Row 1: "Good night"  [icon]
+                            AnimatedVisibility(
+                                visible = headerVisible,
+                                enter = fadeIn(tween(400)) + slideInHorizontally(tween(400)) { -30 }
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = greetingInfo.greeting,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                    // Animated icon — pulses gently to draw attention
+                                    val iconScale by rememberInfiniteTransition(label = "icon_pulse")
+                                        .animateFloat(
+                                            initialValue = 1f,
+                                            targetValue  = 1.18f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(1200, easing = FastOutSlowInEasing),
+                                                repeatMode = RepeatMode.Reverse
+                                            ),
+                                            label = "icon_scale"
+                                        )
+                                    Icon(
+                                        imageVector = greetingInfo.timeOfDay.icon,
+                                        contentDescription = greetingInfo.greeting,
+                                        tint = Color.White,
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .scale(iconScale)
+                                    )
+                                }
+                            }
+
+                            // Row 2: First name — slides up with a short delay
+                            AnimatedVisibility(
+                                visible = headerVisible,
+                                enter = fadeIn(tween(500, delayMillis = 150)) +
+                                        slideInVertically(tween(500, delayMillis = 150)) { 20 }
+                            ) {
+                                Text(
+                                    text = greetingInfo.firstName,
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                            }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                        // ── Right: notification + avatar ───────────────────────
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Notification bell — intentionally smaller than the avatar
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(32.dp)
                                     .clip(CircleShape)
                                     .background(Color.White.copy(alpha = 0.2f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = "Notifications",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
                             }
+
+                            // Profile avatar — significantly larger, interactive
+                            val profileInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            val isProfilePressed by profileInteraction.collectIsPressedAsState()
+                            val profileScale by animateFloatAsState(
+                                targetValue = if (isProfilePressed) 0.88f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                label = "profile_scale"
+                            )
                             Box(
                                 modifier = Modifier
-                                    .size(42.dp)
+                                    .size(64.dp)
+                                    .scale(profileScale)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
-                                    .noRippleClickable(onClick = onLogout),
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(RentOutColors.Secondary, RentOutColors.SecondaryLight)
+                                        )
+                                    )
+                                    .clickable(
+                                        interactionSource = profileInteraction,
+                                        indication = null,
+                                        onClick = onProfileClick
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Logout, "Logout", tint = Color.White, modifier = Modifier.size(22.dp))
+                                val initials = user.name
+                                    .split(" ")
+                                    .filter { it.isNotBlank() }
+                                    .take(2)
+                                    .joinToString("") { it.first().uppercaseChar().toString() }
+                                    .ifBlank { "L" }
+                                Text(
+                                    text = initials,
+                                    color = Color.White,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             }
                         }
                     }

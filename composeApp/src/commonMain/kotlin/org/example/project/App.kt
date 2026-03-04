@@ -110,8 +110,8 @@ fun App() {
                     onLogin = { email, password, rememberMe ->
                         authViewModel.onEvent(AuthEvent.Login(email, password, rememberMe))
                     },
-                    onRegister = { name, email, password ->
-                        authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole))
+                    onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes ->
+                        authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole, phoneNumber, profilePhotoUrl, photoBytes))
                     },
                     onBack = { navController.popBackStack() },
                     onClearError = { authViewModel.clearError() },
@@ -194,6 +194,19 @@ fun App() {
                     },
                     onDeleteProperty = { propertyViewModel.deleteProperty(it) },
                     onToggleAvailability = { propertyViewModel.toggleAvailability(it) },
+                    onProfileClick = { navController.navigate(NavRoutes.LANDLORD_PROFILE) },
+                    onLogout = {
+                        authViewModel.onEvent(AuthEvent.Logout)
+                        navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                    }
+                )
+            }
+
+            // ── LANDLORD PROFILE ──────────────────────────────────────────────
+            composable(NavRoutes.LANDLORD_PROFILE) {
+                LandlordProfileScreen(
+                    user = currentUser ?: User(),
+                    onBack = { navController.popBackStack() },
                     onLogout = {
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
