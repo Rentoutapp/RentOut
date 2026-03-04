@@ -65,12 +65,12 @@ coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.re
 # Material Icons Extended (direct coordinate — no deprecated accessor)
 compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
 
-# Firebase BOM + Android-specific SDKs
-firebase-bom               = { module = "com.google.firebase:firebase-bom",       version.ref = "firebase-bom" }
-firebase-analytics-android = { module = "com.google.firebase:firebase-analytics" }
-firebase-auth-android      = { module = "com.google.firebase:firebase-auth" }
-firebase-firestore-android = { module = "com.google.firebase:firebase-firestore" }
-firebase-storage-android   = { module = "com.google.firebase:firebase-storage" }
+# Firebase BOM + Android-specific SDKs (versions managed by BOM)
+firebase-bom               = { module = "com.google.firebase:firebase-bom",        version.ref = "firebase-bom" }
+firebase-analytics-android = { module = "com.google.firebase:firebase-analytics",  version.ref = "firebase-bom" }
+firebase-auth-android      = { module = "com.google.firebase:firebase-auth",       version.ref = "firebase-bom" }
+firebase-firestore-android = { module = "com.google.firebase:firebase-firestore",  version.ref = "firebase-bom" }
+firebase-storage-android   = { module = "com.google.firebase:firebase-storage",    version.ref = "firebase-bom" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

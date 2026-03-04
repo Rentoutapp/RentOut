@@ -1,6 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-@Suppress("DSL_SCOPE_VIOLATION")
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -10,7 +9,6 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-@Suppress("DEPRECATION")
 kotlin {
     @Suppress("DEPRECATION")
     androidTarget {
@@ -33,7 +31,9 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
-            // Firebase BOM — Android platform-specific
+            // Material Icons Extended (Android only)
+            implementation(libs.compose.material.icons.extended)
+            // Firebase Android SDK (via BOM for version management)
             implementation(libs.firebase.bom)
             implementation(libs.firebase.analytics.android)
             implementation(libs.firebase.auth.android)
@@ -41,8 +41,7 @@ kotlin {
             implementation(libs.firebase.storage.android)
         }
         commonMain.dependencies {
-            // Compose
-            implementation(libs.compose.material.icons.extended)
+            // Compose UI
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -58,12 +57,12 @@ kotlin {
             // Navigation
             implementation(libs.compose.navigation)
 
-            // Firebase (GitLive KMP)
+            // Firebase KMP (GitLive SDK — works on Android + iOS)
             implementation(libs.firebase.auth)
             implementation(libs.firebase.firestore)
             implementation(libs.firebase.storage)
 
-            // Kotlin Multiplatform
+            // Kotlin Multiplatform utilities
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
@@ -83,7 +82,6 @@ kotlin {
     }
 }
 
-@Suppress("DEPRECATION")
 android {
     namespace = "org.example.project"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
