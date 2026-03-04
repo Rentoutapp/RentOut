@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RentOut Admin — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1B4FFF', secondary: '#FF6B35',
+            success: '#22C55E', danger: '#EF4444', warning: '#F59E0B',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes countUp { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+    .count-up   { animation: countUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+    .spinner    { animation: spin 0.9s linear infinite; }
+    .btn { transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease; }
+    .btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+    .btn:active { transform: scale(0.93); }
+    .nav-link { transition: all 0.2s ease; }
+    .nav-link:hover { background: rgba(255,255,255,0.15); transform: translateX(4px); }
+    .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 700; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
+    <div class="p-6 border-b border-white border-opacity-20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+          <span class="text-xl">🏠</span>
+        </div>
+        <div>
+          <div class="text-white font-extrabold text-lg">RentOut</div>
+          <div class="text-blue-200 text-xs">Admin Panel</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="dashboard.html" class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm">
+        <span>📊</span> Dashboard
+      </a>
+      <a href="properties.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm">
+        <span>🏠</span> Properties
+      </a>
+      <a href="users.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm">
+        <span>👥</span> Users
+      </a>
+      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm">
+        <span>💳</span> Transactions
+      </a>
+    </nav>
+    <div class="p-4 border-t border-white border-opacity-20">
+      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">
+        🚪 Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="flex-1 ml-64 p-8">
+    <div class="mb-8 fade-in-up">
+      <h1 class="text-3xl font-extrabold text-gray-800">Dashboard</h1>
+      <p class="text-gray-500 mt-1">Welcome back, Admin. Here's what's happening.</p>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div class="fade-in-up bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-2xl">🏠</div>
+          <span class="text-xs font-semibold text-success bg-green-50 px-2 py-1 rounded-full">+12%</span>
+        </div>
+        <div class="count-up text-3xl font-extrabold text-gray-800" id="stat-properties">—</div>
+        <div class="text-gray-500 text-sm mt-1">Total Properties</div>
+      </div>
+      <div class="fade-in-up bg-white rounded-2xl p-6 shadow-sm border border-gray-100" style="animation-delay:0.1s">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-2xl">⏳</div>
+          <span class="text-xs font-semibold text-warning bg-yellow-50 px-2 py-1 rounded-full">Review</span>
+        </div>
+        <div class="count-up text-3xl font-extrabold text-warning" id="stat-pending">—</div>
+        <div class="text-gray-500 text-sm mt-1">Pending Approval</div>
+      </div>
+      <div class="fade-in-up bg-white rounded-2xl p-6 shadow-sm border border-gray-100" style="animation-delay:0.2s">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-2xl">👥</div>
+          <span class="text-xs font-semibold text-success bg-green-50 px-2 py-1 rounded-full">Active</span>
+        </div>
+        <div class="count-up text-3xl font-extrabold text-success" id="stat-users">—</div>
+        <div class="text-gray-500 text-sm mt-1">Total Users</div>
+      </div>
+      <div class="fade-in-up bg-white rounded-2xl p-6 shadow-sm border border-gray-100" style="animation-delay:0.3s">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-2xl">💰</div>
+          <span class="text-xs font-semibold text-primary bg-blue-50 px-2 py-1 rounded-full">Revenue</span>
+        </div>
+        <div class="count-up text-3xl font-extrabold text-primary" id="stat-revenue">—</div>
+        <div class="text-gray-500 text-sm mt-1">Total Revenue (USD)</div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 fade-in-up">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">⚡ Quick Actions</h2>
+        <div class="space-y-3">
+          <a href="properties.html" class="btn flex items-center gap-3 p-4 bg-yellow-50 rounded-xl hover:bg-yellow-100">
+            <span class="text-2xl">⏳</span>
+            <div>
+              <div class="font-semibold text-gray-800">Review Pending Properties</div>
+              <div class="text-xs text-gray-500">Approve or reject submitted listings</div>
+            </div>
+            <span class="ml-auto text-warning font-bold text-lg" id="quick-pending">—</span>
+          </a>
+          <a href="users.html" class="btn flex items-center gap-3 p-4 bg-blue-50 rounded-xl hover:bg-blue-100">
+            <span class="text-2xl">👥</span>
+            <div>
+              <div class="font-semibold text-gray-800">Manage Users</div>
+              <div class="text-xs text-gray-500">Suspend or reactivate accounts</div>
+            </div>
+          </a>
+          <a href="transactions.html" class="btn flex items-center gap-3 p-4 bg-green-50 rounded-xl hover:bg-green-100">
+            <span class="text-2xl">💳</span>
+            <div>
+              <div class="font-semibold text-gray-800">View Transactions</div>
+              <div class="text-xs text-gray-500">Monitor all $10 unlock payments</div>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 fade-in-up" style="animation-delay:0.2s">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">📈 Platform Overview</h2>
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">Approved Properties</span>
+              <span class="font-semibold text-success" id="overview-approved">—</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2">
+              <div id="bar-approved" class="bg-success h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">Pending Review</span>
+              <span class="font-semibold text-warning" id="overview-pending">—</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2">
+              <div id="bar-pending" class="bg-warning h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">Total Unlocks</span>
+              <span class="font-semibold text-primary" id="overview-unlocks">—</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-2">
+              <div id="bar-unlocks" class="bg-primary h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Auth guard
+    if (!sessionStorage.getItem('rentout_admin')) window.location.href = 'index.html';
+
+    function logout() {
+      sessionStorage.removeItem('rentout_admin');
+      window.location.href = 'index.html';
+    }
+
+    // Demo data — replace with Firebase SDK calls
+    const demo = { properties: 12, pending: 3, approved: 8, rejected: 1, users: 47, revenue: 320, unlocks: 32 };
+
+    setTimeout(() => {
+      document.getElementById('stat-properties').textContent = demo.properties;
+      document.getElementById('stat-pending').textContent = demo.pending;
+      document.getElementById('stat-users').textContent = demo.users;
+      document.getElementById('stat-revenue').textContent = `$${demo.revenue}`;
+      document.getElementById('quick-pending').textContent = demo.pending;
+      document.getElementById('overview-approved').textContent = demo.approved;
+      document.getElementById('overview-pending').textContent = demo.pending;
+      document.getElementById('overview-unlocks').textContent = demo.unlocks;
+
+      const total = demo.properties || 1;
+      setTimeout(() => {
+        document.getElementById('bar-approved').style.width = `${(demo.approved/total*100).toFixed(0)}%`;
+        document.getElementById('bar-pending').style.width  = `${(demo.pending/total*100).toFixed(0)}%`;
+        document.getElementById('bar-unlocks').style.width  = `${Math.min((demo.unlocks/50*100),100).toFixed(0)}%`;
+      }, 200);
+    }, 600);
+  </script>
+</body>
+</html>

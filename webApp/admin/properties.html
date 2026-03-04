@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RentOut Admin — Properties</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { primary:'#1B4FFF', secondary:'#FF6B35', success:'#22C55E', danger:'#EF4444', warning:'#F59E0B' } } }
+    }
+  </script>
+  <style>
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+    .spinner { animation: spin 0.9s linear infinite; }
+    .btn { transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+    .btn:active { transform: scale(0.93); }
+    .nav-link { transition: all 0.2s ease; }
+    .nav-link:hover { background: rgba(255,255,255,0.15); transform: translateX(4px); }
+    .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 700; }
+    .row-pending { background: #FFFBEB; }
+    .row-approved { background: #F0FDF4; }
+    .row-rejected { background: #FFF5F5; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
+    <div class="p-6 border-b border-white border-opacity-20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center"><span class="text-xl">🏠</span></div>
+        <div><div class="text-white font-extrabold text-lg">RentOut</div><div class="text-blue-200 text-xs">Admin Panel</div></div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="dashboard.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>📊</span> Dashboard</a>
+      <a href="properties.html" class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm"><span>🏠</span> Properties</a>
+      <a href="users.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>👥</span> Users</a>
+      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>💳</span> Transactions</a>
+    </nav>
+    <div class="p-4 border-t border-white border-opacity-20">
+      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 ml-64 p-8">
+    <div class="mb-6 fade-in-up">
+      <h1 class="text-3xl font-extrabold text-gray-800">Property Management</h1>
+      <p class="text-gray-500 mt-1">Review and approve landlord property listings</p>
+    </div>
+
+    <!-- Filter tabs -->
+    <div class="flex gap-2 mb-6 fade-in-up">
+      <button onclick="filterProps('all')" id="tab-all" class="btn tab-btn active-tab px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white">All</button>
+      <button onclick="filterProps('pending')" id="tab-pending" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">⏳ Pending</button>
+      <button onclick="filterProps('approved')" id="tab-approved" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">✅ Approved</button>
+      <button onclick="filterProps('rejected')" id="tab-rejected" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">❌ Rejected</button>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden fade-in-up">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-100">
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Property</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">City</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Price</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Landlord</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="props-table"></tbody>
+      </table>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 hidden">
+      <div class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium" id="toast-msg"></div>
+    </div>
+  </main>
+
+  <script>
+    if (!sessionStorage.getItem('rentout_admin')) window.location.href = 'index.html';
+    function logout() { sessionStorage.removeItem('rentout_admin'); window.location.href = 'index.html'; }
+
+    let currentFilter = 'all';
+    let properties = [
+      { id:'p1', title:'Luxury Villa in Borrowdale', city:'Harare', price:1200, landlord:'John Doe', status:'pending', type:'house' },
+      { id:'p2', title:'Modern 2-Bed Apartment', city:'Harare', price:550, landlord:'Mary Smith', status:'approved', type:'apartment' },
+      { id:'p3', title:'Cozy Studio Room – CBD', city:'Bulawayo', price:200, landlord:'Peter Moyo', status:'approved', type:'room' },
+      { id:'p4', title:'Spacious 3-Bed House', city:'Harare', price:800, landlord:'John Doe', status:'pending', type:'house' },
+      { id:'p5', title:'Executive Apartment – Newlands', city:'Harare', price:950, landlord:'Grace Ndlovu', status:'rejected', type:'apartment' },
+    ];
+
+    function statusBadge(s) {
+      const map = {
+        pending:  '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">⏳ Pending</span>',
+        approved: '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">✅ Approved</span>',
+        rejected: '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">❌ Rejected</span>',
+      };
+      return map[s] || s;
+    }
+
+    function renderTable() {
+      const filtered = currentFilter === 'all' ? properties : properties.filter(p => p.status === currentFilter);
+      const tbody = document.getElementById('props-table');
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">No ${currentFilter} properties found.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = filtered.map(p => `
+        <tr class="${p.status === 'pending' ? 'row-pending' : p.status === 'approved' ? 'row-approved' : 'row-rejected'} border-b border-gray-50 hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4">
+            <div class="font-semibold text-gray-800 text-sm">${p.title}</div>
+            <div class="text-xs text-gray-400">${p.type}</div>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-600">📍 ${p.city}</td>
+          <td class="px-6 py-4 text-sm font-semibold text-gray-800">$${p.price}/mo</td>
+          <td class="px-6 py-4 text-sm text-gray-600">👤 ${p.landlord}</td>
+          <td class="px-6 py-4">${statusBadge(p.status)}</td>
+          <td class="px-6 py-4">
+            <div class="flex gap-2">
+              ${p.status !== 'approved' ? `<button onclick="approve('${p.id}')" class="btn px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded-lg">✅ Approve</button>` : ''}
+              ${p.status !== 'rejected' ? `<button onclick="reject('${p.id}')" class="btn px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-lg">❌ Reject</button>` : ''}
+              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg">🗑</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterProps(f) {
+      currentFilter = f;
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('bg-primary','text-white','active-tab');
+        b.classList.add('bg-white','text-gray-600','border','border-gray-200');
+      });
+      const active = document.getElementById(`tab-${f}`);
+      active.classList.remove('bg-white','text-gray-600','border','border-gray-200');
+      active.classList.add('bg-primary','text-white','active-tab');
+      renderTable();
+    }
+
+    function approve(id) {
+      properties = properties.map(p => p.id === id ? {...p, status:'approved'} : p);
+      renderTable(); showToast('✅ Property approved & verified!');
+    }
+    function reject(id) {
+      properties = properties.map(p => p.id === id ? {...p, status:'rejected'} : p);
+      renderTable(); showToast('❌ Property rejected.');
+    }
+    function deleteP(id) {
+      if (!confirm('Delete this property?')) return;
+      properties = properties.filter(p => p.id !== id);
+      renderTable(); showToast('🗑 Property deleted.');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>

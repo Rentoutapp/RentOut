@@ -1,0 +1,264 @@
+package org.example.project.ui.screens.landlord
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.example.project.data.model.Property
+import org.example.project.data.model.User
+import org.example.project.presentation.PropertyListState
+import org.example.project.ui.components.*
+import org.example.project.ui.theme.RentOutColors
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LandlordDashboardScreen(
+    user: User,
+    propertyListState: PropertyListState,
+    onAddProperty: () -> Unit,
+    onEditProperty: (Property) -> Unit,
+    onDeleteProperty: (String) -> Unit,
+    onToggleAvailability: (String) -> Unit,
+    onLogout: () -> Unit
+) {
+    val listState = rememberLazyListState()
+    val isFabVisible by remember {
+        derivedStateOf { !listState.isScrollInProgress || listState.firstVisibleItemIndex == 0 }
+    }
+    var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+
+    // Stats
+    val properties = (propertyListState as? PropertyListState.Success)?.properties ?: emptyList()
+    val total    = properties.size
+    val approved = properties.count { it.status == "approved" }
+    val pending  = properties.count { it.status == "pending" }
+    val rejected = properties.count { it.status == "rejected" }
+
+    Scaffold(
+        topBar = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(RentOutColors.Primary, RentOutColors.PrimaryDark)
+                        )
+                    )
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Welcome back,", fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f))
+                            Text(user.name.ifBlank { "Landlord" }, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f))
+                                    .noRippleClickable(onClick = onLogout),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Logout, "Logout", tint = Color.White, modifier = Modifier.size(22.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        floatingActionButton = {
+            AnimatedVisibility(
+                visible = isFabVisible,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit  = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val isPressed by interactionSource.collectIsPressedAsState()
+                val fabScale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.88f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "fab_scale"
+                )
+                ExtendedFloatingActionButton(
+                    onClick = onAddProperty,
+                    icon = { Icon(Icons.Default.Add, "Add") },
+                    text = { Text("Add Property", fontWeight = FontWeight.SemiBold) },
+                    containerColor = RentOutColors.Secondary,
+                    contentColor = Color.White,
+                    modifier = Modifier.scale(fabScale),
+                    interactionSource = interactionSource
+                )
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 100.dp)
+        ) {
+            // Stats row
+            item {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    "My Dashboard",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard("Total", total.toString(), Icons.Default.Home, RentOutColors.IconBlue, Modifier.weight(1f))
+                    StatCard("Approved", approved.toString(), Icons.Default.CheckCircle, RentOutColors.StatusApproved, Modifier.weight(1f))
+                    StatCard("Pending", pending.toString(), Icons.Default.Schedule, RentOutColors.StatusPending, Modifier.weight(1f))
+                    StatCard("Rejected", rejected.toString(), Icons.Default.Cancel, RentOutColors.StatusRejected, Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(24.dp))
+                Text(
+                    "My Listings",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
+            when (propertyListState) {
+                is PropertyListState.Loading -> item { FullScreenLoader("Loading your listings...") }
+                is PropertyListState.Empty   -> item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🏠", fontSize = 64.sp)
+                        Spacer(Modifier.height(16.dp))
+                        Text("No listings yet", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("Tap the button below to add your first property", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                        Spacer(Modifier.height(20.dp))
+                        RentOutPrimaryButton("+ Add Your First Property", onAddProperty, Modifier.fillMaxWidth())
+                    }
+                }
+                is PropertyListState.Success -> items(
+                    propertyListState.properties,
+                    key = { it.id }
+                ) { property ->
+                    PropertyCard(
+                        property = property,
+                        onClick = {},
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
+                        showActions = true,
+                        onEdit = { onEditProperty(property) },
+                        onDelete = { showDeleteDialog = property.id },
+                        onToggleAvailability = { onToggleAvailability(property.id) }
+                    )
+                }
+                is PropertyListState.Error -> item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(propertyListState.message, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+
+    // Delete confirmation dialog
+    showDeleteDialog?.let { propertyId ->
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Delete Property") },
+            text = { Text("Are you sure you want to delete this listing? This action cannot be undone.") },
+            confirmButton = {
+                RentOutPrimaryButton(
+                    "Delete",
+                    onClick = { onDeleteProperty(propertyId); showDeleteDialog = null }
+                )
+            },
+            dismissButton = {
+                RentOutSecondaryButton("Cancel", onClick = { showDeleteDialog = null })
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+}
+
+@Composable
+private fun StatCard(label: String, value: String, icon: ImageVector, tint: Color, modifier: Modifier = Modifier) {
+    val animatedValue by animateFloatAsState(
+        targetValue = value.toFloatOrNull() ?: 0f,
+        animationSpec = tween(800, easing = FastOutSlowInEasing),
+        label = "stat_anim"
+    )
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(animatedValue.toInt().toString(), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = tint)
+            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = this.clickable(
+    interactionSource = androidx.compose.foundation.interaction.MutableInteractionSource(),
+    indication = null,
+    onClick = onClick
+)

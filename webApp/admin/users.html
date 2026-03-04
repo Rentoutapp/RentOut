@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RentOut Admin — Users</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { primary:'#1B4FFF', secondary:'#FF6B35', success:'#22C55E', danger:'#EF4444', warning:'#F59E0B' } } }
+    }
+  </script>
+  <style>
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+    .btn { transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+    .btn:active { transform: scale(0.93); }
+    .nav-link { transition: all 0.2s ease; }
+    .nav-link:hover { background: rgba(255,255,255,0.15); transform: translateX(4px); }
+    .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 700; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+
+  <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
+    <div class="p-6 border-b border-white border-opacity-20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center"><span class="text-xl">🏠</span></div>
+        <div><div class="text-white font-extrabold text-lg">RentOut</div><div class="text-blue-200 text-xs">Admin Panel</div></div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="dashboard.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>📊</span> Dashboard</a>
+      <a href="properties.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>🏠</span> Properties</a>
+      <a href="users.html" class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm"><span>👥</span> Users</a>
+      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>💳</span> Transactions</a>
+    </nav>
+    <div class="p-4 border-t border-white border-opacity-20">
+      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <main class="flex-1 ml-64 p-8">
+    <div class="mb-6 fade-in-up">
+      <h1 class="text-3xl font-extrabold text-gray-800">User Management</h1>
+      <p class="text-gray-500 mt-1">Manage landlord and tenant accounts</p>
+    </div>
+
+    <!-- Search -->
+    <div class="mb-4 fade-in-up">
+      <input id="search" type="text" placeholder="🔍 Search by name or email..."
+        oninput="renderUsers()"
+        class="w-full max-w-md px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary text-sm"/>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden fade-in-up">
+      <table class="w-full">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-100">
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Role</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Joined</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-table"></tbody>
+      </table>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 hidden">
+      <div class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium" id="toast-msg"></div>
+    </div>
+  </main>
+
+  <script>
+    if (!sessionStorage.getItem('rentout_admin')) window.location.href = 'index.html';
+    function logout() { sessionStorage.removeItem('rentout_admin'); window.location.href = 'index.html'; }
+
+    let users = [
+      { id:'u1', name:'John Doe',     email:'john@example.com',    role:'landlord', status:'active',    joined:'Mar 1, 2026' },
+      { id:'u2', name:'Mary Smith',   email:'mary@example.com',    role:'landlord', status:'active',    joined:'Mar 2, 2026' },
+      { id:'u3', name:'Peter Moyo',   email:'peter@example.com',   role:'tenant',   status:'active',    joined:'Mar 3, 2026' },
+      { id:'u4', name:'Grace Ndlovu', email:'grace@example.com',   role:'tenant',   status:'suspended', joined:'Mar 1, 2026' },
+      { id:'u5', name:'Demo Landlord',email:'landlord@rentout.demo',role:'landlord', status:'active',   joined:'Mar 4, 2026' },
+      { id:'u6', name:'Demo Tenant',  email:'tenant@rentout.demo', role:'tenant',   status:'active',    joined:'Mar 4, 2026' },
+    ];
+
+    function renderUsers() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const filtered = q ? users.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : users;
+      const tbody = document.getElementById('users-table');
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400">No users found.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = filtered.map(u => `
+        <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors ${u.status === 'suspended' ? 'opacity-60' : ''}">
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm
+                ${u.role === 'landlord' ? 'bg-blue-500' : 'bg-orange-400'}">
+                ${u.name.charAt(0)}
+              </div>
+              <div>
+                <div class="font-semibold text-gray-800 text-sm">${u.name}</div>
+                <div class="text-xs text-gray-400">${u.email}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4">
+            <span class="px-2 py-1 rounded-full text-xs font-semibold ${u.role === 'landlord' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
+              ${u.role === 'landlord' ? '🏠 Landlord' : '🔑 Tenant'}
+            </span>
+          </td>
+          <td class="px-6 py-4">
+            <span class="px-2 py-1 rounded-full text-xs font-semibold ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+              ${u.status === 'active' ? '🟢 Active' : '🔴 Suspended'}
+            </span>
+          </td>
+          <td class="px-6 py-4 text-sm text-gray-500">${u.joined}</td>
+          <td class="px-6 py-4">
+            ${u.status === 'active'
+              ? `<button onclick="suspendUser('${u.id}')" class="btn px-3 py-1.5 bg-red-100 text-red-700 text-xs font-semibold rounded-lg hover:bg-red-500 hover:text-white">🚫 Suspend</button>`
+              : `<button onclick="reactivateUser('${u.id}')" class="btn px-3 py-1.5 bg-green-100 text-green-700 text-xs font-semibold rounded-lg hover:bg-green-500 hover:text-white">✅ Reactivate</button>`
+            }
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function suspendUser(id) {
+      users = users.map(u => u.id === id ? {...u, status:'suspended'} : u);
+      renderUsers(); showToast('🚫 User suspended.');
+    }
+    function reactivateUser(id) {
+      users = users.map(u => u.id === id ? {...u, status:'active'} : u);
+      renderUsers(); showToast('✅ User reactivated.');
+    }
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+
+    renderUsers();
+  </script>
+</body>
+</html>
