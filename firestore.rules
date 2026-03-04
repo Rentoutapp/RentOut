@@ -1,0 +1,142 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ─────────────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    function isLandlord() {
+      return isAuthenticated() && getUserRole() == 'landlord';
+    }
+
+    function isTenant() {
+      return isAuthenticated() && getUserRole() == 'tenant';
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function hasUnlocked(propertyId) {
+      return exists(/databases/$(database)/documents/unlocks/$(request.auth.uid + '_' + propertyId));
+    }
+
+    // ─── Users Collection ─────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Anyone authenticated can read basic user info
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+
+      // Users can only create their own document on signup
+      allow create: if isAuthenticated() && isOwner(userId)
+        && request.resource.data.keys().hasAll(['uid', 'name', 'email', 'role', 'status'])
+        && request.resource.data.status == 'active'
+        && request.resource.data.role in ['landlord', 'tenant'];
+
+      // Users can update their own profile (but NOT role or status)
+      allow update: if isAuthenticated() && isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'status', 'uid'])
+        || isAdmin();
+
+      // Only admin can delete users
+      allow delete: if isAdmin();
+    }
+
+    // ─── Properties Collection ────────────────────────────────────────────────
+    match /properties/{propertyId} {
+      // Tenants & landlords can read approved properties (WITHOUT contactNumber)
+      allow read: if isAuthenticated() && isActiveUser()
+        && (
+          // Admin sees everything
+          isAdmin()
+          // Landlord sees their own properties
+          || (isLandlord() && resource.data.landlordId == request.auth.uid)
+          // Tenant sees approved properties only
+          || (isTenant() && resource.data.status == 'approved')
+        );
+
+      // Only landlords can create properties
+      allow create: if isLandlord() && isActiveUser()
+        && request.resource.data.landlordId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasAll([
+            'title', 'city', 'location', 'price', 'rooms',
+            'bathrooms', 'description', 'contactNumber',
+            'propertyType', 'landlordId', 'status'
+           ]);
+
+      // Landlord can update their own property; Admin can update any
+      allow update: if isActiveUser() && (
+        (isLandlord() && resource.data.landlordId == request.auth.uid
+          // Landlord cannot change status — only admin can
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'isVerified']))
+        || isAdmin()
+      );
+
+      // Only admin or owning landlord can delete
+      allow delete: if isAdmin()
+        || (isLandlord() && resource.data.landlordId == request.auth.uid);
+    }
+
+    // ─── Unlocks Collection ───────────────────────────────────────────────────
+    // Document ID format: {tenantId}_{propertyId}
+    match /unlocks/{unlockId} {
+      // Tenant can read their own unlocks
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == resource.data.tenantId || isAdmin());
+
+      // Only Cloud Functions (via Admin SDK) can create unlocks after payment verified
+      // Tenants cannot write directly — prevents bypassing payment
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ─── Transactions Collection ──────────────────────────────────────────────
+    match /transactions/{transactionId} {
+      // Tenant can read their own transactions; Admin reads all
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == resource.data.tenantId || isAdmin());
+
+      // Only Cloud Functions can create transactions (payment webhooks)
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ─── Contact Reveal ───────────────────────────────────────────────────────
+    // Special read for contact number — only after unlock verified
+    match /properties/{propertyId}/contact/{doc} {
+      allow read: if isAuthenticated() && isTenant()
+        && isActiveUser()
+        && hasUnlocked(propertyId);
+      allow write: if isAdmin();
+    }
+
+    // ─── Notifications Collection ─────────────────────────────────────────────
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() &&
+        request.auth.uid == resource.data.userId;
+      allow create: if false; // Cloud Functions only
+      allow update: if isAuthenticated() &&
+        request.auth.uid == resource.data.userId;
+      allow delete: if isAuthenticated() &&
+        request.auth.uid == resource.data.userId;
+    }
+  }
+}
