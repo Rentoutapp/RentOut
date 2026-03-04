@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+@Suppress("DSL_SCOPE_VIOLATION")
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
@@ -9,7 +10,9 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+@Suppress("DEPRECATION")
 kotlin {
+    @Suppress("DEPRECATION")
     androidTarget {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -31,15 +34,15 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             // Firebase BOM — Android platform-specific
-            implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
-            implementation("com.google.firebase:firebase-analytics")
-            implementation("com.google.firebase:firebase-auth")
-            implementation("com.google.firebase:firebase-firestore")
-            implementation("com.google.firebase:firebase-storage")
+            implementation(libs.firebase.bom)
+            implementation(libs.firebase.analytics.android)
+            implementation(libs.firebase.auth.android)
+            implementation(libs.firebase.firestore.android)
+            implementation(libs.firebase.storage.android)
         }
         commonMain.dependencies {
             // Compose
-            implementation(compose.materialIconsExtended)
+            implementation(libs.compose.material.icons.extended)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
@@ -80,6 +83,7 @@ kotlin {
     }
 }
 
+@Suppress("DEPRECATION")
 android {
     namespace = "org.example.project"
     compileSdk = libs.versions.android.compileSdk.get().toInt()

@@ -20,6 +20,8 @@ kotlinx-datetime = "0.7.1"
 multiplatform-settings = "1.2.0"
 compose-navigation = "2.8.0-alpha10"
 coil = "3.0.4"
+firebase-bom = "34.9.0"
+material-icons-extended = "1.7.8"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -59,6 +61,16 @@ compose-navigation = { module = "org.jetbrains.androidx.navigation:navigation-co
 # Image Loading
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+
+# Material Icons Extended (direct coordinate — no deprecated accessor)
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
+
+# Firebase BOM + Android-specific SDKs
+firebase-bom               = { module = "com.google.firebase:firebase-bom",       version.ref = "firebase-bom" }
+firebase-analytics-android = { module = "com.google.firebase:firebase-analytics" }
+firebase-auth-android      = { module = "com.google.firebase:firebase-auth" }
+firebase-firestore-android = { module = "com.google.firebase:firebase-firestore" }
+firebase-storage-android   = { module = "com.google.firebase:firebase-storage" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
