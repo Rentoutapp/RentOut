@@ -10,7 +10,6 @@ plugins {
 }
 
 kotlin {
-    @Suppress("DEPRECATION")
     androidTarget {
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
@@ -33,12 +32,6 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             // Material Icons Extended (Android only)
             implementation(libs.compose.material.icons.extended)
-            // Firebase Android SDK (via BOM for version management)
-            implementation(libs.firebase.bom)
-            implementation(libs.firebase.analytics.android)
-            implementation(libs.firebase.auth.android)
-            implementation(libs.firebase.firestore.android)
-            implementation(libs.firebase.storage.android)
         }
         commonMain.dependencies {
             // Compose UI
@@ -111,4 +104,10 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+    // Firebase BOM — controls all Firebase SDK versions for Android
+    implementation(platform(libs.firebase.bom))
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-storage")
 }

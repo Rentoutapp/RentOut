@@ -1,27 +1,27 @@
 [versions]
-agp = "9.1.0"
-android-compileSdk = "36"
+agp = "8.7.3"
+android-compileSdk = "35"
 android-minSdk = "24"
-android-targetSdk = "36"
-androidx-activity = "1.12.2"
-androidx-appcompat = "1.7.1"
-androidx-core = "1.17.0"
-androidx-espresso = "3.7.0"
-androidx-lifecycle = "2.9.6"
-androidx-testExt = "1.3.0"
-composeMultiplatform = "1.10.0"
+android-targetSdk = "35"
+androidx-activity = "1.9.3"
+androidx-appcompat = "1.7.0"
+androidx-core = "1.13.1"
+androidx-espresso = "3.6.1"
+androidx-lifecycle = "2.9.0"
+androidx-testExt = "1.2.1"
+composeMultiplatform = "1.7.3"
 junit = "4.13.2"
-kotlin = "2.3.0"
-material3 = "1.10.0-alpha05"
+kotlin = "2.1.0"
+material3 = "1.3.1"
 gitlive-firebase = "2.1.0"
 kotlinx-serialization = "1.7.3"
 kotlinx-coroutines = "1.9.0"
-kotlinx-datetime = "0.7.1"
+kotlinx-datetime = "0.6.1"
 multiplatform-settings = "1.2.0"
 compose-navigation = "2.8.0-alpha10"
 coil = "3.0.4"
-firebase-bom = "34.9.0"
-material-icons-extended = "1.7.8"
+firebase-bom = "33.7.0"
+material-icons-extended = "1.7.6"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -43,10 +43,16 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 compose-animation = { module = "org.jetbrains.compose.animation:animation", version.ref = "composeMultiplatform" }
 
-# Firebase (GitLive KMP SDK)
+# Firebase (GitLive KMP SDK — commonMain)
 firebase-auth = { module = "dev.gitlive:firebase-auth", version.ref = "gitlive-firebase" }
 firebase-firestore = { module = "dev.gitlive:firebase-firestore", version.ref = "gitlive-firebase" }
 firebase-storage = { module = "dev.gitlive:firebase-storage", version.ref = "gitlive-firebase" }
+
+# Firebase Android SDK (androidMain — BOM declared inline in build.gradle.kts)
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
+
+# Material Icons Extended (Android only — androidMain)
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
 
 # Kotlin Multiplatform
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -61,16 +67,6 @@ compose-navigation = { module = "org.jetbrains.androidx.navigation:navigation-co
 # Image Loading
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
-
-# Material Icons Extended (direct coordinate — no deprecated accessor)
-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "material-icons-extended" }
-
-# Firebase BOM + Android-specific SDKs (versions managed by BOM)
-firebase-bom               = { module = "com.google.firebase:firebase-bom",        version.ref = "firebase-bom" }
-firebase-analytics-android = { module = "com.google.firebase:firebase-analytics",  version.ref = "firebase-bom" }
-firebase-auth-android      = { module = "com.google.firebase:firebase-auth",       version.ref = "firebase-bom" }
-firebase-firestore-android = { module = "com.google.firebase:firebase-firestore",  version.ref = "firebase-bom" }
-firebase-storage-android   = { module = "com.google.firebase:firebase-storage",    version.ref = "firebase-bom" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
