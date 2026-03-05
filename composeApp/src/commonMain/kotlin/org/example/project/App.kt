@@ -3,7 +3,6 @@ package org.example.project
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,14 +20,13 @@ import org.example.project.ui.screens.tenant.*
 import org.example.project.ui.theme.RentOutTheme
 
 @Composable
-@Preview
 fun App() {
     RentOutTheme {
         val navController = rememberNavController()
 
         // Provide LocalSettingsRepository (device-local storage) to AuthViewModel.
         // Settings() uses multiplatform-settings-no-arg which resolves to
-        // SharedPreferences on Android and NSUserDefaults on iOS — no Context needed.
+        // SharedPreferences on Android and NSUserDefaults on iOS â€” no Context needed.
         val localSettings = remember { LocalSettingsRepository(Settings()) }
         val authViewModel: AuthViewModel = viewModel {
             AuthViewModel(localSettings)
@@ -53,7 +51,7 @@ fun App() {
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
 
-        // Wait for session check before rendering navigation — prevents a
+        // Wait for session check before rendering navigation â€” prevents a
         // flash of IntroScreen for users with an active rememberMe session.
         if (!sessionChecked) {
             SplashScreen(
@@ -137,7 +135,7 @@ fun App() {
                 LaunchedEffect(authState) {
                     when (val state = authState) {
                         is AuthState.Registered -> {
-                            // Account created — go back to login tab with credentials pre-filled
+                            // Account created â€” go back to login tab with credentials pre-filled
                             authViewModel.clearRegistered()
                             navController.navigate(
                                 NavRoutes.authWithPrefill(state.email, state.password)
@@ -279,7 +277,7 @@ fun App() {
             composable(NavRoutes.EDIT_PROPERTY) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
-                    // Edit flow uses its own selectedProperty — no draft needed
+                    // Edit flow uses its own selectedProperty â€” no draft needed
                     AddPropertyScreen(
                         formState = formState,
                         onSubmit = { updated: org.example.project.data.model.Property ->
