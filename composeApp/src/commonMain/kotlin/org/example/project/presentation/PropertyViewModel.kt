@@ -1,12 +1,17 @@
-package org.example.project.presentation
+﻿package org.example.project.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.gitlive.firebase.Firebase
+import dev.gitlive.firebase.auth.auth
+import dev.gitlive.firebase.firestore.firestore
+import dev.gitlive.firebase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.example.project.data.model.Property
+import org.example.project.ui.util.buildStorageData
 
 sealed class PropertyListState {
     object Loading : PropertyListState()
@@ -22,6 +27,25 @@ sealed class PropertyFormState {
     data class Error(val message: String) : PropertyFormState()
 }
 
+// ---------------------------------------------------------------------------
+// Draft state — survives navigation between AddPropertyScreen ↔ PropertyImagesScreen
+// ---------------------------------------------------------------------------
+data class PropertyDraft(
+    val title:           String = "",
+    val price:           String = "",
+    val securityDeposit: String = "",
+    val rooms:           String = "",
+    val bathrooms:       String = "",
+    val description:     String = "",
+    val propType:        String = "apartment",
+    val houseAndStreet:  String = "",
+    val townOrCity:      String = "Gweru",
+    val suburb:          String = "",
+    val country:         String = "Zimbabwe",
+    val contact:         String = "",
+    val amenityKeys:     Set<String> = emptySet()
+)
+
 class PropertyViewModel : ViewModel() {
 
     private val _landlordProperties = MutableStateFlow<PropertyListState>(PropertyListState.Loading)
@@ -30,104 +54,142 @@ class PropertyViewModel : ViewModel() {
     private val _tenantProperties = MutableStateFlow<PropertyListState>(PropertyListState.Loading)
     val tenantProperties: StateFlow<PropertyListState> = _tenantProperties.asStateFlow()
 
-    private val _selectedProperty = MutableStateFlow<Property?>(null)
-    val selectedProperty: StateFlow<Property?> = _selectedProperty.asStateFlow()
-
     private val _formState = MutableStateFlow<PropertyFormState>(PropertyFormState.Idle)
     val formState: StateFlow<PropertyFormState> = _formState.asStateFlow()
+
+    private val _selectedProperty = MutableStateFlow<Property?>(null)
+    val selectedProperty: StateFlow<Property?> = _selectedProperty.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _selectedCity = MutableStateFlow("All")
+    private val _selectedCity = MutableStateFlow("Gweru")
     val selectedCity: StateFlow<String> = _selectedCity.asStateFlow()
 
-    // Demo data for MVP scaffold
-    private val demoProperties = listOf(
-        Property(id = "p1", landlordId = "demo_landlord", title = "Luxury Villa in Borrowdale", city = "Harare",
-            location = "Borrowdale, Harare", price = 1200.0, rooms = 4, bathrooms = 3,
-            description = "A stunning 4-bedroom villa with a swimming pool, modern finishes, and a beautiful garden. Located in the prestigious Borrowdale suburb.",
-            imageUrl = "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800",
-            status = "approved", isVerified = true, isAvailable = true, amenities = listOf("Pool", "Garden", "Garage", "WiFi"),
-            propertyType = "house", contactNumber = "+263 77 123 4567", createdAt = System.currentTimeMillis()),
-        Property(id = "p2", landlordId = "demo_landlord", title = "Modern 2-Bed Apartment", city = "Harare",
-            location = "Avondale, Harare", price = 550.0, rooms = 2, bathrooms = 1,
-            description = "Stylish apartment in the heart of Avondale. Features open-plan living, fitted kitchen, and secure parking.",
-            imageUrl = "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800",
-            status = "approved", isVerified = true, isAvailable = true, amenities = listOf("Parking", "Security", "WiFi"),
-            propertyType = "apartment", contactNumber = "+263 71 234 5678", createdAt = System.currentTimeMillis()),
-        Property(id = "p3", landlordId = "demo_landlord", title = "Cozy Studio Room – CBD", city = "Bulawayo",
-            location = "City Centre, Bulawayo", price = 200.0, rooms = 1, bathrooms = 1,
-            description = "Affordable studio room perfect for a single professional. Walking distance to shops and transport.",
-            imageUrl = "https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=800",
-            status = "approved", isVerified = true, isAvailable = true, amenities = listOf("Water", "Electricity"),
-            propertyType = "room", contactNumber = "+263 73 345 6789", createdAt = System.currentTimeMillis()),
-        Property(id = "p4", landlordId = "demo_landlord", title = "Spacious 3-Bed House", city = "Harare",
-            location = "Mt Pleasant, Harare", price = 800.0, rooms = 3, bathrooms = 2,
-            description = "Family home with a large yard and servant quarters. Quiet neighbourhood with excellent security.",
-            imageUrl = "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800",
-            status = "pending", isVerified = false, isAvailable = true, amenities = listOf("Garden", "Garage", "Borehole"),
-            propertyType = "house", contactNumber = "+263 77 456 7890", createdAt = System.currentTimeMillis()),
-        Property(id = "p5", landlordId = "demo_landlord", title = "Executive Apartment – Newlands", city = "Harare",
-            location = "Newlands, Harare", price = 950.0, rooms = 3, bathrooms = 2,
-            description = "High-end apartment with panoramic city views, backup power, and rooftop terrace access.",
-            imageUrl = "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800",
-            status = "approved", isVerified = true, isAvailable = false, amenities = listOf("Generator", "Rooftop", "Gym", "Pool"),
-            propertyType = "apartment", contactNumber = "+263 71 567 8901", createdAt = System.currentTimeMillis()),
-    )
+    // Draft — persists across AddPropertyScreen ↔ PropertyImagesScreen navigation
+    private val _draft = MutableStateFlow(PropertyDraft())
+    val draft: StateFlow<PropertyDraft> = _draft.asStateFlow()
 
+    fun saveDraft(draft: PropertyDraft) { _draft.value = draft }
+    fun clearDraft() { _draft.value = PropertyDraft() }
+
+    fun setSearchQuery(query: String) { _searchQuery.value = query }
+    fun setSelectedCity(city: String) { _selectedCity.value = city }
+
+    fun selectProperty(property: Property) { _selectedProperty.value = property }
+    fun clearSelectedProperty() { _selectedProperty.value = null }
+    fun resetFormState() { _formState.value = PropertyFormState.Idle }
+
+    // ── Convenience wrappers (called from App.kt navigation) ─────────────────
     fun loadLandlordProperties(landlordId: String) {
-        viewModelScope.launch {
-            _landlordProperties.value = PropertyListState.Loading
-            val props = demoProperties.filter { it.landlordId == landlordId }
-            _landlordProperties.value = if (props.isEmpty()) PropertyListState.Empty
-                                        else PropertyListState.Success(props)
-        }
+        loadLandlordPropertiesFromFirestore(landlordId)
     }
 
     fun loadTenantProperties() {
-        viewModelScope.launch {
-            _tenantProperties.value = PropertyListState.Loading
-            val approved = demoProperties.filter { it.status == "approved" }
-            _tenantProperties.value = if (approved.isEmpty()) PropertyListState.Empty
-                                      else PropertyListState.Success(approved)
-        }
+        loadTenantPropertiesFromFirestore()
     }
 
-    fun selectProperty(property: Property) {
-        _selectedProperty.value = property
-    }
-
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
-
-    fun setSelectedCity(city: String) {
-        _selectedCity.value = city
-    }
-
-    fun submitProperty(property: Property) {
+    // ── Submit new property with images to Firestore + Storage ────────────────
+    fun submitProperty(property: Property, imageBytes: List<ByteArray> = emptyList()) {
         viewModelScope.launch {
             _formState.value = PropertyFormState.Uploading
-            // Wire Firebase here — for MVP demo, just simulate success
-            kotlinx.coroutines.delay(1500)
-            _formState.value = PropertyFormState.Success
+            try {
+                val auth    = Firebase.auth
+                val db      = Firebase.firestore
+                val storage = Firebase.storage
+                val uid     = auth.currentUser?.uid ?: throw Exception("Not authenticated")
+
+                val docRef = db.collection("properties").document
+
+                val imageUrls = imageBytes.mapIndexed { index, bytes ->
+                    val ref = storage.reference("property_images/$uid/${docRef.id}/$index.jpg")
+                    ref.putData(buildStorageData(bytes))
+                    ref.getDownloadUrl()
+                }
+
+                val userDoc      = db.collection("users").document(uid).get()
+                val landlordName = userDoc.get("name") as? String ?: ""
+
+                val finalProperty = property.copy(
+                    id           = docRef.id,
+                    landlordId   = uid,
+                    landlordName = landlordName,
+                    imageUrl     = imageUrls.firstOrNull() ?: "",
+                    status       = "pending",
+                    isVerified   = false,
+                    createdAt    = System.currentTimeMillis()
+                )
+
+                docRef.set(finalProperty)
+                _formState.value = PropertyFormState.Success
+            } catch (e: Exception) {
+                _formState.value = PropertyFormState.Error(e.message ?: "Failed to submit property")
+            }
         }
     }
 
+    // ── Load landlord's own properties from Firestore ─────────────────────────
+    fun loadLandlordPropertiesFromFirestore(landlordId: String) {
+        viewModelScope.launch {
+            _landlordProperties.value = PropertyListState.Loading
+            try {
+                val db       = Firebase.firestore
+                val snapshot = db.collection("properties")
+                    .where { "landlordId" equalTo landlordId }
+                    .get()
+                val props = snapshot.documents.map { doc -> doc.data(Property.serializer()) }
+                _landlordProperties.value = if (props.isEmpty()) PropertyListState.Empty
+                                            else PropertyListState.Success(props)
+            } catch (e: Exception) {
+                _landlordProperties.value = PropertyListState.Error(
+                    e.message ?: "Failed to load properties. Check your connection."
+                )
+            }
+        }
+    }
+
+    // ── Load approved tenant-visible properties from Firestore ────────────────
+    fun loadTenantPropertiesFromFirestore() {
+        viewModelScope.launch {
+            _tenantProperties.value = PropertyListState.Loading
+            try {
+                val db       = Firebase.firestore
+                val snapshot = db.collection("properties")
+                    .where { "status" equalTo "approved" }
+                    .get()
+                val props = snapshot.documents.map { doc -> doc.data(Property.serializer()) }
+                _tenantProperties.value = if (props.isEmpty()) PropertyListState.Empty
+                                          else PropertyListState.Success(props)
+            } catch (e: Exception) {
+                _tenantProperties.value = PropertyListState.Error(
+                    e.message ?: "Failed to load listings. Check your connection."
+                )
+            }
+        }
+    }
+
+    // ── Toggle availability on Firestore ──────────────────────────────────────
     fun toggleAvailability(propertyId: String) {
         viewModelScope.launch {
-            // Wire Firebase updateProperty here
+            try {
+                val db  = Firebase.firestore
+                val doc = db.collection("properties").document(propertyId).get()
+                val current = doc.get("isAvailable") as? Boolean ?: true
+                db.collection("properties").document(propertyId)
+                    .update("isAvailable" to !current)
+            } catch (_: Exception) { }
         }
     }
 
+    // ── Delete property from Firestore ────────────────────────────────────────
     fun deleteProperty(propertyId: String) {
         viewModelScope.launch {
-            // Wire Firebase deleteProperty here
+            try {
+                Firebase.firestore.collection("properties").document(propertyId).delete()
+                // Refresh landlord list after delete
+                val uid = Firebase.auth.currentUser?.uid ?: return@launch
+                loadLandlordPropertiesFromFirestore(uid)
+            } catch (_: Exception) { }
         }
-    }
-
-    fun clearFormState() {
-        _formState.value = PropertyFormState.Idle
     }
 }

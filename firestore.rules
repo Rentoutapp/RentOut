@@ -54,14 +54,13 @@ service cloud.firestore {
 
       // Owner reads their own doc; admin reads any doc;
       // authenticated active users can read basic info (needed for landlord/tenant
-      // profile display across the app — e.g. tenant viewing landlord profile).
+      // profile display across the app).
       allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isActiveUser());
 
       // A user can create ONLY their own document immediately after signup.
       // All required fields must be present and values must be valid.
       // profilePhotoUrl is allowed to be an empty string (photo upload may fail).
-      // role 'admin' cannot be self-assigned — admin accounts are created via
-      // Firebase Console / Cloud Functions only.
+      // role 'admin' cannot be self-assigned.
       allow create: if isAuthenticated() && isOwner(userId)
         && request.resource.data.keys().hasAll([
             'uid', 'name', 'email', 'role', 'status',
@@ -84,14 +83,9 @@ service cloud.firestore {
               .hasAny(['role', 'status', 'uid', 'createdAt']));
 
       // Only admin can delete user documents.
-      // Deleting a Firebase Auth account is separate and handled client-side.
       allow delete: if isAdmin();
 
       // ── App Settings Subcollection ─────────────────────────────────────────
-      // Path: users/{uid}/app_settings/preferences
-      // Stores per-user device preferences: rememberMe, lastLoginAt, theme, etc.
-      // Nested inside the parent match block — required for Firestore subcollection
-      // rules to be evaluated correctly in the path hierarchy.
       match /app_settings/{document} {
         allow read:  if isAuthenticated() && isOwner(userId);
         allow write: if isAuthenticated() && isOwner(userId);
@@ -113,6 +107,7 @@ service cloud.firestore {
 
       // Only active landlords can create properties for themselves.
       // New listings always start as 'pending' — only admin can approve.
+      // securityDeposit is optional (defaults to 0 if omitted).
       allow create: if isLandlord() && isActiveUser()
         && request.resource.data.landlordId == request.auth.uid
         && request.resource.data.status == 'pending'
@@ -120,10 +115,14 @@ service cloud.firestore {
             'title', 'city', 'location', 'price', 'rooms',
             'bathrooms', 'description', 'contactNumber',
             'propertyType', 'landlordId', 'status'
-           ]);
+           ])
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && (!('securityDeposit' in request.resource.data)
+            || request.resource.data.securityDeposit is number);
 
       // Landlord can update their own property details but NOT status or isVerified.
-      // Admin can update anything including status.
+      // Admin can update anything including status (approve/reject flow).
       allow update: if isActiveUser() && (
         (isLandlord() && resource.data.landlordId == request.auth.uid
           && !request.resource.data.diff(resource.data).affectedKeys()
@@ -136,9 +135,7 @@ service cloud.firestore {
         || (isLandlord() && isActiveUser() && resource.data.landlordId == request.auth.uid);
 
       // ── Contact Reveal Subcollection ───────────────────────────────────────
-      // Path: properties/{propertyId}/contact/{doc}
       // Contact number is only revealed after the tenant has unlocked the property.
-      // Nested here so the propertyId wildcard is in scope for hasUnlocked().
       match /contact/{doc} {
         allow read: if isAuthenticated() && isTenant()
           && isActiveUser()
@@ -150,7 +147,6 @@ service cloud.firestore {
     // ─── Unlocks Collection ───────────────────────────────────────────────────
     // Document ID format: {tenantId}_{propertyId}
     // Unlocks are created ONLY by Cloud Functions after payment is verified.
-    // Direct client writes are blocked to prevent payment bypass.
     match /unlocks/{unlockId} {
       allow read: if isAuthenticated() &&
         (request.auth.uid == resource.data.tenantId || isAdmin());
@@ -161,7 +157,6 @@ service cloud.firestore {
 
     // ─── Transactions Collection ──────────────────────────────────────────────
     // Created by Cloud Functions (payment webhooks) only.
-    // Tenants can read their own transaction history.
     match /transactions/{transactionId} {
       allow read: if isAuthenticated() &&
         (request.auth.uid == resource.data.tenantId || isAdmin());
@@ -178,6 +173,20 @@ service cloud.firestore {
       allow create: if false;  // Cloud Functions only
       allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    // ─── Property Images Metadata (optional subcollection) ───────────────────
+    // Stores ordered list of image URLs for multi-image properties.
+    // Path: properties/{propertyId}/images/{imageId}
+    match /properties/{propertyId}/images/{imageId} {
+      allow read: if isAuthenticated() && isActiveUser();
+      allow write: if isLandlord() && isActiveUser()
+        && get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId
+           == request.auth.uid;
+      allow delete: if isAdmin()
+        || (isLandlord() && isActiveUser()
+            && get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId
+               == request.auth.uid);
     }
   }
 }

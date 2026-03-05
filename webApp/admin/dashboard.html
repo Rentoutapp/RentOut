@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -176,35 +176,81 @@
     </div>
   </main>
 
-  <script>
-    // Auth guard
-    if (!sessionStorage.getItem('rentout_admin')) window.location.href = 'index.html';
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-    function logout() {
+    const firebaseConfig = {
+      apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
+      authDomain:        "rentout-12239.firebaseapp.com",
+      databaseURL:       "https://rentout-12239-default-rtdb.firebaseio.com",
+      projectId:         "rentout-12239",
+      storageBucket:     "rentout-12239.firebasestorage.app",
+      messagingSenderId: "670565317324",
+      appId:             "1:670565317324:web:7eb3f892cef246001c2069"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Auth guard
+    onAuthStateChanged(auth, async (user) => {
+      if (!user && !sessionStorage.getItem('rentout_admin')) {
+        window.location.href = 'index.html';
+        return;
+      }
+      await loadStats();
+    });
+
+    window.logout = async function() {
+      await signOut(auth).catch(() => {});
       sessionStorage.removeItem('rentout_admin');
       window.location.href = 'index.html';
+    };
+
+    async function loadStats() {
+      try {
+        const [propsSnap, usersSnap, txSnap] = await Promise.all([
+          getDocs(collection(db, 'properties')),
+          getDocs(collection(db, 'users')),
+          getDocs(query(collection(db, 'transactions'), where('status', '==', 'success')))
+        ]);
+
+        const props    = propsSnap.docs.map(d => d.data());
+        const pending  = props.filter(p => p.status === 'pending').length;
+        const approved = props.filter(p => p.status === 'approved').length;
+        const rejected = props.filter(p => p.status === 'rejected').length;
+        const revenue  = txSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+        const unlocks  = txSnap.size;
+
+        renderStats({
+          properties: props.length, pending, approved, rejected,
+          users: usersSnap.size, revenue, unlocks
+        });
+      } catch (e) {
+        console.error('Firestore unavailable:', e); document.getElementById('stat-properties').textContent = 'Error';
+      }
     }
 
-    // Demo data — replace with Firebase SDK calls
-    const demo = { properties: 12, pending: 3, approved: 8, rejected: 1, users: 47, revenue: 320, unlocks: 32 };
+    function renderStats(s) {
+      const total = s.properties || 1;
+      document.getElementById('stat-properties').textContent = s.properties;
+      document.getElementById('stat-pending').textContent    = s.pending;
+      document.getElementById('stat-users').textContent      = s.users;
+      document.getElementById('stat-revenue').textContent    = `$${s.revenue.toLocaleString()}`;
+      document.getElementById('quick-pending').textContent   = s.pending;
+      document.getElementById('overview-approved').textContent = s.approved;
+      document.getElementById('overview-pending').textContent  = s.pending;
+      document.getElementById('overview-unlocks').textContent  = s.unlocks;
 
-    setTimeout(() => {
-      document.getElementById('stat-properties').textContent = demo.properties;
-      document.getElementById('stat-pending').textContent = demo.pending;
-      document.getElementById('stat-users').textContent = demo.users;
-      document.getElementById('stat-revenue').textContent = `$${demo.revenue}`;
-      document.getElementById('quick-pending').textContent = demo.pending;
-      document.getElementById('overview-approved').textContent = demo.approved;
-      document.getElementById('overview-pending').textContent = demo.pending;
-      document.getElementById('overview-unlocks').textContent = demo.unlocks;
-
-      const total = demo.properties || 1;
       setTimeout(() => {
-        document.getElementById('bar-approved').style.width = `${(demo.approved/total*100).toFixed(0)}%`;
-        document.getElementById('bar-pending').style.width  = `${(demo.pending/total*100).toFixed(0)}%`;
-        document.getElementById('bar-unlocks').style.width  = `${Math.min((demo.unlocks/50*100),100).toFixed(0)}%`;
+        document.getElementById('bar-approved').style.width = `${(s.approved / total * 100).toFixed(0)}%`;
+        document.getElementById('bar-pending').style.width  = `${(s.pending  / total * 100).toFixed(0)}%`;
+        document.getElementById('bar-unlocks').style.width  = `${Math.min((s.unlocks / 50 * 100), 100).toFixed(0)}%`;
       }, 200);
-    }, 600);
+    }
   </script>
 </body>
 </html>

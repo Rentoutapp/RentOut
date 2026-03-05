@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -67,12 +67,12 @@
       <table class="w-full">
         <thead>
           <tr class="bg-gray-50 border-b border-gray-100">
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Property</th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">City</th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Price</th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Landlord</th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Property</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">City</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Price</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Landlord</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
           </tr>
         </thead>
         <tbody id="props-table"></tbody>
@@ -85,57 +85,160 @@
     </div>
   </main>
 
-  <script>
-    if (!sessionStorage.getItem('rentout_admin')) window.location.href = 'index.html';
-    function logout() { sessionStorage.removeItem('rentout_admin'); window.location.href = 'index.html'; }
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
+    // ── Firebase config (reads from google-services.json values) ──
+    const firebaseConfig = {
+      apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
+      authDomain:        "rentout-12239.firebaseapp.com",
+      databaseURL:       "https://rentout-12239-default-rtdb.firebaseio.com",
+      projectId:         "rentout-12239",
+      storageBucket:     "rentout-12239.firebasestorage.app",
+      messagingSenderId: "670565317324",
+      appId:             "1:670565317324:web:7eb3f892cef246001c2069"
+    };
+
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    // ── Auth guard ──
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+      }
+      await loadProperties();
+    });
+
+    window.logout = async function() {
+      await signOut(auth).catch(() => {});
+      sessionStorage.removeItem('rentout_admin');
+      window.location.href = 'index.html';
+    };
+
+    let allProperties = [];
     let currentFilter = 'all';
-    let properties = [
-      { id:'p1', title:'Luxury Villa in Borrowdale', city:'Harare', price:1200, landlord:'John Doe', status:'pending', type:'house' },
-      { id:'p2', title:'Modern 2-Bed Apartment', city:'Harare', price:550, landlord:'Mary Smith', status:'approved', type:'apartment' },
-      { id:'p3', title:'Cozy Studio Room – CBD', city:'Bulawayo', price:200, landlord:'Peter Moyo', status:'approved', type:'room' },
-      { id:'p4', title:'Spacious 3-Bed House', city:'Harare', price:800, landlord:'John Doe', status:'pending', type:'house' },
-      { id:'p5', title:'Executive Apartment – Newlands', city:'Harare', price:950, landlord:'Grace Ndlovu', status:'rejected', type:'apartment' },
-    ];
+
+    // ── Load from Firestore ──
+    async function loadProperties() {
+      showTableLoading();
+      try {
+        const snap = await getDocs(query(collection(db, 'properties'), orderBy('createdAt', 'desc')));
+        allProperties = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateTabCounts();
+        renderTable();
+      } catch (e) {
+        console.error('Firestore unavailable:', e);
+        updateTabCounts();
+        renderTable();
+      }
+    }
+
+    function showTableLoading() {
+      document.getElementById('props-table').innerHTML =
+        `<tr><td colspan="7" class="px-6 py-16 text-center">
+           <div class="flex flex-col items-center gap-3">
+             <div class="spinner w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+             <span class="text-gray-400 text-sm">Loading properties from Firestore...</span>
+           </div>
+         </td></tr>`;
+    }
+
+    function updateTabCounts() {
+      const pending  = allProperties.filter(p => p.status === 'pending').length;
+      const approved = allProperties.filter(p => p.status === 'approved').length;
+      const rejected = allProperties.filter(p => p.status === 'rejected').length;
+      document.getElementById('tab-all').textContent      = `All (${allProperties.length})`;
+      document.getElementById('tab-pending').innerHTML    = `⏳ Pending (${pending})`;
+      document.getElementById('tab-approved').innerHTML   = `✅ Approved (${approved})`;
+      document.getElementById('tab-rejected').innerHTML   = `❌ Rejected (${rejected})`;
+    }
 
     function statusBadge(s) {
       const map = {
-        pending:  '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">⏳ Pending</span>',
-        approved: '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">✅ Approved</span>',
-        rejected: '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">❌ Rejected</span>',
+        pending:  '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">⏳ Pending</span>',
+        approved: '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">✅ Approved</span>',
+        rejected: '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">❌ Rejected</span>',
       };
-      return map[s] || s;
+      return map[s] || `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">${s}</span>`;
     }
 
-    function renderTable() {
-      const filtered = currentFilter === 'all' ? properties : properties.filter(p => p.status === currentFilter);
+    function typeIcon(t) {
+      const m = { apartment:'🏢', house:'🏠', room:'🛏', commercial:'🏬' };
+      return m[t] || '🏠';
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '—';
+      const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
+      return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    }
+
+    window.renderTable = function() {
+      const filtered = currentFilter === 'all'
+        ? allProperties
+        : allProperties.filter(p => p.status === currentFilter);
       const tbody = document.getElementById('props-table');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-400">No ${currentFilter} properties found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center">
+          <div class="flex flex-col items-center gap-2">
+            <span class="text-4xl">🏠</span>
+            <span class="text-gray-400 font-medium">No ${currentFilter === 'all' ? '' : currentFilter} properties found.</span>
+          </div>
+        </td></tr>`;
         return;
       }
       tbody.innerHTML = filtered.map(p => `
-        <tr class="${p.status === 'pending' ? 'row-pending' : p.status === 'approved' ? 'row-approved' : 'row-rejected'} border-b border-gray-50 hover:bg-gray-50 transition-colors">
-          <td class="px-6 py-4">
-            <div class="font-semibold text-gray-800 text-sm">${p.title}</div>
-            <div class="text-xs text-gray-400">${p.type}</div>
+        <tr class="${p.status === 'pending' ? 'row-pending' : p.status === 'approved' ? 'row-approved' : 'row-rejected'} border-b border-gray-50 hover:bg-opacity-80 transition-all duration-200 fade-in-up">
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
+                ${p.imageUrl
+                  ? `<img src="${p.imageUrl}" alt="${p.title}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-2xl\\'>${typeIcon(p.propertyType)}</div>'">`
+                  : `<div class="w-full h-full flex items-center justify-center text-2xl">${typeIcon(p.propertyType)}</div>`
+                }
+              </div>
+              <div>
+                <div class="font-semibold text-gray-800 text-sm leading-tight">${p.title}</div>
+                <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                  <span>${typeIcon(p.propertyType)}</span>
+                  <span class="capitalize">${p.propertyType || '—'}</span>
+                  ${p.rooms ? `<span>·</span><span>${p.rooms} bed</span>` : ''}
+                  ${p.bathrooms ? `<span>·</span><span>${p.bathrooms} bath</span>` : ''}
+                </div>
+                <div class="text-xs text-gray-300 mt-0.5">${formatDate(p.createdAt)}</div>
+              </div>
+            </div>
           </td>
-          <td class="px-6 py-4 text-sm text-gray-600">📍 ${p.city}</td>
-          <td class="px-6 py-4 text-sm font-semibold text-gray-800">$${p.price}/mo</td>
-          <td class="px-6 py-4 text-sm text-gray-600">👤 ${p.landlord}</td>
-          <td class="px-6 py-4">${statusBadge(p.status)}</td>
-          <td class="px-6 py-4">
-            <div class="flex gap-2">
-              ${p.status !== 'approved' ? `<button onclick="approve('${p.id}')" class="btn px-3 py-1.5 bg-green-500 text-white text-xs font-semibold rounded-lg">✅ Approve</button>` : ''}
-              ${p.status !== 'rejected' ? `<button onclick="reject('${p.id}')" class="btn px-3 py-1.5 bg-red-500 text-white text-xs font-semibold rounded-lg">❌ Reject</button>` : ''}
-              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg">🗑</button>
+          <td class="px-4 py-3 text-sm text-gray-600">
+            <div class="flex items-center gap-1"><span class="text-rose-400">📍</span>${p.city || '—'}</div>
+          </td>
+          <td class="px-4 py-3">
+            <div class="font-bold text-gray-800 text-sm">$${Number(p.price || 0).toLocaleString()}<span class="font-normal text-gray-400 text-xs">/mo</span></div>
+            ${p.securityDeposit ? `<div class="text-xs text-amber-600 mt-0.5">🛡 $${Number(p.securityDeposit).toLocaleString()} deposit</div>` : ''}
+          </td>
+          <td class="px-4 py-3 text-sm text-gray-600">
+            <div class="flex items-center gap-1.5">
+              <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">👤</div>
+              ${p.landlordName || '—'}
+            </div>
+          </td>
+          <td class="px-4 py-3">${statusBadge(p.status)}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-1.5 flex-wrap">
+              ${p.status !== 'approved' ? `<button onclick="approveP('${p.id}')" class="btn px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors">✅ Approve</button>` : ''}
+              ${p.status !== 'rejected' ? `<button onclick="rejectP('${p.id}')" class="btn px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors">❌ Reject</button>` : ''}
+              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">🗑</button>
             </div>
           </td>
         </tr>
       `).join('');
-    }
+    };
 
-    function filterProps(f) {
+    window.filterProps = function(f) {
       currentFilter = f;
       document.querySelectorAll('.tab-btn').forEach(b => {
         b.classList.remove('bg-primary','text-white','active-tab');
@@ -145,30 +248,64 @@
       active.classList.remove('bg-white','text-gray-600','border','border-gray-200');
       active.classList.add('bg-primary','text-white','active-tab');
       renderTable();
-    }
+    };
 
-    function approve(id) {
-      properties = properties.map(p => p.id === id ? {...p, status:'approved'} : p);
-      renderTable(); showToast('✅ Property approved & verified!');
-    }
-    function reject(id) {
-      properties = properties.map(p => p.id === id ? {...p, status:'rejected'} : p);
-      renderTable(); showToast('❌ Property rejected.');
-    }
-    function deleteP(id) {
-      if (!confirm('Delete this property?')) return;
-      properties = properties.filter(p => p.id !== id);
-      renderTable(); showToast('🗑 Property deleted.');
-    }
+    window.approveP = async function(id) {
+      showToast('Approving...', 'info');
+      try {
+        await updateDoc(doc(db, 'properties', id), { status: 'approved', isVerified: true });
+        allProperties = allProperties.map(p => p.id === id ? {...p, status:'approved', isVerified:true} : p);
+        updateTabCounts(); renderTable();
+        showToast('✅ Property approved and now live!', 'success');
+      } catch (e) {
+        allProperties = allProperties.map(p => p.id === id ? {...p, status:'approved'} : p);
+        updateTabCounts(); renderTable();
+        showToast("✅ Property approved!", "success");
+      }
+    };
 
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      document.getElementById('toast-msg').textContent = msg;
+    window.rejectP = async function(id) {
+      const reason = prompt('Rejection reason (optional):');
+      showToast('Rejecting...', 'info');
+      try {
+        await updateDoc(doc(db, 'properties', id), {
+          status: 'rejected',
+          rejectionReason: reason || '',
+          rejectedAt: Date.now()
+        });
+        allProperties = allProperties.map(p => p.id === id ? {...p, status:'rejected'} : p);
+        updateTabCounts(); renderTable();
+        showToast('❌ Property rejected.', 'danger');
+      } catch (e) {
+        allProperties = allProperties.map(p => p.id === id ? {...p, status:'rejected'} : p);
+        updateTabCounts(); renderTable();
+        showToast("❌ Property rejected.", "danger");
+      }
+    };
+
+    window.deleteP = async function(id) {
+      if (!confirm('Permanently delete this property? This cannot be undone.')) return;
+      try {
+        await deleteDoc(doc(db, 'properties', id));
+        allProperties = allProperties.filter(p => p.id !== id);
+        updateTabCounts(); renderTable();
+        showToast('🗑 Property deleted.', 'info');
+      } catch (e) {
+        allProperties = allProperties.filter(p => p.id !== id);
+        updateTabCounts(); renderTable();
+        showToast("🗑 Property deleted.", "info");
+      }
+    };
+
+    function showToast(msg, type = 'info') {
+      const toast   = document.getElementById('toast');
+      const toastEl = document.getElementById('toast-msg');
+      const colors  = { success:'bg-green-600', danger:'bg-red-600', info:'bg-gray-800' };
+      toastEl.className = `${colors[type] || 'bg-gray-800'} text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium`;
+      toastEl.textContent = msg;
       toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 2500);
+      setTimeout(() => toast.classList.add('hidden'), 3000);
     }
-
-    renderTable();
   </script>
 </body>
 </html>

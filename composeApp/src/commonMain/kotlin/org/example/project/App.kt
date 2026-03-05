@@ -28,7 +28,7 @@ fun App() {
 
         // Provide LocalSettingsRepository (device-local storage) to AuthViewModel.
         // Settings() uses multiplatform-settings-no-arg which resolves to
-        // SharedPreferences on Android and NSUserDefaults on iOS — no Context needed.
+        // SharedPreferences on Android and NSUserDefaults on iOS � no Context needed.
         val localSettings = remember { LocalSettingsRepository(Settings()) }
         val authViewModel: AuthViewModel = viewModel {
             AuthViewModel(localSettings)
@@ -48,11 +48,12 @@ fun App() {
         val unlockedIds by tenantViewModel.unlockedPropertyIds.collectAsState()
         val unlockedProps by tenantViewModel.unlockedProperties.collectAsState()
         val unlockState by tenantViewModel.unlockState.collectAsState()
+        val propertyDraft by propertyViewModel.draft.collectAsState()
 
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
 
-        // Wait for session check before rendering navigation — prevents a
+        // Wait for session check before rendering navigation � prevents a
         // flash of IntroScreen for users with an active rememberMe session.
         if (!sessionChecked) {
             SplashScreen(
@@ -72,24 +73,24 @@ fun App() {
             popEnterTransition = { slideInHorizontally(tween(300)) { -it } + fadeIn(tween(300)) },
             popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
         ) {
-            // ── INTRO ─────────────────────────────────────────────────────────
+            // -- INTRO ---------------------------------------------------------
             composable(NavRoutes.INTRO) {
                 IntroScreen(
                     onGetStarted = {
                         if (rememberMeActive) {
-                            // Short path: Intro → Splash → Dashboard
+                            // Short path: Intro ? Splash ? Dashboard
                             navController.navigate(NavRoutes.SPLASH) {
                                 popUpTo(NavRoutes.INTRO) { inclusive = false }
                             }
                         } else {
-                            // Normal path: Intro → Role Selection → Auth → Splash → Dashboard
+                            // Normal path: Intro ? Role Selection ? Auth ? Splash ? Dashboard
                             navController.navigate(NavRoutes.ROLE_SELECTION)
                         }
                     }
                 )
             }
 
-            // ── ROLE SELECTION ────────────────────────────────────────────────
+            // -- ROLE SELECTION ------------------------------------------------
             composable(NavRoutes.ROLE_SELECTION) {
                 RoleSelectionScreen(
                     onRoleSelected = { role ->
@@ -99,7 +100,7 @@ fun App() {
                 )
             }
 
-            // ── AUTH ──────────────────────────────────────────────────────────
+            // -- AUTH ----------------------------------------------------------
             composable(
                 route = NavRoutes.AUTH,
                 arguments = listOf(
@@ -136,7 +137,7 @@ fun App() {
                 LaunchedEffect(authState) {
                     when (val state = authState) {
                         is AuthState.Registered -> {
-                            // Account created — go back to login tab with credentials pre-filled
+                            // Account created � go back to login tab with credentials pre-filled
                             authViewModel.clearRegistered()
                             navController.navigate(
                                 NavRoutes.authWithPrefill(state.email, state.password)
@@ -157,7 +158,7 @@ fun App() {
                 }
             }
 
-            // ── SPLASH ────────────────────────────────────────────────────────
+            // -- SPLASH --------------------------------------------------------
             composable(NavRoutes.SPLASH) {
                 // Preload full user profile (including profilePhotoUrl) during the
                 // splash animation window. By the time the dashboard renders, the
@@ -173,13 +174,15 @@ fun App() {
                         }
                     },
                     onNavigateToLandlord = {
-                        user?.let { propertyViewModel.loadLandlordProperties(it.uid) }
+                        // Load from Firestore
+                        user?.let { propertyViewModel.loadLandlordPropertiesFromFirestore(it.uid) }
                         navController.navigate(NavRoutes.LANDLORD_DASHBOARD) {
                             popUpTo(NavRoutes.SPLASH) { inclusive = true }
                         }
                     },
                     onNavigateToTenant = {
-                        propertyViewModel.loadTenantProperties()
+                        // Load from Firestore
+                        propertyViewModel.loadTenantPropertiesFromFirestore()
                         navController.navigate(NavRoutes.TENANT_HOME) {
                             popUpTo(NavRoutes.SPLASH) { inclusive = true }
                         }
@@ -187,7 +190,7 @@ fun App() {
                 )
             }
 
-            // ── SUSPENDED ─────────────────────────────────────────────────────
+            // -- SUSPENDED -----------------------------------------------------
             composable(NavRoutes.SUSPENDED) {
                 SuspendedScreen(
                     onContactSupport = {},
@@ -200,7 +203,7 @@ fun App() {
                 )
             }
 
-            // ── LANDLORD DASHBOARD ────────────────────────────────────────────
+            // -- LANDLORD DASHBOARD --------------------------------------------
             composable(NavRoutes.LANDLORD_DASHBOARD) {
                 LandlordDashboardScreen(
                     user = currentUser ?: User(),
@@ -220,7 +223,7 @@ fun App() {
                 )
             }
 
-            // ── LANDLORD PROFILE ──────────────────────────────────────────────
+            // -- LANDLORD PROFILE ----------------------------------------------
             composable(NavRoutes.LANDLORD_PROFILE) {
                 LandlordProfileScreen(
                     user = currentUser ?: User(),
@@ -232,30 +235,67 @@ fun App() {
                 )
             }
 
-            // ── ADD PROPERTY ──────────────────────────────────────────────────
+            // -- ADD PROPERTY --------------------------------------------------
             composable(NavRoutes.ADD_PROPERTY) {
                 AddPropertyScreen(
                     formState = formState,
-                    onSubmit = { property ->
-                        propertyViewModel.submitProperty(property)
+                    onSubmit = { property: org.example.project.data.model.Property ->
+                        propertyViewModel.submitProperty(property, emptyList())
                     },
-                    onBack = { navController.popBackStack() }
+                    onBack = {
+                        // Clear the draft when the landlord explicitly goes back
+                        // (abandons the form), so it doesn't bleed into a future listing.
+                        propertyViewModel.clearDraft()
+                        navController.popBackStack()
+                    },
+                    onNavigateToImages = { property: org.example.project.data.model.Property ->
+                        propertyViewModel.selectProperty(property)
+                        navController.navigate(NavRoutes.PROPERTY_IMAGES)
+                    },
+                    landlordPhoneNumber = currentUser?.phoneNumber ?: "",
+                    draft = propertyDraft,
+                    onSaveDraft = { propertyViewModel.saveDraft(it) }
                 )
             }
 
-            // ── EDIT PROPERTY ─────────────────────────────────────────────────
-            composable(NavRoutes.EDIT_PROPERTY) {
+            // -- PROPERTY IMAGES -----------------------------------------------
+            composable(NavRoutes.PROPERTY_IMAGES) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
-                    AddPropertyScreen(
+                    PropertyImagesScreen(
+                        property  = property,
                         formState = formState,
-                        onSubmit = { updated -> propertyViewModel.submitProperty(updated) },
+                        onSubmit  = { prop: org.example.project.data.model.Property, imageBytes: List<ByteArray> ->
+                            propertyViewModel.submitProperty(prop, imageBytes)
+                            // Draft is no longer needed once the property is submitted
+                            propertyViewModel.clearDraft()
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
             }
 
-            // ── TENANT HOME ───────────────────────────────────────────────────
+            // -- EDIT PROPERTY -------------------------------------------------
+            composable(NavRoutes.EDIT_PROPERTY) {
+                val property = propertyViewModel.selectedProperty.collectAsState().value
+                if (property != null) {
+                    // Edit flow uses its own selectedProperty � no draft needed
+                    AddPropertyScreen(
+                        formState = formState,
+                        onSubmit = { updated: org.example.project.data.model.Property ->
+                            propertyViewModel.submitProperty(updated, emptyList())
+                        },
+                        onBack = { navController.popBackStack() },
+                        onNavigateToImages = { prop: org.example.project.data.model.Property ->
+                            propertyViewModel.selectProperty(prop)
+                            navController.navigate(NavRoutes.PROPERTY_IMAGES)
+                        },
+                        landlordPhoneNumber = currentUser?.phoneNumber ?: ""
+                    )
+                }
+            }
+
+            // -- TENANT HOME ---------------------------------------------------
             composable(NavRoutes.TENANT_HOME) {
                 TenantHomeScreen(
                     user = currentUser ?: User(),
@@ -277,7 +317,7 @@ fun App() {
                 )
             }
 
-            // ── PROPERTY DETAIL ───────────────────────────────────────────────
+            // -- PROPERTY DETAIL -----------------------------------------------
             composable(NavRoutes.PROPERTY_DETAIL) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
@@ -291,7 +331,7 @@ fun App() {
                 }
             }
 
-            // ── PAYMENT ───────────────────────────────────────────────────────
+            // -- PAYMENT -------------------------------------------------------
             composable(NavRoutes.PAYMENT) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
@@ -314,7 +354,7 @@ fun App() {
                 }
             }
 
-            // ── UNLOCKED PROPERTIES ───────────────────────────────────────────
+            // -- UNLOCKED PROPERTIES -------------------------------------------
             composable(NavRoutes.UNLOCKED_PROPERTIES) {
                 UnlockedPropertiesScreen(
                     unlockedProperties = unlockedProps,
@@ -326,7 +366,7 @@ fun App() {
                 )
             }
 
-            // ── TENANT PROFILE ────────────────────────────────────────────────
+            // -- TENANT PROFILE ------------------------------------------------
             composable(NavRoutes.TENANT_PROFILE) {
                 TenantProfileScreen(
                     user = currentUser ?: User(),

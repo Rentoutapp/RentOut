@@ -21,6 +21,11 @@ node_modules/
 *.lock
 acli.exe
 
+# Environment variable files — never commit real secrets
+.env
+.env.local
+.env.*.local
+
 # Screenshots and logs — keep folder structure, ignore content
 screenshots/*
 !screenshots/.gitkeep

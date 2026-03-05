@@ -9,5 +9,8 @@
   "scripts": {
     "build": "cd webApp && npm run build",
     "start": "cd webApp && npm run start"
+  },
+  "dependencies": {
+    "firebase": "^12.10.0"
   }
 }

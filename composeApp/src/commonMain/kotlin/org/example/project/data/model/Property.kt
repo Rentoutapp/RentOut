@@ -11,6 +11,7 @@ data class Property(
     val location: String = "",
     val city: String = "",
     val price: Double = 0.0,
+    val securityDeposit: Double = 0.0,
     val rooms: Int = 0,
     val bathrooms: Int = 0,
     val description: String = "",

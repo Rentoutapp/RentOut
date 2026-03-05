@@ -11,6 +11,7 @@ object NavRoutes {
     // Landlord flow
     const val LANDLORD_DASHBOARD = "landlord_dashboard"
     const val ADD_PROPERTY       = "add_property"
+    const val PROPERTY_IMAGES    = "property_images"
     const val EDIT_PROPERTY      = "edit_property/{propertyId}"
     const val LANDLORD_PROFILE   = "landlord_profile"
 

@@ -1,151 +1,312 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>RentOut Admin — Users</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Users — RentOut Admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: { extend: { colors: { primary:'#1B4FFF', secondary:'#FF6B35', success:'#22C55E', danger:'#EF4444', warning:'#F59E0B' } } }
-    }
-  </script>
   <style>
-    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
-    .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
-    .btn { transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease; }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
-    .btn:active { transform: scale(0.93); }
-    .nav-link { transition: all 0.2s ease; }
-    .nav-link:hover { background: rgba(255,255,255,0.15); transform: translateX(4px); }
-    .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 700; }
+    :root { --primary: #6C63FF; }
+    .bg-primary { background-color: var(--primary); }
+    .text-primary { color: var(--primary); }
+    .border-primary { border-color: var(--primary); }
+    .spinner { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in-up { animation: fadeUp 0.3s ease both; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .row-landlord { background: #f0fdf4; }
+    .row-tenant   { background: #eff6ff; }
+    .row-suspended{ background: #fef2f2; }
+    .active-tab   { background: var(--primary) !important; color: white !important; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex">
+<body class="bg-gray-50 min-h-screen font-sans">
 
-  <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
-    <div class="p-6 border-b border-white border-opacity-20">
+  <!-- Sidebar -->
+  <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 flex flex-col">
+    <div class="p-6 border-b border-gray-100">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center"><span class="text-xl">🏠</span></div>
-        <div><div class="text-white font-extrabold text-lg">RentOut</div><div class="text-blue-200 text-xs">Admin Panel</div></div>
+        <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-lg">R</div>
+        <div>
+          <div class="font-bold text-gray-800">RentOut</div>
+          <div class="text-xs text-gray-400">Admin Dashboard</div>
+        </div>
       </div>
     </div>
     <nav class="flex-1 p-4 space-y-1">
-      <a href="dashboard.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>📊</span> Dashboard</a>
-      <a href="properties.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>🏠</span> Properties</a>
-      <a href="users.html" class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm"><span>👥</span> Users</a>
-      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>💳</span> Transactions</a>
+      <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">📊 Dashboard</a>
+      <a href="properties.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">🏠 Properties</a>
+      <a href="users.html" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 text-primary font-semibold">👥 Users</a>
+      <a href="transactions.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">💳 Transactions</a>
     </nav>
-    <div class="p-4 border-t border-white border-opacity-20">
-      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">🚪 Sign Out</button>
+    <div class="p-4 border-t border-gray-100">
+      <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-xl font-medium transition-colors">🚪 Logout</button>
     </div>
-  </aside>
+  </div>
 
-  <main class="flex-1 ml-64 p-8">
-    <div class="mb-6 fade-in-up">
-      <h1 class="text-3xl font-extrabold text-gray-800">User Management</h1>
-      <p class="text-gray-500 mt-1">Manage landlord and tenant accounts</p>
+  <!-- Main content -->
+  <div class="ml-64 p-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">Users</h1>
+        <p class="text-gray-400 text-sm mt-1">Manage landlords, tenants and platform access</p>
+      </div>
+      <button onclick="loadUsers()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium text-sm transition-colors">
+        🔄 Refresh
+      </button>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="text-2xl font-bold text-gray-800" id="stat-total">—</div>
+        <div class="text-sm text-gray-400 mt-1">Total Users</div>
+      </div>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="text-2xl font-bold text-blue-600" id="stat-landlords">—</div>
+        <div class="text-sm text-gray-400 mt-1">Landlords</div>
+      </div>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="text-2xl font-bold text-green-600" id="stat-tenants">—</div>
+        <div class="text-sm text-gray-400 mt-1">Tenants</div>
+      </div>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="text-2xl font-bold text-red-500" id="stat-suspended">—</div>
+        <div class="text-sm text-gray-400 mt-1">Suspended</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-4">
+      <button id="tab-all"       onclick="filterUsers('all')"       class="tab-btn active-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all">All</button>
+      <button id="tab-landlord"  onclick="filterUsers('landlord')"  class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">🏠 Landlords</button>
+      <button id="tab-tenant"    onclick="filterUsers('tenant')"    class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">👤 Tenants</button>
+      <button id="tab-suspended" onclick="filterUsers('suspended')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">🚫 Suspended</button>
     </div>
 
     <!-- Search -->
-    <div class="mb-4 fade-in-up">
-      <input id="search" type="text" placeholder="🔍 Search by name or email..."
-        oninput="renderUsers()"
-        class="w-full max-w-md px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary text-sm"/>
+    <div class="mb-4">
+      <input id="search-input" type="text" placeholder="Search by name or email..." oninput="renderTable()"
+        class="w-full max-w-sm px-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300" />
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden fade-in-up">
+    <!-- Table -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       <table class="w-full">
         <thead>
           <tr class="bg-gray-50 border-b border-gray-100">
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Role</th>
-            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Phone</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Joined</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
           </tr>
         </thead>
-        <tbody id="users-table"></tbody>
+        <tbody id="users-table">
+          <tr><td colspan="6" class="px-6 py-16 text-center text-gray-400">Loading...</td></tr>
+        </tbody>
       </table>
     </div>
+  </div>
 
-    <div id="toast" class="fixed bottom-6 right-6 hidden">
-      <div class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium" id="toast-msg"></div>
-    </div>
-  </main>
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden">
+    <div id="toast-msg" class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium"></div>
+  </div>
 
-  <script>
-    if (!sessionStorage.getItem('rentout_admin')) window.location.href = 'index.html';
-    function logout() { sessionStorage.removeItem('rentout_admin'); window.location.href = 'index.html'; }
+  <script type="module">
+    import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-    let users = [
-      { id:'u1', name:'John Doe',     email:'john@example.com',    role:'landlord', status:'active',    joined:'Mar 1, 2026' },
-      { id:'u2', name:'Mary Smith',   email:'mary@example.com',    role:'landlord', status:'active',    joined:'Mar 2, 2026' },
-      { id:'u3', name:'Peter Moyo',   email:'peter@example.com',   role:'tenant',   status:'active',    joined:'Mar 3, 2026' },
-      { id:'u4', name:'Grace Ndlovu', email:'grace@example.com',   role:'tenant',   status:'suspended', joined:'Mar 1, 2026' },
-      { id:'u5', name:'Demo Landlord',email:'landlord@rentout.demo',role:'landlord', status:'active',   joined:'Mar 4, 2026' },
-      { id:'u6', name:'Demo Tenant',  email:'tenant@rentout.demo', role:'tenant',   status:'active',    joined:'Mar 4, 2026' },
-    ];
+    const firebaseConfig = {
+      apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
+      authDomain:        "rentout-12239.firebaseapp.com",
+      databaseURL:       "https://rentout-12239-default-rtdb.firebaseio.com",
+      projectId:         "rentout-12239",
+      storageBucket:     "rentout-12239.firebasestorage.app",
+      messagingSenderId: "670565317324",
+      appId:             "1:670565317324:web:7eb3f892cef246001c2069"
+    };
 
-    function renderUsers() {
-      const q = document.getElementById('search').value.toLowerCase();
-      const filtered = q ? users.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : users;
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, async user => {
+      if (!user && !sessionStorage.getItem('rentout_admin')) {
+        window.location.href = 'index.html'; return;
+      }
+      await loadUsers();
+    });
+
+    window.logout = async () => {
+      await signOut(auth).catch(() => {});
+      sessionStorage.removeItem('rentout_admin');
+      window.location.href = 'index.html';
+    };
+
+    let allUsers = [];
+    let currentFilter = 'all';
+
+    window.loadUsers = async function() {
+      showLoading();
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        allUsers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        updateStats();
+        renderTable();
+      } catch(e) {
+        console.error('Firestore error:', e);
+        document.getElementById('users-table').innerHTML =
+          `<tr><td colspan="6" class="px-6 py-16 text-center text-red-400 font-medium">
+            ⚠️ Failed to load users. Check Firebase config and Firestore rules.
+           </td></tr>`;
+      }
+    };
+
+    function showLoading() {
+      document.getElementById('users-table').innerHTML =
+        `<tr><td colspan="6" class="px-6 py-16 text-center">
+           <div class="flex flex-col items-center gap-3">
+             <div class="spinner w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full"></div>
+             <span class="text-gray-400 text-sm">Loading users from Firestore...</span>
+           </div>
+         </td></tr>`;
+    }
+
+    function updateStats() {
+      const landlords  = allUsers.filter(u => u.role === 'landlord').length;
+      const tenants    = allUsers.filter(u => u.role === 'tenant').length;
+      const suspended  = allUsers.filter(u => u.status === 'suspended').length;
+      document.getElementById('stat-total').textContent     = allUsers.length;
+      document.getElementById('stat-landlords').textContent  = landlords;
+      document.getElementById('stat-tenants').textContent    = tenants;
+      document.getElementById('stat-suspended').textContent  = suspended;
+      document.getElementById('tab-landlord').textContent  = `🏠 Landlords (${landlords})`;
+      document.getElementById('tab-tenant').textContent    = `👤 Tenants (${tenants})`;
+      document.getElementById('tab-suspended').textContent = `🚫 Suspended (${suspended})`;
+      document.getElementById('tab-all').textContent       = `All (${allUsers.length})`;
+    }
+
+    function statusBadge(u) {
+      if (u.status === 'suspended') return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">🚫 Suspended</span>`;
+      return `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">✅ Active</span>`;
+    }
+
+    function roleBadge(r) {
+      const map = {
+        landlord: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">🏠 Landlord</span>`,
+        tenant:   `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">👤 Tenant</span>`,
+        admin:    `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">🛡 Admin</span>`,
+      };
+      return map[r] || `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">${r}</span>`;
+    }
+
+    function avatar(u) {
+      if (u.profilePhotoUrl) return `<img src="${u.profilePhotoUrl}" class="w-9 h-9 rounded-full object-cover border border-gray-200" onerror="this.style.display='none'">`;
+      const initials = (u.name || u.email || '?').substring(0,2).toUpperCase();
+      const colors = { landlord:'bg-blue-100 text-blue-700', tenant:'bg-green-100 text-green-700', admin:'bg-purple-100 text-purple-700' };
+      return `<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${colors[u.role] || 'bg-gray-100 text-gray-600'}">${initials}</div>`;
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '—';
+      const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
+      return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    }
+
+    window.renderTable = function() {
+      const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+      let filtered = currentFilter === 'all'
+        ? allUsers
+        : currentFilter === 'suspended'
+          ? allUsers.filter(u => u.status === 'suspended')
+          : allUsers.filter(u => u.role === currentFilter);
+
+      if (q) filtered = filtered.filter(u =>
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      );
+
       const tbody = document.getElementById('users-table');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-12 text-center text-gray-400">No users found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-16 text-center">
+          <div class="flex flex-col items-center gap-2">
+            <span class="text-4xl">👥</span>
+            <span class="text-gray-400 font-medium">No users found.</span>
+          </div>
+        </td></tr>`;
         return;
       }
       tbody.innerHTML = filtered.map(u => `
-        <tr class="border-b border-gray-50 hover:bg-gray-50 transition-colors ${u.status === 'suspended' ? 'opacity-60' : ''}">
-          <td class="px-6 py-4">
+        <tr class="${u.status === 'suspended' ? 'row-suspended' : u.role === 'landlord' ? 'row-landlord' : u.role === 'tenant' ? 'row-tenant' : ''} border-b border-gray-50 hover:bg-opacity-80 transition-all fade-in-up">
+          <td class="px-6 py-3">
             <div class="flex items-center gap-3">
-              <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm
-                ${u.role === 'landlord' ? 'bg-blue-500' : 'bg-orange-400'}">
-                ${u.name.charAt(0)}
-              </div>
+              ${avatar(u)}
               <div>
-                <div class="font-semibold text-gray-800 text-sm">${u.name}</div>
-                <div class="text-xs text-gray-400">${u.email}</div>
+                <div class="font-semibold text-gray-800 text-sm">${u.name || '—'}</div>
+                <div class="text-xs text-gray-400">${u.email || '—'}</div>
               </div>
             </div>
           </td>
-          <td class="px-6 py-4">
-            <span class="px-2 py-1 rounded-full text-xs font-semibold ${u.role === 'landlord' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
-              ${u.role === 'landlord' ? '🏠 Landlord' : '🔑 Tenant'}
-            </span>
-          </td>
-          <td class="px-6 py-4">
-            <span class="px-2 py-1 rounded-full text-xs font-semibold ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-              ${u.status === 'active' ? '🟢 Active' : '🔴 Suspended'}
-            </span>
-          </td>
-          <td class="px-6 py-4 text-sm text-gray-500">${u.joined}</td>
-          <td class="px-6 py-4">
-            ${u.status === 'active'
-              ? `<button onclick="suspendUser('${u.id}')" class="btn px-3 py-1.5 bg-red-100 text-red-700 text-xs font-semibold rounded-lg hover:bg-red-500 hover:text-white">🚫 Suspend</button>`
-              : `<button onclick="reactivateUser('${u.id}')" class="btn px-3 py-1.5 bg-green-100 text-green-700 text-xs font-semibold rounded-lg hover:bg-green-500 hover:text-white">✅ Reactivate</button>`
-            }
+          <td class="px-6 py-3">${roleBadge(u.role)}</td>
+          <td class="px-6 py-3 text-sm text-gray-600">${u.phoneNumber || '—'}</td>
+          <td class="px-6 py-3 text-sm text-gray-400">${formatDate(u.createdAt)}</td>
+          <td class="px-6 py-3">${statusBadge(u)}</td>
+          <td class="px-6 py-3">
+            <div class="flex gap-2">
+              ${u.status !== 'suspended'
+                ? `<button onclick="suspendUser('${u.id}')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-lg transition-colors">🚫 Suspend</button>`
+                : `<button onclick="reinstateUser('${u.id}')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold rounded-lg transition-colors">✅ Reinstate</button>`
+              }
+            </div>
           </td>
         </tr>
       `).join('');
-    }
+    };
 
-    function suspendUser(id) {
-      users = users.map(u => u.id === id ? {...u, status:'suspended'} : u);
-      renderUsers(); showToast('🚫 User suspended.');
-    }
-    function reactivateUser(id) {
-      users = users.map(u => u.id === id ? {...u, status:'active'} : u);
-      renderUsers(); showToast('✅ User reactivated.');
-    }
-    function showToast(msg) {
+    window.filterUsers = function(f) {
+      currentFilter = f;
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active-tab');
+        b.classList.add('bg-white','text-gray-600','border','border-gray-200');
+      });
+      const active = document.getElementById(`tab-${f}`);
+      active.classList.add('active-tab');
+      active.classList.remove('bg-white','text-gray-600','border','border-gray-200');
+      renderTable();
+    };
+
+    window.suspendUser = async function(uid) {
+      if (!confirm('Suspend this user? They will lose access to the platform.')) return;
+      try {
+        await updateDoc(doc(db, 'users', uid), { status: 'suspended' });
+        allUsers = allUsers.map(u => u.id === uid ? {...u, status:'suspended'} : u);
+        updateStats(); renderTable();
+        showToast('🚫 User suspended.', 'danger');
+      } catch(e) { showToast('Error: ' + e.message, 'danger'); }
+    };
+
+    window.reinstateUser = async function(uid) {
+      try {
+        await updateDoc(doc(db, 'users', uid), { status: 'active' });
+        allUsers = allUsers.map(u => u.id === uid ? {...u, status:'active'} : u);
+        updateStats(); renderTable();
+        showToast('✅ User reinstated.', 'success');
+      } catch(e) { showToast('Error: ' + e.message, 'danger'); }
+    };
+
+    function showToast(msg, type = 'info') {
       const toast = document.getElementById('toast');
-      document.getElementById('toast-msg').textContent = msg;
+      const el    = document.getElementById('toast-msg');
+      const c = { success:'bg-green-600', danger:'bg-red-600', info:'bg-gray-800' };
+      el.className = `${c[type]||'bg-gray-800'} text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium`;
+      el.textContent = msg;
       toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 2500);
+      setTimeout(() => toast.classList.add('hidden'), 3000);
     }
-
-    renderUsers();
   </script>
 </body>
 </html>
