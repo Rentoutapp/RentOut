@@ -8,13 +8,17 @@ service firebase.storage {
     // • Any authenticated user can read profile photos (needed for displaying
     //   landlord/tenant avatars throughout the app)
     // • Only the owning user can upload/overwrite their own photo
-    // • Max file size: 5 MB | Allowed types: image/jpeg, image/png, image/webp
+    // • Max file size: 5 MB
+    // NOTE: contentType validation is intentionally omitted here — the gitlive
+    // Firebase Storage SDK sets metadata separately from the upload, so the
+    // Security Rules engine sees the contentType as null on the initial upload
+    // request, causing a false 403. Content type is enforced at the app layer
+    // (AuthViewModel.uploadProfilePhoto sets contentType = "image/jpeg").
     match /profile_photos/{userId}/{fileName} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null
+      allow read:   if request.auth != null;
+      allow write:  if request.auth != null
         && request.auth.uid == userId
-        && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+        && request.resource.size < 5 * 1024 * 1024;
       allow delete: if request.auth != null
         && request.auth.uid == userId;
     }

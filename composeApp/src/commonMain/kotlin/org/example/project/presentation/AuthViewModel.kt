@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.example.project.data.local.LocalSettingsRepository
 import org.example.project.data.model.AppSettings
 import org.example.project.data.model.User
 
@@ -39,15 +40,20 @@ sealed class AuthEvent {
     object Logout : AuthEvent()
 }
 
-class AuthViewModel : ViewModel() {
+class AuthViewModel(
+    private val localSettings: LocalSettingsRepository
+) : ViewModel() {
 
     private val auth: FirebaseAuth = Firebase.auth
     private val firestore = Firebase.firestore
     private val storage = Firebase.storage
 
-    // ── Upload state ────────────────────────────────────────────────────────────
-    private val _uploadProgress = MutableStateFlow<Float?>(null)
-    val uploadProgress: StateFlow<Float?> = _uploadProgress.asStateFlow()
+    // ── Registration progress (0f → 1f) exposed to UI ────────────────────────
+    private val _registrationProgress = MutableStateFlow(0f)
+    val registrationProgress: StateFlow<Float> = _registrationProgress.asStateFlow()
+
+    private val _registrationStep = MutableStateFlow("")
+    val registrationStep: StateFlow<String> = _registrationStep.asStateFlow()
 
     /**
      * Uploads raw image bytes to Firebase Storage at:
@@ -95,17 +101,22 @@ class AuthViewModel : ViewModel() {
 
     /**
      * Called once at startup. Checks if Firebase still has an authenticated
-     * user AND that user had rememberMe=true in their app_settings.
-     * If both are true, auto-restores AuthState.Success so the UI can
-     * skip the role/auth screens entirely.
+     * user AND that the "Remember Me" flag is set to true on THIS device
+     * for that specific user UID.
+     *
+     * Using [LocalSettingsRepository] (device-local storage) guarantees that
+     * the flag is device-specific — checking "Remember Me" on Device A will
+     * never auto-login on Device B.
      */
     private fun checkSession() {
         viewModelScope.launch {
             try {
                 val firebaseUser = auth.currentUser
                 if (firebaseUser != null) {
-                    val settings = loadAppSettings(firebaseUser.uid)
-                    if (settings.rememberMe) {
+                    // Read rememberMe from LOCAL device storage only — not Firestore
+                    val rememberMe = localSettings.getRememberMe(firebaseUser.uid)
+                    println("[Session] checkSession uid=${firebaseUser.uid} rememberMe=$rememberMe")
+                    if (rememberMe) {
                         // Restore full user profile from Firestore
                         val doc = firestore.collection("users").document(firebaseUser.uid).get()
                         val role = doc.get("role") as? String ?: "tenant"
@@ -224,25 +235,24 @@ class AuthViewModel : ViewModel() {
                     createdAt       = doc.get("createdAt")       as? Long   ?: 0L
                 )
 
-                // Persist app settings — always update lastLoginAt; honour the
-                // user's rememberMe choice by reading existing settings first so
-                // other fields (e.g. theme) are not reset.
-                // Isolated in its own try/catch so a settings write failure
-                // never blocks a successful login.
+                // 1. Save rememberMe to LOCAL device storage — device-specific,
+                //    never synced to cloud. This is the source of truth for session restore.
+                localSettings.setRememberMe(firebaseUser.uid, rememberMe)
+                println("[Session] rememberMe=$rememberMe saved locally for uid=${firebaseUser.uid}")
+
+                // 2. Save non-sensitive cross-device metadata to Firestore app_settings.
+                //    rememberMe is intentionally NOT written here — it stays local only.
                 try {
                     val existingSettings = loadAppSettings(firebaseUser.uid)
                     saveAppSettings(
                         uid = firebaseUser.uid,
                         settings = existingSettings.copy(
-                            rememberMe        = rememberMe,
                             lastLoginAt       = System.currentTimeMillis(),
                             lastLoginPlatform = "android"
                         )
                     )
-                    println("[AppSettings] Saved — rememberMe=$rememberMe uid=${firebaseUser.uid}")
                 } catch (e: Exception) {
-                    // Non-fatal: log and continue. Never fail login over a settings write.
-                    println("[AppSettings] ERROR saving settings: ${e.message}")
+                    println("[AppSettings] ERROR saving cloud settings: ${e.message}")
                 }
 
                 if (role == "suspended") {
@@ -267,26 +277,39 @@ class AuthViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
+            _registrationProgress.value = 0f
             try {
+                // Step 1 — Create Firebase Auth account (0 → 30%)
+                _registrationStep.value = "Creating your account…"
+                _registrationProgress.value = 0.1f
                 val result = auth.createUserWithEmailAndPassword(email, password)
                 val firebaseUser = result.user
                     ?: throw Exception("Registration failed. Please try again.")
+                _registrationProgress.value = 0.3f
 
                 val createdAt = System.currentTimeMillis()
 
-                // Upload photo to Firebase Storage if bytes are available
+                // Step 2 — Upload photo (30 → 70%)
+                _registrationStep.value = "Uploading profile photo…"
+                _registrationProgress.value = 0.35f
                 val finalPhotoUrl = if (photoBytes != null && photoBytes.isNotEmpty()) {
                     try {
-                        uploadProfilePhoto(firebaseUser.uid, photoBytes)
+                        val url = uploadProfilePhoto(firebaseUser.uid, photoBytes)
+                        _registrationProgress.value = 0.70f
+                        url
                     } catch (e: Exception) {
                         println("[Storage] Photo upload failed: ${e.message}")
-                        profilePhotoUrl  // fall back to placeholder URI
+                        _registrationProgress.value = 0.70f
+                        profilePhotoUrl
                     }
                 } else {
+                    _registrationProgress.value = 0.70f
                     profilePhotoUrl
                 }
 
-                // Persist user profile in Firestore
+                // Step 3 — Save to Firestore (70 → 90%)
+                _registrationStep.value = "Saving your profile details…"
+                _registrationProgress.value = 0.75f
                 val user = User(
                     uid             = firebaseUser.uid,
                     name            = name,
@@ -309,11 +332,18 @@ class AuthViewModel : ViewModel() {
                         "createdAt"       to user.createdAt
                     )
                 )
+                _registrationProgress.value = 0.90f
+
+                // Step 4 — Finalise (90 → 100%)
+                _registrationStep.value = "Almost done…"
+                _registrationProgress.value = 1.0f
 
                 // Sign out immediately — user must explicitly log in
                 auth.signOut()
                 _authState.value = AuthState.Registered(email, password)
             } catch (e: Exception) {
+                _registrationProgress.value = 0f
+                _registrationStep.value = ""
                 _authState.value = AuthState.Error(e.message ?: "Registration failed. Please try again.")
             }
         }
@@ -322,22 +352,48 @@ class AuthViewModel : ViewModel() {
     private fun logout() {
         viewModelScope.launch {
             try {
-                // Reset rememberMe before signing out so the next cold launch
-                // goes through the full role/auth flow as expected.
-                val uid = auth.currentUser?.uid
-                if (uid != null) {
-                    try {
-                        val existingSettings = loadAppSettings(uid)
-                        saveAppSettings(uid, existingSettings.copy(rememberMe = false))
-                        println("[Session] rememberMe reset to false for uid=$uid")
-                    } catch (e: Exception) {
-                        println("[Session] Failed to reset rememberMe: ${e.message}")
-                    }
-                }
+                // Clear rememberMe from local device storage only.
+                // No Firestore write needed — rememberMe was never stored there.
+                localSettings.clearRememberMe()
+                println("[Session] rememberMe cleared from local storage on logout")
                 auth.signOut()
             } finally {
                 _rememberMeActive.value = false
                 _authState.value = AuthState.Idle
+            }
+        }
+    }
+
+    /**
+     * Re-fetches the current user's Firestore profile and updates [authState].
+     * Call this whenever the user's profile may have changed (e.g. after a
+     * photo upload that previously failed, or after a profile edit).
+     * No-op if the user is not currently logged in.
+     */
+    fun refreshUser() {
+        viewModelScope.launch {
+            val firebaseUser = auth.currentUser ?: return@launch
+            try {
+                val doc = firestore.collection("users").document(firebaseUser.uid).get()
+                val role            = doc.get("role")            as? String ?: "tenant"
+                val name            = doc.get("name")            as? String ?: firebaseUser.displayName ?: firebaseUser.email ?: ""
+                val profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: ""
+                val user = User(
+                    uid             = firebaseUser.uid,
+                    name            = name,
+                    email           = firebaseUser.email ?: "",
+                    role            = role,
+                    status          = doc.get("status")      as? String ?: "active",
+                    phoneNumber     = doc.get("phoneNumber") as? String ?: "",
+                    profilePhotoUrl = profilePhotoUrl,
+                    createdAt       = doc.get("createdAt")   as? Long   ?: 0L
+                )
+                println("[AuthViewModel] refreshUser — profilePhotoUrl=$profilePhotoUrl")
+                if (role != "suspended") {
+                    _authState.value = AuthState.Success(user)
+                }
+            } catch (e: Exception) {
+                println("[AuthViewModel] refreshUser error: ${e.message}")
             }
         }
     }

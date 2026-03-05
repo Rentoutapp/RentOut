@@ -5,12 +5,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.russhwolf.settings.Settings
+import org.example.project.data.local.LocalSettingsRepository
 import org.example.project.data.model.User
 import org.example.project.presentation.*
 import org.example.project.ui.navigation.NavRoutes
@@ -24,7 +25,14 @@ import org.example.project.ui.theme.RentOutTheme
 fun App() {
     RentOutTheme {
         val navController = rememberNavController()
-        val authViewModel: AuthViewModel = viewModel()
+
+        // Provide LocalSettingsRepository (device-local storage) to AuthViewModel.
+        // Settings() uses multiplatform-settings-no-arg which resolves to
+        // SharedPreferences on Android and NSUserDefaults on iOS — no Context needed.
+        val localSettings = remember { LocalSettingsRepository(Settings()) }
+        val authViewModel: AuthViewModel = viewModel {
+            AuthViewModel(localSettings)
+        }
         val propertyViewModel: PropertyViewModel = viewModel()
         val tenantViewModel: TenantViewModel = viewModel()
 
@@ -104,6 +112,9 @@ fun App() {
                 val prefillPassword = it.arguments?.getString("prefillPassword") ?: ""
                 val initialTab      = 0  // always start on Login tab
 
+                val registrationProgress by authViewModel.registrationProgress.collectAsState()
+                val registrationStep     by authViewModel.registrationStep.collectAsState()
+
                 AuthScreen(
                     selectedRole = selectedRole,
                     authState = authState,
@@ -117,7 +128,9 @@ fun App() {
                     onClearError = { authViewModel.clearError() },
                     prefillEmail = prefillEmail,
                     prefillPassword = prefillPassword,
-                    initialTab = initialTab
+                    initialTab = initialTab,
+                    registrationProgress = registrationProgress,
+                    registrationStep = registrationStep
                 )
                 // React to auth state
                 LaunchedEffect(authState) {
@@ -146,6 +159,11 @@ fun App() {
 
             // ── SPLASH ────────────────────────────────────────────────────────
             composable(NavRoutes.SPLASH) {
+                // Preload full user profile (including profilePhotoUrl) during the
+                // splash animation window. By the time the dashboard renders, the
+                // authState already contains the correct profilePhotoUrl and Coil
+                // will have had time to begin fetching the image into its cache.
+                LaunchedEffect(Unit) { authViewModel.refreshUser() }
                 val user = currentUser
                 SplashScreen(
                     currentUserRole = user?.role,

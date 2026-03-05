@@ -20,9 +20,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import org.example.project.data.model.User
 import org.example.project.ui.components.RentOutPrimaryButton
 import org.example.project.ui.theme.RentOutColors
@@ -70,14 +72,31 @@ fun TenantProfileScreen(
                         Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
                 }
-                // Avatar
+                // Avatar — shows profile photo if available, else initials
                 Box(
-                    modifier = Modifier.size(80.dp).clip(CircleShape)
+                    modifier = Modifier
+                        .size(88.dp)
+                        .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(user.name.firstOrNull()?.uppercase() ?: "T", fontSize = 36.sp,
-                        fontWeight = FontWeight.Bold, color = Color.White)
+                    if (user.profilePhotoUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = user.profilePhotoUrl,
+                            contentDescription = "Profile photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(88.dp)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Text(
+                            text = user.name.firstOrNull()?.uppercase() ?: "T",
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(user.name.ifBlank { "Tenant" }, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)

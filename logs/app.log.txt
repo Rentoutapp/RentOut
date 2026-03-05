@@ -1,9 +1,112 @@
-# RentOut — Application Log
-# --------------------------
-# This file is used to capture application logs.
-# Add log entries below in the format:
-#   [YYYY-MM-DD HH:MM:SS] [LEVEL] Message
-#
-# Example:
-#   [2026-03-04 22:38:56] [INFO] App started
-#   [2026-03-04 22:38:57] [ERROR] Firebase auth failed: invalid credentials
+2026-03-05 01:16:44.492 28484-28484 FirebaseAuth            org.example.project                  I  Creating user with walter@gmail.com with empty reCAPTCHA token
+2026-03-05 01:16:44.493 28484-28515 System                  org.example.project                  W  Ignoring header X-Firebase-Locale because its value was null.
+2026-03-05 01:16:44.516 28484-28515 LocalRequestInterceptor org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:44.547 28484-28484 WindowOnBackDispatcher  org.example.project                  W  OnBackInvokedCallback is not enabled for the application.
+                                                                                                    Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+2026-03-05 01:16:44.590 28484-28489 example.project         org.example.project                  I  Compiler allocated 8345KB to compile void org.example.project.ui.screens.auth.AuthScreenKt.AuthScreen(java.lang.String, org.example.project.presentation.AuthState, kotlin.jvm.functions.Function3, kotlin.jvm.functions.Function6, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, java.lang.String, java.lang.String, int, float, java.lang.String, androidx.compose.runtime.Composer, int, int, int)
+2026-03-05 01:16:44.934 28484-28484 ImeTracker              org.example.project                  I  system_server:3f383456: onCancelled at PHASE_CLIENT_ON_CONTROLS_CHANGED
+2026-03-05 01:16:45.064 28484-28484 WindowOnBackDispatcher  org.example.project                  W  sendCancelIfRunning: isInProgress=false callback=android.view.ImeBackAnimationController@207b933
+2026-03-05 01:16:45.182 28484-28484 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-05 01:16:45.183 28484-28484 ImeTracker              org.example.project                  I  org.example.project:c2a2402d: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2026-03-05 01:16:45.294 28484-28484 RemoteInpu...ectionImpl org.example.project                  W  requestCursorUpdates on inactive InputConnection
+2026-03-05 01:16:45.344 28484-28484 WindowOnBackDispatcher  org.example.project                  W  sendCancelIfRunning: isInProgress=false callback=android.view.ImeBackAnimationController@2a05793
+2026-03-05 01:16:45.382 28484-28515 System                  org.example.project                  W  Ignoring header X-Firebase-Locale because its value was null.
+2026-03-05 01:16:45.488 28484-28515 LocalRequestInterceptor org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:45.670 28484-28484 WindowOnBackDispatcher  org.example.project                  W  sendCancelIfRunning: isInProgress=false callback=android.view.ImeBackAnimationController@2a05793
+2026-03-05 01:16:45.871 28484-28515 FirebaseAuth            org.example.project                  D  Notifying id token listeners about user ( Y22w6TixwffjoECceOI5eEQ29is1 ).
+2026-03-05 01:16:45.872 28484-28515 FirebaseAuth            org.example.project                  D  Notifying auth state listeners about user ( Y22w6TixwffjoECceOI5eEQ29is1 ).
+2026-03-05 01:16:46.014 28484-28515 StorageUtil             org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:47.093 28484-28515 UploadTask              org.example.project                  D  Waiting 0 milliseconds
+2026-03-05 01:16:47.281 28484-28515 StorageUtil             org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:49.038 28484-28515 StorageUtil             org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:50.623 28484-28484 FirebaseAuth            org.example.project                  D  Notifying id token listeners about a sign-out event.
+2026-03-05 01:16:50.624 28484-28484 FirebaseAuth            org.example.project                  D  Notifying auth state listeners about a sign-out event.
+2026-03-05 01:16:50.830 28484-28490 example.project         org.example.project                  I  Background concurrent mark compact GC freed 7565KB AllocSpace bytes, 14(776KB) LOS objects, 49% free, 9153KB/17MB, paused 4.666ms,4.669ms total 103.883ms
+2026-03-05 01:16:51.132 28484-28484 WindowOnBackDispatcher  org.example.project                  W  sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda13@42b10f8
+2026-03-05 01:16:51.228 28484-28484 ImeTracker              org.example.project                  I  org.example.project:146721ad: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+2026-03-05 01:16:51.229 28484-28484 ImeTracker              org.example.project                  I  org.example.project:146721ad: onFailed at PHASE_CLIENT_VIEW_SERVED
+2026-03-05 01:16:51.230 28484-28484 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-05 01:16:51.232 28484-28484 ImeTracker              org.example.project                  I  org.example.project:210e329d: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT_BY_INSETS_API fromUser false
+2026-03-05 01:16:51.233 28484-28484 InsetsController        org.example.project                  D  Setting requestedVisibleTypes to -9 (was -1)
+2026-03-05 01:16:51.284 28484-28484 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-05 01:16:51.284 28484-28484 ImeTracker              org.example.project                  I  org.example.project:1679629b: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2026-03-05 01:16:57.911 28484-28484 FirebaseAuth            org.example.project                  I  Logging in as walter@gmail.com with empty reCAPTCHA token
+2026-03-05 01:16:57.918 28484-28515 System                  org.example.project                  W  Ignoring header X-Firebase-Locale because its value was null.
+2026-03-05 01:16:57.958 28484-28515 LocalRequestInterceptor org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:57.959 28484-28484 WindowOnBackDispatcher  org.example.project                  W  OnBackInvokedCallback is not enabled for the application.
+                                                                                                    Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+2026-03-05 01:16:58.346 28484-28515 System                  org.example.project                  W  Ignoring header X-Firebase-Locale because its value was null.
+2026-03-05 01:16:58.378 28484-28515 LocalRequestInterceptor org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:16:58.498 28484-28484 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-05 01:16:58.498 28484-28484 ImeTracker              org.example.project                  I  org.example.project:38e21c38: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2026-03-05 01:16:58.733 28484-28515 FirebaseAuth            org.example.project                  D  Notifying id token listeners about user ( Y22w6TixwffjoECceOI5eEQ29is1 ).
+2026-03-05 01:16:58.733 28484-28515 FirebaseAuth            org.example.project                  D  Notifying auth state listeners about user ( Y22w6TixwffjoECceOI5eEQ29is1 ).
+2026-03-05 01:17:00.759 28484-28484 System.out              org.example.project                  I  [AppSettings] Saved — rememberMe=false uid=Y22w6TixwffjoECceOI5eEQ29is1
+2026-03-05 01:17:01.218 28484-28484 WindowOnBackDispatcher  org.example.project                  W  sendCancelIfRunning: isInProgress=false callback=android.view.ViewRootImpl$$ExternalSyntheticLambda13@4e911d6
+2026-03-05 01:17:01.377 28484-28484 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-05 01:17:01.377 28484-28484 ImeTracker              org.example.project                  I  org.example.project:633b9051: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2026-03-05 01:17:12.565 28484-28490 example.project         org.example.project                  I  Background concurrent mark compact GC freed 7972KB AllocSpace bytes, 10(420KB) LOS objects, 49% free, 9697KB/18MB, paused 5.512ms,5.779ms total 98.150ms
+2026-03-05 01:17:13.124 28484-28489 example.project         org.example.project                  I  Compiler allocated 4762KB to compile void org.example.project.ui.screens.landlord.LandlordDashboardScreenKt$LandlordDashboardScreen$1.invoke(androidx.compose.runtime.Composer, int)
+2026-03-05 01:17:13.171 28484-28484 WindowOnBackDispatcher  org.example.project                  W  OnBackInvokedCallback is not enabled for the application.
+
+
+2026-03-05 01:23:04.062 29009-29009 FirebaseAuth            org.example.project                  I  Logging in as walter@gmail.com with empty reCAPTCHA token
+2026-03-05 01:23:04.093 29009-29039 System                  org.example.project                  W  Ignoring header X-Firebase-Locale because its value was null.
+2026-03-05 01:23:04.118 29009-29039 LocalRequestInterceptor org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:23:04.776 29009-29039 System                  org.example.project                  W  Ignoring header X-Firebase-Locale because its value was null.
+2026-03-05 01:23:04.806 29009-29039 LocalRequestInterceptor org.example.project                  W  Error getting App Check token; using placeholder token instead. Error: com.google.firebase.FirebaseException: No AppCheckProvider installed.
+2026-03-05 01:23:05.151 29009-29039 FirebaseAuth            org.example.project                  D  Notifying id token listeners about user ( Y22w6TixwffjoECceOI5eEQ29is1 ).
+2026-03-05 01:23:07.190 29009-29009 System.out              org.example.project                  I  [AppSettings] Saved — rememberMe=false uid=Y22w6TixwffjoECceOI5eEQ29is1
+2026-03-05 01:23:07.784 29009-29014 example.project         org.example.project                  I  Background concurrent mark compact GC freed 4861KB AllocSpace bytes, 12(488KB) LOS objects, 49% free, 8178KB/15MB, paused 4.951ms,5.777ms total 93.621ms
+2026-03-05 01:23:07.833 29009-29009 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-05 01:23:07.835 29009-29009 ImeTracker              org.example.project                  I  org.example.project:6ba2829d: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT_BY_INSETS_API fromUser false
+2026-03-05 01:23:07.838 29009-29009 WindowOnBackDispatcher  org.example.project                  W  sendCancelIfRunning: isInProgress=false callback=android.view.ImeBackAnimationController@1cb00b
+2026-03-05 01:23:07.840 29009-29009 InsetsController        org.example.project                  D  Setting requestedVisibleTypes to -9 (was -1)
+2026-03-05 01:23:08.236 29009-29009 ImeTracker              org.example.project                  I  org.example.project:e75f835c: onCancelled at PHASE_CLIENT_ON_CONTROLS_CHANGED
+2026-03-05 01:23:10.484 29009-29009 Choreographer           org.example.project                  I  Skipped 36 frames!  The application may be doing too much work on its main thread.
+2026-03-05 01:23:10.611 29009-29020 HWUI                    org.example.project                  I  Davey! duration=719ms; Flags=0, FrameTimelineVsyncId=953800, IntendedVsync=40108677896766, Vsync=40109277896742, InputEventId=0, HandleInputStart=40109298137700, AnimationStart=40109298180700, PerformTraversalsStart=40109332625500, DrawStart=40109350877900, FrameDeadline=40109311230074, FrameStartTime=40109292969800, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=40109354869200, SyncStart=40109355273500, IssueDrawCommandsStart=40109355461600, SwapBuffers=40109392268900, FrameCompleted=40109397899700, DequeueBufferDuration=51000, QueueBufferDuration=369000, GpuCompleted=40109397899700, SwapBuffersCompleted=40109393901100, DisplayPresentTime=0, CommandSubmissionCompleted=40109392268900,
+2026-03-05 01:23:10.875 29009-29009 System.out              org.example.project                  I  [AuthViewModel] refreshUser — profilePhotoUrl=https://firebasestorage.googleapis.com/v0/b/rentout-12239.firebasestorage.app/o/profile_photos%2FY22w6TixwffjoECceOI5eEQ29is1%2Fprofile.jpg?alt=media&token=ed8cfa86-a912-495b-b63b-195cb215578e
+2026-03-05 01:23:15.070 29009-29009 WindowOnBackDispatcher  org.example.project                  W  OnBackInvokedCallback is not enabled for the application.
+                                                                                                    Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+2026-03-05 01:23:15.098 29009-29013 example.project         org.example.project                  I  Compiler allocated 4762KB to compile void org.example.project.ui.screens.landlord.LandlordDashboardScreenKt$LandlordDashboardScreen$1.invoke(androidx.compose.runtime.Composer, int)
+2026-03-05 01:23:15.146 29009-29109 example.project         org.example.project                  I  Rejecting re-init on previously-failed class java.lang.Class<io.ktor.client.HttpClientJvmKt>: java.lang.ExceptionInInitializerError:  (Fix with AI)
+                                                                                                      at coil3.network.NetworkClient coil3.network.ktor3.KtorNetworkFetcher.KtorNetworkFetcherFactory$lambda$0() (KtorNetworkFetcher.kt:16)
+                                                                                                      at coil3.network.NetworkClient coil3.network.ktor3.KtorNetworkFetcher.$r8$lambda$q5zKJdZqQ4kPE-Uyw71sY-RCF0s() (KtorNetworkFetcher.kt:-1)
+                                                                                                      at java.lang.Object coil3.network.ktor3.KtorNetworkFetcher$$ExternalSyntheticLambda3.invoke() (D8$$SyntheticClass:0)
+                                                                                                      at java.lang.Object kotlin.SynchronizedLazyImpl.getValue() (LazyJVM.kt:83)
+                                                                                                      at java.lang.Object coil3.network.NetworkFetcher.executeNetworkRequest(coil3.network.NetworkRequest, kotlin.jvm.functions.Function2, kotlin.coroutines.Continuation) (NetworkFetcher.kt:200)
+                                                                                                      at java.lang.Object coil3.network.NetworkFetcher.fetch(kotlin.coroutines.Continuation) (NetworkFetcher.kt:74)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor.fetch(coil3.ComponentRegistry, coil3.request.ImageRequest, java.lang.Object, coil3.request.Options, coil3.EventListener, kotlin.coroutines.Continuation) (EngineInterceptor.kt:158)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor.execute(coil3.request.ImageRequest, java.lang.Object, coil3.request.Options, coil3.EventListener, kotlin.coroutines.Continuation) (EngineInterceptor.kt:115)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor.access$execute(coil3.intercept.EngineInterceptor, coil3.request.ImageRequest, java.lang.Object, coil3.request.Options, coil3.EventListener, kotlin.coroutines.Continuation) (EngineInterceptor.kt:32)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor$intercept$2.invokeSuspend(java.lang.Object) (EngineInterceptor.kt:66)
+                                                                                                      at void kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(java.lang.Object) (ContinuationImpl.kt:33)
+                                                                                                      at void kotlinx.coroutines.DispatchedTask.run() (DispatchedTask.kt:101)
+                                                                                                      at void kotlinx.coroutines.internal.LimitedDispatcher$Worker.run() (LimitedDispatcher.kt:113)
+                                                                                                      at void kotlinx.coroutines.scheduling.TaskImpl.run() (Tasks.kt:89)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(kotlinx.coroutines.scheduling.Task) (CoroutineScheduler.kt:589)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(kotlinx.coroutines.scheduling.Task) (CoroutineScheduler.kt:823)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker() (CoroutineScheduler.kt:720)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run() (CoroutineScheduler.kt:707)
+                                                                                                    Caused by: java.lang.IllegalStateException: Failed to find HTTP client engine implementation in the classpath: consider adding client engine dependency. See https://ktor.io/docs/http-client-engines.html
+                                                                                                      at void io.ktor.client.HttpClientJvmKt.<clinit>() (HttpClientJvm.kt:45)
+                                                                                                      at coil3.network.NetworkClient coil3.network.ktor3.KtorNetworkFetcher.KtorNetworkFetcherFactory$lambda$0() (KtorNetworkFetcher.kt:16)
+                                                                                                      at coil3.network.NetworkClient coil3.network.ktor3.KtorNetworkFetcher.$r8$lambda$q5zKJdZqQ4kPE-Uyw71sY-RCF0s() (KtorNetworkFetcher.kt:-1)
+                                                                                                      at java.lang.Object coil3.network.ktor3.KtorNetworkFetcher$$ExternalSyntheticLambda3.invoke() (D8$$SyntheticClass:0)
+                                                                                                      at java.lang.Object kotlin.SynchronizedLazyImpl.getValue() (LazyJVM.kt:83)
+                                                                                                      at java.lang.Object coil3.network.NetworkFetcher.executeNetworkRequest(coil3.network.NetworkRequest, kotlin.jvm.functions.Function2, kotlin.coroutines.Continuation) (NetworkFetcher.kt:200)
+                                                                                                      at java.lang.Object coil3.network.NetworkFetcher.fetch(kotlin.coroutines.Continuation) (NetworkFetcher.kt:74)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor.fetch(coil3.ComponentRegistry, coil3.request.ImageRequest, java.lang.Object, coil3.request.Options, coil3.EventListener, kotlin.coroutines.Continuation) (EngineInterceptor.kt:158)
+2026-03-05 01:23:15.146 29009-29109 example.project         org.example.project                  I    at java.lang.Object coil3.intercept.EngineInterceptor.execute(coil3.request.ImageRequest, java.lang.Object, coil3.request.Options, coil3.EventListener, kotlin.coroutines.Continuation) (EngineInterceptor.kt:115) (Fix with AI)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor.access$execute(coil3.intercept.EngineInterceptor, coil3.request.ImageRequest, java.lang.Object, coil3.request.Options, coil3.EventListener, kotlin.coroutines.Continuation) (EngineInterceptor.kt:32)
+                                                                                                      at java.lang.Object coil3.intercept.EngineInterceptor$intercept$2.invokeSuspend(java.lang.Object) (EngineInterceptor.kt:66)
+                                                                                                      at void kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(java.lang.Object) (ContinuationImpl.kt:33)
+                                                                                                      at void kotlinx.coroutines.DispatchedTask.run() (DispatchedTask.kt:101)
+                                                                                                      at void kotlinx.coroutines.internal.LimitedDispatcher$Worker.run() (LimitedDispatcher.kt:113)
+                                                                                                      at void kotlinx.coroutines.scheduling.TaskImpl.run() (Tasks.kt:89)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(kotlinx.coroutines.scheduling.Task) (CoroutineScheduler.kt:589)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(kotlinx.coroutines.scheduling.Task) (CoroutineScheduler.kt:823)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker() (CoroutineScheduler.kt:720)
+                                                                                                      at void kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run() (CoroutineScheduler.kt:707)
+
+                                                                                                    Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.

@@ -32,6 +32,12 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             // Material Icons Extended (Android only)
             implementation(libs.compose.material.icons.extended)
+            // Ktor HTTP engine for Coil network image loading on Android
+            implementation(libs.ktor.client.okhttp)
+        }
+        iosMain.dependencies {
+            // Ktor HTTP engine for Coil network image loading on iOS
+            implementation(libs.ktor.client.darwin)
         }
         commonMain.dependencies {
             // Compose UI

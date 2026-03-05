@@ -3,6 +3,7 @@ package org.example.project.ui.screens.landlord
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,9 +21,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import org.example.project.data.model.User
 import org.example.project.ui.theme.RentOutColors
 
@@ -54,69 +57,125 @@ fun LandlordProfileScreen(
                 )
                 .statusBarsPadding()
         ) {
-            // Back button
+            // Back button — top start
             IconButton(
                 onClick = onBack,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(8.dp)
+                    .padding(4.dp)
             ) {
                 Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
             }
 
-            Column(
+            // ── Horizontal header layout ──────────────────────────────────────
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(
+                        start = 24.dp,
+                        end = 24.dp,
+                        top = 8.dp,
+                        bottom = 24.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Avatar shell with initials
-                val initials = user.name
-                    .split(" ")
-                    .filter { it.isNotBlank() }
-                    .take(2)
-                    .joinToString("") { it.first().uppercaseChar().toString() }
-                    .ifBlank { "L" }
+                // ── Left: name + role badge (constrained to avatar height) ────
+                val avatarHeight = 180.dp
+                Column(
+                    modifier = Modifier
+                        .height(avatarHeight)
+                        .weight(1f)
+                        .padding(end = 20.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text(
+                        text = user.name.ifBlank { "Landlord" },
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        lineHeight = 28.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White.copy(alpha = 0.18f),
+                        modifier = Modifier.border(
+                            width = 1.dp,
+                            color = Color.White.copy(alpha = 0.35f),
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Badge,
+                                null,
+                                tint = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Landlord",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // ── Right: rounded-rectangle avatar ──────────────────────────
+                val avatarInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val isAvatarPressed by avatarInteraction.collectIsPressedAsState()
+                val avatarScale by animateFloatAsState(
+                    targetValue = if (isAvatarPressed) 0.93f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "avatar_scale"
+                )
 
                 Box(
                     modifier = Modifier
-                        .size(96.dp)
-                        .clip(CircleShape)
+                        .width(140.dp)
+                        .height(180.dp)
+                        .scale(avatarScale)
+                        .clip(RoundedCornerShape(22.dp))
                         .background(
                             Brush.linearGradient(
                                 listOf(RentOutColors.Secondary, RentOutColors.SecondaryLight)
                             )
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = Color.White.copy(alpha = 0.35f),
+                            shape = RoundedCornerShape(22.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = initials,
-                        color = Color.White,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-
-                Spacer(Modifier.height(14.dp))
-
-                Text(
-                    text = user.name.ifBlank { "Landlord" },
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(4.dp))
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White.copy(alpha = 0.2f)
-                ) {
-                    Text(
-                        text = "Landlord",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                    )
+                    if (user.profilePhotoUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = user.profilePhotoUrl,
+                            contentDescription = "Profile photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        val initials = user.name
+                            .split(" ")
+                            .filter { it.isNotBlank() }
+                            .take(2)
+                            .joinToString("") { it.first().uppercaseChar().toString() }
+                            .ifBlank { "L" }
+                        Text(
+                            text = initials,
+                            color = Color.White,
+                            fontSize = 42.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
         }

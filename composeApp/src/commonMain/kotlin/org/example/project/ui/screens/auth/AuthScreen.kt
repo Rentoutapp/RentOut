@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -24,11 +25,16 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.example.project.presentation.AuthEvent
 import org.example.project.presentation.AuthState
@@ -62,7 +68,9 @@ fun AuthScreen(
     onClearError: () -> Unit,
     prefillEmail: String = "",
     prefillPassword: String = "",
-    initialTab: Int = 0
+    initialTab: Int = 0,
+    registrationProgress: Float = 0f,
+    registrationStep: String = ""
 ) {
     var selectedTab by remember { mutableStateOf(initialTab) }
 
@@ -406,11 +414,50 @@ fun AuthScreen(
                         Spacer(Modifier.height(14.dp))
 
                         // ── 4. Profile Photo ──────────────────────────────────
+                        val photoShape = RoundedCornerShape(20.dp)
+                        val photoWidth  = 120.dp
+                        val photoHeight = 150.dp
+
+                        // Track password field focus — halo pauses when user moves to passwords
+                        var passwordFocused by remember { mutableStateOf(false) }
+                        var confirmFocused  by remember { mutableStateOf(false) }
+                        val passwordSectionActive = passwordFocused || confirmFocused
+
+                        // Halo animation — infinite pulse, but smoothly gated by passwordSectionActive.
+                        // When password fields are focused, haloActive snaps to 0 via animateFloatAsState,
+                        // which multiplies the infinite alpha/spread to effectively freeze the halo at 0.
+                        val haloTransition = rememberInfiniteTransition(label = "halo")
+                        val haloAlphaRaw by haloTransition.animateFloat(
+                            initialValue = 0.35f,
+                            targetValue  = 0.85f,
+                            animationSpec = infiniteRepeatable(
+                                tween(1400, easing = EaseInOutSine),
+                                RepeatMode.Reverse
+                            ),
+                            label = "halo_alpha"
+                        )
+                        val haloSpreadRaw by haloTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue  = 6f,
+                            animationSpec = infiniteRepeatable(
+                                tween(1400, easing = EaseInOutSine),
+                                RepeatMode.Reverse
+                            ),
+                            label = "halo_spread"
+                        )
+                        // Gate — smoothly fades halo in/out as password section gains/loses focus
+                        val haloGate by animateFloatAsState(
+                            targetValue = if (passwordSectionActive) 0f else 1f,
+                            animationSpec = tween(400, easing = EaseInOutSine),
+                            label = "halo_gate"
+                        )
+                        val haloAlpha  = haloAlphaRaw  * haloGate
+                        val haloSpread = haloSpreadRaw * haloGate
+
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // Centered heading
                             Text(
                                 "Profile Photo",
                                 fontSize = 12.sp,
@@ -421,12 +468,28 @@ fun AuthScreen(
                                 modifier = Modifier.padding(bottom = 10.dp)
                             )
 
-                            // Avatar shell — centered, slightly larger
                             Box(contentAlignment = Alignment.BottomEnd) {
+
+                                // Halo ring — only shown when photo is loaded
+                                if (regPhotoUri.isNotEmpty()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(photoWidth + haloSpread.dp * 2)
+                                            .height(photoHeight + haloSpread.dp * 2)
+                                            .border(
+                                                width = 1.dp,
+                                                color = RentOutColors.Secondary.copy(alpha = haloAlpha),
+                                                shape = RoundedCornerShape(20.dp + haloSpread.dp)
+                                            )
+                                    )
+                                }
+
+                                // Image shell — vertical rounded rectangle
                                 Box(
                                     modifier = Modifier
-                                        .size(88.dp)
-                                        .clip(CircleShape)
+                                        .width(photoWidth)
+                                        .height(photoHeight)
+                                        .clip(photoShape)
                                         .background(
                                             if (regPhotoUri.isNotEmpty())
                                                 Brush.linearGradient(listOf(RentOutColors.Secondary, RentOutColors.SecondaryLight))
@@ -437,28 +500,49 @@ fun AuthScreen(
                                                 ))
                                         )
                                         .border(
-                                            width = if (photoError.isNotEmpty()) 2.dp else 1.5.dp,
+                                            width = if (photoError.isNotEmpty()) 2.dp else 1.dp,
                                             color = if (photoError.isNotEmpty()) MaterialTheme.colorScheme.error
                                                     else if (regPhotoUri.isNotEmpty()) RentOutColors.Secondary
                                                     else MaterialTheme.colorScheme.outline,
-                                            shape = CircleShape
-                                        ),
+                                            shape = photoShape
+                                        )
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { showPhotoDialog = true; photoError = "" },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (regPhotoUri.isNotEmpty()) {
-                                        val initials = regName.split(" ").filter { it.isNotBlank() }
-                                            .take(2).joinToString("") { it.first().uppercaseChar().toString() }.ifBlank { "?" }
-                                        Text(initials, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                                    } else {
-                                        Icon(
-                                            Icons.Default.Person, null,
-                                            modifier = Modifier.size(38.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        AsyncImage(
+                                            model = regPhotoUri,
+                                            contentDescription = "Profile photo",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .width(photoWidth)
+                                                .height(photoHeight)
+                                                .clip(photoShape)
                                         )
+                                    } else {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person, null,
+                                                modifier = Modifier.size(44.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                            Text(
+                                                "Tap to add\nphoto",
+                                                fontSize = 11.sp,
+                                                textAlign = TextAlign.Center,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                        }
                                     }
                                 }
 
-                                // Camera icon badge — sits at bottom-right of the avatar
+                                // Camera badge — bottom-right corner of the rectangle
                                 val camInteraction = remember { MutableInteractionSource() }
                                 val isCamPressed by camInteraction.collectIsPressedAsState()
                                 val camScale by animateFloatAsState(
@@ -468,7 +552,7 @@ fun AuthScreen(
                                 )
                                 Box(
                                     modifier = Modifier
-                                        .size(30.dp)
+                                        .size(32.dp)
                                         .scale(camScale)
                                         .clip(CircleShape)
                                         .background(RentOutColors.Primary)
@@ -481,29 +565,34 @@ fun AuthScreen(
                                     Icon(
                                         Icons.Default.CameraAlt, null,
                                         tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(17.dp)
                                     )
                                 }
                             }
 
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(10.dp))
 
-                            // Status text below avatar
-                            if (regPhotoUri.isNotEmpty()) {
-                                Text(
-                                    "✓ Photo selected",
-                                    color = RentOutColors.StatusApproved,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center
-                                )
-                            } else {
-                                Text(
-                                    "Tap the camera icon to add a photo",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp,
-                                    textAlign = TextAlign.Center
-                                )
+                            AnimatedContent(
+                                targetState = regPhotoUri.isNotEmpty(),
+                                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
+                                label = "photo_status"
+                            ) { hasPhoto ->
+                                if (hasPhoto) {
+                                    Text(
+                                        "✓ Photo selected",
+                                        color = RentOutColors.StatusApproved,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                } else {
+                                    Text(
+                                        "Tap the camera icon to add a photo",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
                             }
 
                             AnimatedVisibility(visible = photoError.isNotEmpty()) {
@@ -527,7 +616,8 @@ fun AuthScreen(
                             leadingIconTint = RentOutColors.IconPurple,
                             isPassword = true,
                             isError = passwordError.isNotEmpty(),
-                            errorMessage = passwordError
+                            errorMessage = passwordError,
+                            modifier = Modifier.onFocusChanged { passwordFocused = it.isFocused }
                         )
                         Spacer(Modifier.height(14.dp))
 
@@ -540,7 +630,8 @@ fun AuthScreen(
                             leadingIconTint = RentOutColors.IconSlate,
                             isPassword = true,
                             isError = confirmError.isNotEmpty(),
-                            errorMessage = confirmError
+                            errorMessage = confirmError,
+                            modifier = Modifier.onFocusChanged { confirmFocused = it.isFocused }
                         )
                         Spacer(Modifier.height(24.dp))
 
@@ -637,6 +728,156 @@ fun AuthScreen(
             dismissButton = {},
             shape = RoundedCornerShape(20.dp)
         )
+    }
+
+    // ── Registration loading overlay ──────────────────────────────────────────
+    val isRegistering = authState is AuthState.Loading && registrationProgress > 0f
+    AnimatedVisibility(
+        visible = isRegistering,
+        enter = fadeIn(tween(300)),
+        exit = fadeOut(tween(400))
+    ) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.72f)),
+                contentAlignment = Alignment.Center
+            ) {
+                // Animated progress card
+                val animatedProgress by animateFloatAsState(
+                    targetValue = registrationProgress,
+                    animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+                    label = "reg_progress"
+                )
+
+                // Pulsing glow ring behind card
+                val pulse = rememberInfiniteTransition(label = "pulse")
+                val pulseScale by pulse.animateFloat(
+                    initialValue = 0.95f, targetValue = 1.05f,
+                    animationSpec = infiniteRepeatable(
+                        tween(900, easing = EaseInOutSine),
+                        RepeatMode.Reverse
+                    ),
+                    label = "pulse_scale"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(260.dp)
+                        .scale(pulseScale)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(
+                                    RentOutColors.Primary.copy(alpha = 0.25f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
+                )
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        // Spinning arc indicator
+                        val rotation by pulse.animateFloat(
+                            initialValue = 0f, targetValue = 360f,
+                            animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
+                            label = "spinner_rot"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .graphicsLayer { rotationZ = rotation },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(64.dp),
+                                color = RentOutColors.Primary,
+                                strokeWidth = 5.dp
+                            )
+                            Icon(
+                                Icons.Default.Person,
+                                null,
+                                tint = RentOutColors.Primary,
+                                modifier = Modifier.size(28.dp)
+                                    .graphicsLayer { rotationZ = -rotation } // counter-rotate so icon stays upright
+                            )
+                        }
+
+                        // Step label — animated crossfade between steps
+                        AnimatedContent(
+                            targetState = registrationStep,
+                            transitionSpec = {
+                                fadeIn(tween(300)) + slideInVertically { it / 2 } togetherWith
+                                fadeOut(tween(200))
+                            },
+                            label = "step_label"
+                        ) { step ->
+                            Text(
+                                text = step.ifBlank { "Setting things up…" },
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        // Progress bar
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            LinearProgressIndicator(
+                                progress = animatedProgress,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(50)),
+                                color = RentOutColors.Primary,
+                                trackColor = RentOutColors.Primary.copy(alpha = 0.15f)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "Progress",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    "${(animatedProgress * 100).toInt()}%",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = RentOutColors.Primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // ── Country code picker dialog ────────────────────────────────────────────
