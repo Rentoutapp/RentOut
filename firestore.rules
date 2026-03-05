@@ -52,10 +52,11 @@ service cloud.firestore {
     // ─── Users Collection ─────────────────────────────────────────────────────
     match /users/{userId} {
 
-      // Owner reads their own doc; admin reads any doc;
-      // authenticated active users can read basic info (needed for landlord/tenant
-      // profile display across the app).
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin() || isActiveUser());
+      // isOwner() is checked FIRST and standalone — no isActiveUser() wrapper —
+      // so a user can always read their own doc. This breaks the circular dependency
+      // where isAdmin()/isActiveUser() need to read the doc to determine the role/status.
+      allow read: if isAuthenticated() && isOwner(userId);
+      allow read: if isAuthenticated() && (isAdmin() || isActiveUser());
 
       // A user can create ONLY their own document immediately after signup.
       // All required fields must be present and values must be valid.

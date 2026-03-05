@@ -4,7 +4,9 @@ package org.example.project.ui.screens.landlord
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -31,8 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import org.example.project.data.model.Property
 import org.example.project.presentation.PropertyFormState
+import org.example.project.presentation.PropertyViewModel
 import org.example.project.ui.components.RentOutPrimaryButton
 import org.example.project.ui.theme.RentOutColors
 import org.example.project.ui.util.ImagePickerLauncher
@@ -44,10 +48,13 @@ import org.example.project.ui.util.rememberImagePickerLauncher
 fun PropertyImagesScreen(
     property: Property,
     formState: PropertyFormState,
+    viewModel: PropertyViewModel,
     onSubmit: (Property, List<ByteArray>) -> Unit,
     onBack: () -> Unit
 ) {
-    var pickedImages by remember { mutableStateOf<List<PickedImage>>(emptyList()) }
+    // Restore images from the draft so they survive back-navigation
+    val draft by viewModel.draft.collectAsState()
+    var pickedImages by remember { mutableStateOf<List<PickedImage>>(draft.pickedImages) }
     var showSourceDialog by remember { mutableStateOf(false) }
     val isLoading = formState is PropertyFormState.Uploading
 
@@ -92,7 +99,12 @@ fun PropertyImagesScreen(
                     .padding(horizontal = 20.dp)
             ) {
                 IconButton(
-                    onClick = { backPressed = true; onBack() },
+                    onClick = {
+                        backPressed = true
+                        // Persist current images into draft so they survive the round-trip
+                        viewModel.saveDraft(draft.copy(pickedImages = pickedImages))
+                        onBack()
+                    },
                     modifier = Modifier.graphicsLayer {
                         scaleX = backScale; scaleY = backScale; rotationZ = backRotation
                     }
@@ -174,8 +186,10 @@ fun PropertyImagesScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // Add image button
-                        AddImageFab(onClick = { showSourceDialog = true })
+                        // Add image button — only shown when images have been picked
+                        if (pickedImages.isNotEmpty()) {
+                            AddImageFab(onClick = { showSourceDialog = true })
+                        }
                     }
 
                     Spacer(Modifier.height(16.dp))
@@ -327,15 +341,6 @@ private fun ImageEmptyState(onAddClick: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
-        OutlinedButton(
-            onClick = onAddClick,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.5.dp, RentOutColors.Primary)
-        ) {
-            Icon(Icons.Default.AddPhotoAlternate, null, tint = RentOutColors.Primary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Choose Photos", color = RentOutColors.Primary, fontWeight = FontWeight.SemiBold)
-        }
     }
 }
 
@@ -462,51 +467,238 @@ private fun AddMoreImageTile(onClick: () -> Unit) {
     }
 }
 
-// ── Submit for Review button ──
+// ── Submit for Review button — morphs into an animated loading bar ──
 @Composable
 private fun SubmitForReviewButton(imageCount: Int, isLoading: Boolean, onClick: () -> Unit) {
+
+    // ── States ────────────────────────────────────────────────────────────────
+    val enabled = imageCount > 0 && !isLoading
+
+    // Simulated upload progress: 0f → 1f over ~2.8 s while isLoading is true
+    var simulatedProgress by remember { mutableStateOf(0f) }
+    var isDone by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            simulatedProgress = 0f
+            isDone = false
+            // Fill to 92% quickly, then hold — actual completion drives the rest
+            val steps = 46          // 46 steps × 60 ms = ~2.76 s to reach 92 %
+            repeat(steps) { i ->
+                delay(60L)
+                simulatedProgress = (i + 1) / 50f   // tops out at 0.92
+            }
+        } else if (simulatedProgress > 0f) {
+            // Submission finished — snap to 100 % then show checkmark
+            simulatedProgress = 1f
+            delay(400)
+            isDone = true
+        }
+    }
+
+    // Animated progress value (smooth tween)
+    val animatedProgress by animateFloatAsState(
+        targetValue = simulatedProgress,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "upload_progress"
+    )
+
+    // Button press spring
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.93f else 1f,
+    val buttonScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "submit_scale"
     )
-    val elevation by animateDpAsState(targetValue = if (isPressed) 2.dp else 10.dp, label = "submit_elev")
-    val enabled = imageCount > 0 && !isLoading
-    val bgColor by animateColorAsState(
-        targetValue = if (enabled) RentOutColors.Primary else MaterialTheme.colorScheme.outline,
-        label = "submit_bg"
+    val elevation by animateDpAsState(
+        targetValue = if (isPressed || isLoading) 2.dp else 10.dp,
+        label = "submit_elev"
     )
 
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        interactionSource = interactionSource,
+    // Corner radius: 16 dp (button) → 28 dp (pill bar)
+    val cornerRadius by animateDpAsState(
+        targetValue = if (isLoading) 28.dp else 16.dp,
+        animationSpec = tween(400, easing = FastOutSlowInEasing),
+        label = "corner_anim"
+    )
+
+    // Shimmer sweep position (infinite while loading)
+    val shimmerTransition = rememberInfiniteTransition(label = "shimmer")
+    val shimmerOffset by shimmerTransition.animateFloat(
+        initialValue = -1f, targetValue = 2f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
+        label = "shimmer_offset"
+    )
+
+    // Checkmark pop scale
+    val checkScale by animateFloatAsState(
+        targetValue = if (isDone) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness    = Spring.StiffnessMedium
+        ),
+        label = "check_scale"
+    )
+
+    // ── Layout ────────────────────────────────────────────────────────────────
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
-            .shadow(if (enabled) elevation else 0.dp, RoundedCornerShape(16.dp))
-            .height(56.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = bgColor,
-            contentColor = Color.White,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            .scale(buttonScale)
+            .shadow(if (enabled || isLoading) elevation else 0.dp, RoundedCornerShape(cornerRadius))
+            .height(56.dp)
+            .clip(RoundedCornerShape(cornerRadius))
+            .then(
+                if (enabled && !isLoading)
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick
+                    )
+                else Modifier
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.5.dp)
-        } else {
-            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = if (imageCount == 0) "Add photos to submit" else "Submit for Review",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.3.sp
+        if (isLoading || isDone) {
+            // ── Loading bar track ─────────────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(RentOutColors.Primary.copy(alpha = 0.15f))
             )
+
+            // Filled portion — gradient sweep
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(fraction = animatedProgress.coerceIn(0f, 1f))
+                    .align(Alignment.CenterStart)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                RentOutColors.Primary,
+                                RentOutColors.PrimaryLight,
+                                RentOutColors.Primary
+                            )
+                        )
+                    )
+            )
+
+            // Shimmer highlight sweeping over the filled portion (hidden when done)
+            if (!isDone) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(fraction = animatedProgress.coerceIn(0f, 1f))
+                        .align(Alignment.CenterStart)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.35f),
+                                    Color.Transparent
+                                ),
+                                startX = shimmerOffset * 400f,
+                                endX   = shimmerOffset * 400f + 300f
+                            )
+                        )
+                )
+            }
+
+            // Content: percentage counter → checkmark
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (isDone) {
+                    // Checkmark pop
+                    Box(
+                        modifier = Modifier
+                            .scale(checkScale)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.25f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = "Done",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Submitted!",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.3.sp
+                    )
+                } else {
+                    // Spinning upload icon
+                    val spinAngle by rememberInfiniteTransition(label = "spin")
+                        .animateFloat(
+                            initialValue = 0f, targetValue = 360f,
+                            animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing)),
+                            label = "spin_angle"
+                        )
+                    Icon(
+                        Icons.Default.CloudUpload,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .graphicsLayer { rotationZ = spinAngle }
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "Uploading… ${(animatedProgress * 100).toInt()}%",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        letterSpacing = 0.3.sp
+                    )
+                }
+            }
+
+        } else {
+            // ── Normal button state ───────────────────────────────────────────
+            val bgColor by animateColorAsState(
+                targetValue = if (enabled) RentOutColors.Primary
+                              else MaterialTheme.colorScheme.surfaceVariant,
+                label = "submit_bg"
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(bgColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = if (enabled) Color.White
+                               else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (imageCount == 0) "Add photos to submit" else "Submit for Review",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.3.sp,
+                        color = if (enabled) Color.White
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }

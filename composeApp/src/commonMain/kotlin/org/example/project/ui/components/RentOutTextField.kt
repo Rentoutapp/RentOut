@@ -15,7 +15,9 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun RentOutTextField(
@@ -33,7 +35,8 @@ fun RentOutTextField(
     singleLine: Boolean = true,
     maxLines: Int = 1,
     trailingContent: @Composable (() -> Unit)? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    labelFontSize: TextUnit = 16.sp
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -41,7 +44,7 @@ fun RentOutTextField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            label = { Text(label) },
+            label = { Text(label, fontSize = labelFontSize) },
             leadingIcon = leadingIcon?.let {
                 { Icon(it, contentDescription = null, tint = leadingIconTint) }
             },

@@ -235,6 +235,16 @@ fun App() {
 
             // -- ADD PROPERTY --------------------------------------------------
             composable(NavRoutes.ADD_PROPERTY) {
+                // Navigate back to dashboard and refresh when submission succeeds
+                LaunchedEffect(formState) {
+                    if (formState is PropertyFormState.Success) {
+                        propertyViewModel.clearDraft()
+                        propertyViewModel.resetFormState()
+                        navController.navigate(NavRoutes.LANDLORD_DASHBOARD) {
+                            popUpTo(NavRoutes.LANDLORD_DASHBOARD) { inclusive = false }
+                        }
+                    }
+                }
                 AddPropertyScreen(
                     formState = formState,
                     onSubmit = { property: org.example.project.data.model.Property ->
@@ -259,14 +269,23 @@ fun App() {
             // -- PROPERTY IMAGES -----------------------------------------------
             composable(NavRoutes.PROPERTY_IMAGES) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
+                // Navigate back to dashboard and refresh when submission succeeds
+                LaunchedEffect(formState) {
+                    if (formState is PropertyFormState.Success) {
+                        propertyViewModel.clearDraft()
+                        propertyViewModel.resetFormState()
+                        navController.navigate(NavRoutes.LANDLORD_DASHBOARD) {
+                            popUpTo(NavRoutes.LANDLORD_DASHBOARD) { inclusive = false }
+                        }
+                    }
+                }
                 if (property != null) {
                     PropertyImagesScreen(
                         property  = property,
                         formState = formState,
+                        viewModel = propertyViewModel,
                         onSubmit  = { prop: org.example.project.data.model.Property, imageBytes: List<ByteArray> ->
                             propertyViewModel.submitProperty(prop, imageBytes)
-                            // Draft is no longer needed once the property is submitted
-                            propertyViewModel.clearDraft()
                         },
                         onBack = { navController.popBackStack() }
                     )

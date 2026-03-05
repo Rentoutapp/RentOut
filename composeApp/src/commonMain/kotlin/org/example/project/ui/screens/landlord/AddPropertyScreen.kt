@@ -207,7 +207,8 @@ fun AddPropertyScreen(
                         leadingIcon = Icons.Default.Apartment,
                         leadingIconTint = RentOutColors.IconBlue,
                         isError = titleErr.isNotEmpty(),
-                        errorMessage = titleErr
+                        errorMessage = titleErr,
+                        labelFontSize = 12.sp
                     )
                     // Title preview with suburb suffix
                     AnimatedVisibility(
@@ -289,14 +290,16 @@ fun AddPropertyScreen(
                             leadingIcon = Icons.Default.Bed, leadingIconTint = RentOutColors.IconBlue,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             isError = roomsErr.isNotEmpty(), errorMessage = roomsErr,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            labelFontSize = 12.sp
                         )
                         RentOutTextField(
                             value = bathrooms, onValueChange = { bathrooms = it },
                             label = "Bathrooms",
                             leadingIcon = Icons.Default.Bathtub, leadingIconTint = RentOutColors.IconTeal,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            labelFontSize = 12.sp
                         )
                     }
                     Spacer(Modifier.height(14.dp))
@@ -321,7 +324,8 @@ fun AddPropertyScreen(
                         label = "Describe the property...",
                         leadingIcon = Icons.Default.Article, leadingIconTint = RentOutColors.IconSlate,
                         singleLine = false, maxLines = 5,
-                        isError = descErr.isNotEmpty(), errorMessage = descErr
+                        isError = descErr.isNotEmpty(), errorMessage = descErr,
+                        labelFontSize = 12.sp
                     )
                     Spacer(Modifier.height(20.dp))
 
@@ -329,7 +333,7 @@ fun AddPropertyScreen(
                     AddPropertySectionLabel(Icons.Default.Place, "Property Address")
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Fill in all fields to collapse this section automatically",
+                        text = "Fill in all fields ï¿½ section collapses after 5 seconds so you can review",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -459,7 +463,7 @@ fun AddPropertyScreen(
 }
 // --- Helper Composables -----------------------------------------------------
 
-// Section label (centered or left-aligned) — uses real Material Icons, no emoji
+// Section label (centered or left-aligned) ï¿½ uses real Material Icons, no emoji
 @Composable
 private fun AddPropertySectionLabel(icon: ImageVector, text: String, centered: Boolean = false) {
     Column(
@@ -581,7 +585,7 @@ private fun PricingSection(
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         Spacer(Modifier.height(12.dp))
 
-        // Monthly Rent — centered, prominent
+        // Monthly Rent ï¿½ centered, prominent
         Text(
             text = "Monthly Rent",
             fontSize = 13.sp,
@@ -594,7 +598,7 @@ private fun PricingSection(
         OutlinedTextField(
             value = price,
             onValueChange = onPriceChange,
-            label = { Text("Price in USD / month") },
+            label = { Text("Price in USD / month", fontSize = 12.sp) },
             leadingIcon = {
                 Text(
                     text = "$",
@@ -666,7 +670,7 @@ private fun PricingSection(
         OutlinedTextField(
             value = securityDeposit,
             onValueChange = onDepositChange,
-            label = { Text("Security Deposit (USD)") },
+            label = { Text("Security Deposit (USD)", fontSize = 12.sp) },
             leadingIcon = {
                 Icon(
                     Icons.Default.Shield,
@@ -682,7 +686,7 @@ private fun PricingSection(
             modifier = Modifier.fillMaxWidth(),
             supportingText = {
                 Text(
-                    text = "Optional — leave blank if no deposit required",
+                    text = "Optional ï¿½ leave blank if no deposit required",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f)
                 )
@@ -974,8 +978,24 @@ private fun PropertyAddressSection(
     val isComplete = address.isComplete
     var expanded by remember { mutableStateOf(true) }
 
+    // Each time the user opens the edit view we bump this key so any in-flight
+    // collapse coroutine is cancelled and the countdown restarts from scratch
+    // only after the landlord has filled all fields again.
+    var collapseKey by remember { mutableStateOf(0) }
+
+    LaunchedEffect(collapseKey) {
+        // Only run the countdown when the fields are already complete at the
+        // time this coroutine starts (i.e. editing is done AND address is full).
+        if (!isComplete) return@LaunchedEffect
+        // Give the landlord 5 seconds to review what they entered.
+        kotlinx.coroutines.delay(5_000)
+        // Re-check: if the address is still complete, collapse.
+        if (address.isComplete) expanded = false
+    }
+
+    // Whenever completeness flips to true (field just filled), trigger a new countdown.
     LaunchedEffect(isComplete) {
-        if (isComplete) expanded = false
+        if (isComplete) collapseKey++ // cancels old coroutine, starts a fresh 5-second wait
     }
 
     AnimatedVisibility(
@@ -983,7 +1003,10 @@ private fun PropertyAddressSection(
         enter = fadeIn() + expandVertically(),
         exit  = fadeOut() + shrinkVertically()
     ) {
-        AddressCompletedCard(address = address, onEdit = { expanded = true })
+        AddressCompletedCard(address = address, onEdit = {
+            expanded = true
+            collapseKey = 0  // reset so the countdown won't fire until address is completed again
+        })
     }
 
     AnimatedVisibility(
@@ -993,7 +1016,7 @@ private fun PropertyAddressSection(
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
 
-            // Step 1 — House Number & Street (free text)
+            // Step 1 ï¿½ House Number & Street (free text)
             AddressStepRow(stepNum = 1, isFilled = address.houseAndStreet.isNotBlank()) {
                 OutlinedTextField(
                     value = address.houseAndStreet,
@@ -1009,7 +1032,7 @@ private fun PropertyAddressSection(
                 )
             }
 
-            // Step 2 — Suburb picker (smart dropdown based on chosen town)
+            // Step 2 ï¿½ Suburb picker (smart dropdown based on chosen town)
             AddressStepRow(stepNum = 2, isFilled = address.suburb.isNotBlank()) {
                 SuburbPickerField(
                     selectedSuburb = address.suburb,
@@ -1020,7 +1043,7 @@ private fun PropertyAddressSection(
                 )
             }
 
-            // Step 3 — Town / City picker (smart dropdown for Zimbabwe, free text otherwise)
+            // Step 3 ï¿½ Town / City picker (smart dropdown for Zimbabwe, free text otherwise)
             AddressStepRow(stepNum = 3, isFilled = address.townOrCity.isNotBlank()) {
                 TownPickerField(
                     selectedTown = address.townOrCity,
@@ -1033,7 +1056,7 @@ private fun PropertyAddressSection(
                 )
             }
 
-            // Step 4 — Country picker (SADC, default Zimbabwe)
+            // Step 4 ï¿½ Country picker (SADC, default Zimbabwe)
             AddressStepRow(stepNum = 4, isFilled = address.country.isNotBlank()) {
                 CountryPickerField(
                     selectedCountry = address.country,
@@ -1047,7 +1070,7 @@ private fun PropertyAddressSection(
                 )
             }
 
-            // Suburb–Town context hint — shown when suburb is blank but town is already chosen
+            // Suburbï¿½Town context hint ï¿½ shown when suburb is blank but town is already chosen
             AnimatedVisibility(
                 visible = address.suburb.isBlank() && address.townOrCity.isNotBlank() &&
                           address.country.equals("Zimbabwe", ignoreCase = true),
@@ -1201,7 +1224,8 @@ private fun ContactDetailsSection(
             label = "Contact Number (hidden from tenants)",
             leadingIcon = Icons.Default.Call, leadingIconTint = RentOutColors.IconAmber,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            isError = contactErr.isNotEmpty(), errorMessage = contactErr
+            isError = contactErr.isNotEmpty(), errorMessage = contactErr,
+            labelFontSize = 12.sp
         )
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

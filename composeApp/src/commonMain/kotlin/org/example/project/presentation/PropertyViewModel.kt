@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.example.project.data.model.Property
+import org.example.project.ui.util.PickedImage
 import org.example.project.ui.util.buildStorageData
 
 sealed class PropertyListState {
@@ -43,7 +44,9 @@ data class PropertyDraft(
     val suburb:          String = "",
     val country:         String = "Zimbabwe",
     val contact:         String = "",
-    val amenityKeys:     Set<String> = emptySet()
+    val amenityKeys:     Set<String> = emptySet(),
+    // Temporarily holds picked images so they survive back-navigation
+    val pickedImages:    List<PickedImage> = emptyList()
 )
 
 class PropertyViewModel : ViewModel() {
@@ -121,7 +124,11 @@ class PropertyViewModel : ViewModel() {
                 )
 
                 docRef.set(finalProperty)
+                // Refresh the landlord's property list so the dashboard updates immediately
+                loadLandlordPropertiesFromFirestore(uid)
                 _formState.value = PropertyFormState.Success
+                // Clear persisted images now that submission succeeded
+                _draft.value = _draft.value.copy(pickedImages = emptyList())
             } catch (e: Exception) {
                 _formState.value = PropertyFormState.Error(e.message ?: "Failed to submit property")
             }

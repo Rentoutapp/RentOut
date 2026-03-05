@@ -20,11 +20,18 @@
     }
   ],
   "hosting": {
+    "site": "rentout-12239",
     "public": "webApp/admin",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
   },
   "storage": {

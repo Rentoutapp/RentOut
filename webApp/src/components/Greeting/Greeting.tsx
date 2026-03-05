@@ -2,11 +2,9 @@ import './Greeting.css';
 
 import { useState } from 'react';
 import { JSLogo } from '../JSLogo/JSLogo.tsx';
-import { Greeting as KotlinGreeting } from 'shared';
 import type { AnimationEvent } from 'react';
 
 export function Greeting() {
-  const greeting = new KotlinGreeting();
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const [isAnimating, setIsAnimating] = useState<boolean>(false);
 
@@ -32,9 +30,12 @@ export function Greeting() {
       </button>
 
       {isVisible && (
-        <div className={isAnimating ? 'greeting-content fade-out' : 'greeting-content'} onAnimationEnd={handleAnimationEnd}>
+        <div
+          className={isAnimating ? 'greeting-content fade-out' : 'greeting-content'}
+          onAnimationEnd={handleAnimationEnd}
+        >
           <JSLogo />
-          <div>React: {greeting.greet()}</div>
+          <div>RentOut Web App</div>
         </div>
       )}
     </div>

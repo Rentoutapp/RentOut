@@ -1,10 +1,12 @@
 package org.example.project.ui.util
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
@@ -16,6 +18,9 @@ import androidx.compose.ui.platform.LocalContext
  * Gallery: uses GetContent (ACTION_GET_CONTENT) — works on all API levels.
  * Camera:  uses TakePicture with a MediaStore URI — no FileProvider needed,
  *          works from API 24+ and respects scoped storage on API 29+.
+ *
+ * Camera permission is requested at runtime before launching the camera
+ * intent, as required on Android 6.0+ (API 23+).
  */
 @Composable
 actual fun rememberImagePickerLauncher(
@@ -46,13 +51,32 @@ actual fun rememberImagePickerLauncher(
         else onResult(null)
     }
 
+    // ── Runtime camera permission request ────────────────────────────────────
+    // Registered once; when granted it immediately launches the camera.
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            cameraUri = createCameraUri(context)
+            cameraUri?.let { cameraLauncher.launch(it) }
+        } else {
+            Toast.makeText(
+                context,
+                "Camera permission is required to take photos.",
+                Toast.LENGTH_LONG
+            ).show()
+            onResult(null)
+        }
+    }
+
     return remember {
         ImagePickerLauncher { source ->
             when (source) {
                 ImagePickerSource.GALLERY -> galleryLauncher.launch("image/*")
                 ImagePickerSource.CAMERA  -> {
-                    cameraUri = createCameraUri(context)
-                    cameraUri?.let { cameraLauncher.launch(it) }
+                    // Request the CAMERA permission at runtime before launching.
+                    // If already granted, the system calls back immediately with true.
+                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                 }
             }
         }
