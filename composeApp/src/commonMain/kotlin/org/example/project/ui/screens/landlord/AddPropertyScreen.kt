@@ -382,36 +382,58 @@ fun AddPropertyScreen(
                         hasContact     = contact.isNotBlank()
                     )
 
-                    // -- Edit mode: existing image gallery --
-                    if (isEditMode && existingImageUrls.isNotEmpty()) {
+                    // -- Edit mode: image gallery with preview + manage button --
+                    if (isEditMode) {
                         Spacer(Modifier.height(20.dp))
-                        ExistingImagesGallery(imageUrls = existingImageUrls)
+                        ExistingImagesGallery(
+                            imageUrls = existingImageUrls,
+                            onManagePhotos = {
+                                onNavigateToImages(
+                                    Property(
+                                        title           = title.trim(),
+                                        city            = address.townOrCity.trim(),
+                                        location        = buildString {
+                                            if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
+                                            if (address.suburb.isNotBlank())         append(", ${address.suburb}")
+                                            if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
+                                            if (address.country.isNotBlank())        append(", ${address.country}")
+                                        },
+                                        price           = price.toDoubleOrNull() ?: 0.0,
+                                        securityDeposit = securityDeposit.toDoubleOrNull() ?: 0.0,
+                                        rooms           = rooms.toIntOrNull() ?: 1,
+                                        bathrooms       = bathrooms.toIntOrNull() ?: 1,
+                                        description     = description.trim(),
+                                        contactNumber   = contact.trim(),
+                                        propertyType    = propType,
+                                        amenities       = selectedAmenityKeys.toList(),
+                                        status          = "pending"
+                                    )
+                                )
+                            }
+                        )
                     }
 
                     Spacer(Modifier.height(16.dp))
 
-                    // -- Add Property Images / Save Changes button --
-                    AddImagesButton(
-                        isLoading  = isLoading,
-                        isEditMode = isEditMode,
-                        onClick    = {
-                            var valid = true
-                            if (title.isBlank())                                   { titleErr   = "Property title is required"; valid = false }
-                            if (price.isBlank() || price.toDoubleOrNull() == null) { priceErr   = "Enter a valid price";        valid = false }
-                            if (rooms.isBlank() || rooms.toIntOrNull() == null)    { roomsErr   = "Enter valid bedroom count";  valid = false }
-                            if (description.isBlank())                             { descErr    = "Description is required";    valid = false }
-                            if (!address.isComplete)                               { addressErr = "Please complete all 4 address fields"; valid = false }
-                            if (contact.isBlank())                                 { contactErr = "Contact number is required"; valid = false }
-
-                            if (valid) {
-                                val amenities    = selectedAmenityKeys.toList()
-                                val fullLocation = buildString {
-                                    if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
-                                    if (address.suburb.isNotBlank())         append(", ${address.suburb}")
-                                    if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
-                                    if (address.country.isNotBlank())        append(", ${address.country}")
-                                }
-                                val builtProperty = Property(
+                    // -- Shared validation helper --
+                    fun buildAndValidate(onValid: (Property) -> Unit) {
+                        var valid = true
+                        if (title.isBlank())                                   { titleErr   = "Property title is required"; valid = false }
+                        if (price.isBlank() || price.toDoubleOrNull() == null) { priceErr   = "Enter a valid price";        valid = false }
+                        if (rooms.isBlank() || rooms.toIntOrNull() == null)    { roomsErr   = "Enter valid bedroom count";  valid = false }
+                        if (description.isBlank())                             { descErr    = "Description is required";    valid = false }
+                        if (!address.isComplete)                               { addressErr = "Please complete all 4 address fields"; valid = false }
+                        if (contact.isBlank())                                 { contactErr = "Contact number is required"; valid = false }
+                        if (valid) {
+                            val amenities    = selectedAmenityKeys.toList()
+                            val fullLocation = buildString {
+                                if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
+                                if (address.suburb.isNotBlank())         append(", ${address.suburb}")
+                                if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
+                                if (address.country.isNotBlank())        append(", ${address.country}")
+                            }
+                            onValid(
+                                Property(
                                     title           = titleWithSuburb.ifEmpty { title.trim() },
                                     city            = address.townOrCity.trim(),
                                     location        = fullLocation,
@@ -425,11 +447,19 @@ fun AddPropertyScreen(
                                     amenities       = amenities,
                                     status          = "pending"
                                 )
-                                if (isEditMode) {
-                                    // Edit flow: submit directly without going to images screen
-                                    onSubmit(builtProperty)
-                                } else {
-                                    // New listing flow: persist draft then navigate to images
+                            )
+                        }
+                    }
+
+                    // -- Submit / Save button --
+                    AddImagesButton(
+                        isLoading  = isLoading,
+                        isEditMode = isEditMode,
+                        onClick    = {
+                            if (isEditMode) {
+                                buildAndValidate { builtProperty -> onSubmit(builtProperty) }
+                            } else {
+                                buildAndValidate { builtProperty ->
                                     onSaveDraft(
                                         PropertyDraft(
                                             title           = title,
@@ -1257,7 +1287,7 @@ private fun ContactDetailsSection(
 
 // ── Existing images gallery (edit mode only) ─────────────────────────────────
 @Composable
-private fun ExistingImagesGallery(imageUrls: List<String>) {
+private fun ExistingImagesGallery(imageUrls: List<String>, onManagePhotos: () -> Unit = {}) {
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -1281,7 +1311,7 @@ private fun ExistingImagesGallery(imageUrls: List<String>) {
                 )
             }
             Spacer(Modifier.width(10.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Property Photos",
                     fontSize = 15.sp,
@@ -1294,10 +1324,72 @@ private fun ExistingImagesGallery(imageUrls: List<String>) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            // Manage Photos button in header
+            val mgmtInteraction = remember { MutableInteractionSource() }
+            val mgmtPressed by mgmtInteraction.collectIsPressedAsState()
+            val mgmtScale by animateFloatAsState(
+                if (mgmtPressed) 0.93f else 1f,
+                spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                label = "mgmt_scale"
+            )
+            Box(
+                modifier = Modifier
+                    .scale(mgmtScale)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(RentOutColors.Primary)
+                    .clickable(interactionSource = mgmtInteraction, indication = null, onClick = onManagePhotos)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit, null,
+                        tint = Color.White,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = if (imageUrls.isEmpty()) "Add Photos" else "Edit Photos",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(6.dp))
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         Spacer(Modifier.height(12.dp))
+
+        if (imageUrls.isEmpty()) {
+            // Empty state
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.PhotoLibrary, null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "No photos yet. Tap \"Add Photos\" to upload.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            return@Column
+        }
 
         // Info banner
         Row(
@@ -1316,7 +1408,7 @@ private fun ExistingImagesGallery(imageUrls: List<String>) {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "These photos are already live. Tap any photo to preview it.",
+                text = "Tap any photo to preview. Tap \"Edit Photos\" to add or remove.",
                 fontSize = 11.sp,
                 color = RentOutColors.IconAmber,
                 fontWeight = FontWeight.Medium
