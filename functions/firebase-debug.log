@@ -1,0 +1,104 @@
+[debug] [2026-03-06T11:02:44.109Z] ----------------------------------------------------------------------
+[debug] [2026-03-06T11:02:44.115Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\walte\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2026-03-06T11:02:44.116Z] CLI Version:   15.8.0
+[debug] [2026-03-06T11:02:44.116Z] Platform:      win32
+[debug] [2026-03-06T11:02:44.116Z] Node Version:  v24.11.1
+[debug] [2026-03-06T11:02:44.117Z] Time:          Fri Mar 06 2026 13:02:44 GMT+0200 (Central Africa Time)
+[debug] [2026-03-06T11:02:44.117Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-03-06T11:02:47.586Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-06T11:02:47.587Z] > authorizing via signed-in user (rentoutt59@gmail.com)
+[debug] [2026-03-06T11:02:47.587Z] [iam] checking project rentout-12239 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-03-06T11:02:47.589Z] Checked if tokens are valid: false, expires at: 1772795123231
+[debug] [2026-03-06T11:02:47.589Z] Checked if tokens are valid: false, expires at: 1772795123231
+[debug] [2026-03-06T11:02:47.590Z] > refreshing access token with scopes: []
+[debug] [2026-03-06T11:02:47.593Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-03-06T11:02:47.593Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-06T11:02:48.161Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-03-06T11:02:48.161Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-06T11:02:48.178Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions [none]
+[debug] [2026-03-06T11:02:48.178Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions  x-goog-user-project=rentout-12239
+[debug] [2026-03-06T11:02:48.179Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-06T11:02:50.078Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions 200
+[debug] [2026-03-06T11:02:50.078Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-03-06T11:02:50.079Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:02:50.079Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:02:50.080Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/rentout-12239/serviceAccounts/rentout-12239@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-03-06T11:02:50.080Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/rentout-12239/serviceAccounts/rentout-12239@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-03-06T11:02:51.979Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/rentout-12239/serviceAccounts/rentout-12239@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-03-06T11:02:51.979Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/rentout-12239/serviceAccounts/rentout-12239@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'rentout-12239'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-03-06T11:02:51.987Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:02:51.987Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:02:51.987Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239 [none]
+[debug] [2026-03-06T11:02:53.447Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239 200
+[debug] [2026-03-06T11:02:53.447Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239 {"projectNumber":"670565317324","projectId":"rentout-12239","lifecycleState":"ACTIVE","name":"RentOut","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-03-04T13:24:45.334863Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-03-06T11:02:53.452Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:02:53.452Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:02:53.453Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/rentout-12239/adminSdkConfig [none]
+[debug] [2026-03-06T11:02:54.535Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/rentout-12239/adminSdkConfig 200
+[debug] [2026-03-06T11:02:54.535Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/rentout-12239/adminSdkConfig {"projectId":"rentout-12239","databaseURL":"https://rentout-12239-default-rtdb.firebaseio.com","storageBucket":"rentout-12239.firebasestorage.app"}
+[debug] [2026-03-06T11:02:54.537Z] Validating nodejs source
+[warn] !  functions: Runtime Node.js 20 will be deprecated on 2026-04-30 and will be decommissioned on 2026-10-30, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[debug] [2026-03-06T11:02:56.855Z] > [functions] package.json contents: {
+  "name": "functions",
+  "scripts": {
+    "lint": "eslint --ext .js,.ts .",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.0.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.12.0",
+    "@typescript-eslint/parser": "^5.12.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.25.4",
+    "firebase-functions-test": "^3.4.1",
+    "typescript": "^5.7.3"
+  },
+  "private": true
+}
+[debug] [2026-03-06T11:02:56.855Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2026-03-06T11:02:56.859Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-03-06T11:02:56.880Z] Found firebase-functions binary at 'E:\Andoid Studio\AndroidStudioProjects\RentOut\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8001
+
+[debug] [2026-03-06T11:02:58.159Z] Got response from /__/functions.yaml {"endpoints":{"onUserCreate":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.created","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"users/{uid}"},"retry":false},"entryPoint":"onUserCreate"},"updateUserRole":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"updateUserRole"},"initiatePayment":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"initiatePayment"},"verifyPesePay":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"verifyPesePay"},"onPropertyStatusChange":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.updated","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"properties/{propertyId}"},"retry":false},"entryPoint":"onPropertyStatusChange"},"suspendUser":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"suspendUser"},"getAdminStats":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"callableTrigger":{},"entryPoint":"getAdminStats"}},"specVersion":"v1alpha1","requiredAPIs":[],"extensions":{},"params":[{"name":"PESEPAY_INTEGRATION_KEY","type":"string","default":""},{"name":"PESEPAY_INTEGRATION_PASSWORD","type":"string","default":""}]}
+[info] i  extensions: ensuring required API firebaseextensions.googleapis.com is enabled... 
+[debug] [2026-03-06T11:03:02.230Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-06T11:03:02.231Z] > authorizing via signed-in user (rentoutt59@gmail.com)
+[debug] [2026-03-06T11:03:02.231Z] [iam] checking project rentout-12239 for permissions ["firebase.projects.get","firebaseextensions.instances.list"]
+[debug] [2026-03-06T11:03:02.231Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:03:02.231Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:03:02.231Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions [none]
+[debug] [2026-03-06T11:03:02.231Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions  x-goog-user-project=rentout-12239
+[debug] [2026-03-06T11:03:02.231Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2026-03-06T11:03:04.055Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions 200
+[debug] [2026-03-06T11:03:04.055Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/rentout-12239:testIamPermissions {"permissions":["firebase.projects.get","firebaseextensions.instances.list"]}
+[debug] [2026-03-06T11:03:04.056Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:03:04.056Z] Checked if tokens are valid: true, expires at: 1772798567161
+[debug] [2026-03-06T11:03:04.057Z] >>> [apiv2][query] GET https://firebaseextensions.googleapis.com/v1beta/projects/rentout-12239/instances pageSize=100&pageToken=
+[debug] [2026-03-06T11:03:06.095Z] <<< [apiv2][status] GET https://firebaseextensions.googleapis.com/v1beta/projects/rentout-12239/instances 200
+[debug] [2026-03-06T11:03:06.095Z] <<< [apiv2][body] GET https://firebaseextensions.googleapis.com/v1beta/projects/rentout-12239/instances {}

@@ -203,6 +203,14 @@ fun App() {
 
             // -- LANDLORD DASHBOARD --------------------------------------------
             composable(NavRoutes.LANDLORD_DASHBOARD) {
+                // Ensure the real-time listener is active whenever this screen
+                // is (re)entered — covers cold start, back-navigation, and
+                // returning from a sub-screen after logout/re-login.
+                LaunchedEffect(currentUser?.uid) {
+                    currentUser?.uid?.let { uid ->
+                        propertyViewModel.loadLandlordPropertiesFromFirestore(uid)
+                    }
+                }
                 LandlordDashboardScreen(
                     user = currentUser ?: User(),
                     propertyListState = propertyListState,
@@ -219,6 +227,7 @@ fun App() {
                     onToggleAvailability = { propertyViewModel.toggleAvailability(it) },
                     onProfileClick = { navController.navigate(NavRoutes.LANDLORD_PROFILE) },
                     onLogout = {
+                        propertyViewModel.stopAllListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                     }
@@ -285,6 +294,7 @@ fun App() {
                     user = currentUser ?: User(),
                     onBack = { navController.popBackStack() },
                     onLogout = {
+                        propertyViewModel.stopAllListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                     }
@@ -443,6 +453,15 @@ fun App() {
 
             // -- TENANT HOME ---------------------------------------------------
             composable(NavRoutes.TENANT_HOME) {
+                // Start/resume real-time listeners whenever this screen is active.
+                // Using currentUser?.uid as the key means if the user changes
+                // (logout + new login) the listeners are restarted for the new user.
+                LaunchedEffect(currentUser?.uid) {
+                    propertyViewModel.loadTenantPropertiesFromFirestore()
+                    currentUser?.uid?.let { uid ->
+                        tenantViewModel.loadUnlockedProperties(uid)
+                    }
+                }
                 TenantHomeScreen(
                     user = currentUser ?: User(),
                     propertyListState = tenantPropertyState,
@@ -457,6 +476,8 @@ fun App() {
                     onUnlockedClick = { navController.navigate(NavRoutes.UNLOCKED_PROPERTIES) },
                     onProfileClick = { navController.navigate(NavRoutes.TENANT_PROFILE) },
                     onLogout = {
+                        propertyViewModel.stopAllListeners()
+                        tenantViewModel.stopListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                     }
@@ -486,7 +507,7 @@ fun App() {
                         unlockState = unlockState,
                         onPay = {
                             currentUser?.let { user ->
-                                tenantViewModel.processPaymentSuccess(user.uid, property)
+                                tenantViewModel.initiateAndConfirmPayment(user.uid, property)
                             }
                         },
                         onBack = { navController.popBackStack() },
@@ -520,6 +541,8 @@ fun App() {
                     onUnlockedClick = { navController.navigate(NavRoutes.UNLOCKED_PROPERTIES) },
                     onBack = { navController.popBackStack() },
                     onLogout = {
+                        propertyViewModel.stopAllListeners()
+                        tenantViewModel.stopListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                     }

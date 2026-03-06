@@ -1,13 +1,17 @@
-﻿package org.example.project.presentation
+package org.example.project.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
+import dev.gitlive.firebase.functions.functions
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import org.example.project.data.model.Property
 import org.example.project.data.model.Unlock
@@ -30,31 +34,49 @@ class TenantViewModel : ViewModel() {
     private val _unlockState = MutableStateFlow<UnlockState>(UnlockState.Idle)
     val unlockState: StateFlow<UnlockState> = _unlockState.asStateFlow()
 
-    // ── Load unlocks for this tenant from Firestore ───────────────────────────
-    fun loadUnlockedProperties(tenantId: String) {
-        viewModelScope.launch {
-            try {
-                val db       = Firebase.firestore
-                val snapshot = db.collection("unlocks")
-                    .where { "tenantId" equalTo tenantId }
-                    .get()
-                val ids = snapshot.documents.map { it.get("propertyId") as? String ?: "" }.toSet()
-                _unlockedPropertyIds.value = ids
+    // ── Real-time listener job for unlocks ────────────────────────────────────
+    private var unlocksListenerJob: Job? = null
 
-                // Fetch full property docs for each unlocked id
-                if (ids.isNotEmpty()) {
-                    val props = ids.mapNotNull { pid ->
-                        try {
-                            val doc = db.collection("properties").document(pid).get()
-                            if (doc.exists) doc.data(Property.serializer()) else null
-                        } catch (_: Exception) { null }
+    // ── Load unlocks for this tenant — real-time Firestore listener ───────────
+    // Whenever a Cloud Function writes a new unlock doc (after payment), this
+    // flow fires automatically and fetches the full property details, so the
+    // tenant's unlocked list updates without any user action.
+    fun loadUnlockedProperties(tenantId: String) {
+        unlocksListenerJob?.cancel()
+        unlocksListenerJob = viewModelScope.launch {
+            Firebase.firestore
+                .collection("unlocks")
+                .where { "tenantId" equalTo tenantId }
+                .snapshots
+                .catch { /* Silent — unlocked list stays as-is on error */ }
+                .collect { snapshot ->
+                    val ids = snapshot.documents
+                        .map { it.get("propertyId") as? String ?: "" }
+                        .filter { it.isNotBlank() }
+                        .toSet()
+                    _unlockedPropertyIds.value = ids
+
+                    // Fetch full property docs for each unlocked id
+                    if (ids.isNotEmpty()) {
+                        val db = Firebase.firestore
+                        val props = ids.mapNotNull { pid ->
+                            try {
+                                val doc = db.collection("properties").document(pid).get()
+                                if (doc.exists) doc.data(Property.serializer()) else null
+                            } catch (_: Exception) { null }
+                        }
+                        _unlockedProperties.value = props
+                    } else {
+                        _unlockedProperties.value = emptyList()
                     }
-                    _unlockedProperties.value = props
                 }
-            } catch (_: Exception) {
-                // Silent — unlocked list stays empty until data is available
-            }
         }
+    }
+
+    // ── Stop the unlocks listener (call on logout) ────────────────────────────
+    fun stopListeners() {
+        unlocksListenerJob?.cancel()
+        unlocksListenerJob = null
     }
 
     // ── Check if a single property is unlocked ────────────────────────────────
@@ -72,30 +94,60 @@ class TenantViewModel : ViewModel() {
         }
     }
 
-    // ── Called by Cloud Function webhook after payment verified ───────────────
-    // In production this is written server-side; here we poll Firestore to
-    // detect the unlock doc created by the Cloud Function.
-    fun processPaymentSuccess(tenantId: String, property: Property) {
+    // ── Initiate payment via Cloud Function, then confirm unlock ─────────────
+    // Calls the `initiatePayment` Firebase callable which:
+    //   • In demo/test mode: auto-writes the unlock doc immediately and returns demoMode=true
+    //   • In production: creates a PesePay checkout and the webhook writes the unlock doc
+    // After calling, we poll Firestore for the unlock doc (up to 10s) so the
+    // real-time listener always has a confirmed doc before we emit Success.
+    fun initiateAndConfirmPayment(tenantId: String, property: Property) {
         viewModelScope.launch {
             _unlockState.value = UnlockState.Loading
             try {
-                val db      = Firebase.firestore
+                // Step 1 — call the Cloud Function
+                val functions = Firebase.functions
+                val callable  = functions.httpsCallable("initiatePayment")
+                callable.invoke(
+                    mapOf(
+                        "propertyId" to property.id,
+                        "landlordId" to property.landlordId,
+                        "successUrl" to "rentout://payment-success",
+                        "cancelUrl"  to "rentout://payment-cancel"
+                    )
+                )
+
+                // Step 2 — poll Firestore until the unlock doc appears (max ~10 s)
+                // In demo mode the doc is written synchronously by the function,
+                // so the first check usually succeeds immediately.
+                val db       = Firebase.firestore
                 val unlockId = "${tenantId}_${property.id}"
-                val doc = db.collection("unlocks").document(unlockId).get()
-                if (doc.exists) {
-                    val newIds  = _unlockedPropertyIds.value + property.id
-                    _unlockedPropertyIds.value = newIds
+                var unlocked = false
+                repeat(10) { attempt ->
+                    if (unlocked) return@repeat
+                    val doc = db.collection("unlocks").document(unlockId).get()
+                    if (doc.exists) {
+                        unlocked = true
+                    } else {
+                        delay(1_000L) // wait 1 s before next poll
+                    }
+                }
+
+                if (unlocked) {
+                    // Update in-memory state; real-time listener will also confirm
+                    _unlockedPropertyIds.value = _unlockedPropertyIds.value + property.id
                     val newList = _unlockedProperties.value.toMutableList()
                     if (newList.none { it.id == property.id }) newList.add(property)
                     _unlockedProperties.value = newList
                     _unlockState.value = UnlockState.Success
                 } else {
                     _unlockState.value = UnlockState.Error(
-                        "Payment received but unlock not confirmed yet. Please refresh."
+                        "Payment processed but unlock is taking longer than expected. Please refresh in a moment."
                     )
                 }
             } catch (e: Exception) {
-                _unlockState.value = UnlockState.Error(e.message ?: "Unlock failed.")
+                _unlockState.value = UnlockState.Error(
+                    e.message?.take(120) ?: "Payment failed. Please try again."
+                )
             }
         }
     }
@@ -104,4 +156,9 @@ class TenantViewModel : ViewModel() {
         _unlockedPropertyIds.value.contains(propertyId)
 
     fun resetUnlockState() { _unlockState.value = UnlockState.Idle }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopListeners()
+    }
 }

@@ -1,4 +1,4 @@
-﻿package org.example.project.presentation
+package org.example.project.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,9 +6,11 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import dev.gitlive.firebase.storage.storage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import org.example.project.data.model.Property
 import org.example.project.ui.util.PickedImage
@@ -73,6 +75,10 @@ class PropertyViewModel : ViewModel() {
     private val _draft = MutableStateFlow(PropertyDraft())
     val draft: StateFlow<PropertyDraft> = _draft.asStateFlow()
 
+    // ── Real-time listener jobs — cancelled when a new listener is started ────
+    private var landlordListenerJob: Job? = null
+    private var tenantListenerJob: Job? = null
+
     fun saveDraft(draft: PropertyDraft) { _draft.value = draft }
     fun clearDraft() { _draft.value = PropertyDraft() }
 
@@ -88,6 +94,14 @@ class PropertyViewModel : ViewModel() {
     fun selectProperty(property: Property) { _selectedProperty.value = property }
     fun clearSelectedProperty() { _selectedProperty.value = null }
     fun resetFormState() { _formState.value = PropertyFormState.Idle }
+
+    // ── Stop all active real-time listeners (call on logout) ──────────────────
+    fun stopAllListeners() {
+        landlordListenerJob?.cancel()
+        landlordListenerJob = null
+        tenantListenerJob?.cancel()
+        tenantListenerJob = null
+    }
 
     // ── Convenience wrappers (called from App.kt navigation) ─────────────────
     fun loadLandlordProperties(landlordId: String) {
@@ -131,8 +145,7 @@ class PropertyViewModel : ViewModel() {
                 )
 
                 docRef.set(finalProperty)
-                // Refresh the landlord's property list so the dashboard updates immediately
-                loadLandlordPropertiesFromFirestore(uid)
+                // Real-time listener on the landlord query will reflect the new doc automatically
                 _formState.value = PropertyFormState.Success
                 // Clear persisted images now that submission succeeded
                 _draft.value = _draft.value.copy(pickedImages = emptyList())
@@ -142,55 +155,73 @@ class PropertyViewModel : ViewModel() {
         }
     }
 
-    // ── Load landlord's own properties from Firestore ─────────────────────────
+    // ── Load landlord's own properties — real-time Firestore listener ─────────
+    // Cancels any previous listener before starting a new one, so switching
+    // accounts never leaks a stale subscription.
     fun loadLandlordPropertiesFromFirestore(landlordId: String) {
-        viewModelScope.launch {
+        landlordListenerJob?.cancel()
+        landlordListenerJob = viewModelScope.launch {
             _landlordProperties.value = PropertyListState.Loading
-            try {
-                val db       = Firebase.firestore
-                val snapshot = db.collection("properties")
-                    .where { "landlordId" equalTo landlordId }
-                    .get()
-                val props = snapshot.documents.map { doc ->
-                    val prop = doc.data(Property.serializer())
-                    // If imageUrls is empty but imageUrl exists, populate list for consistency
-                    if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
-                        prop.copy(imageUrls = listOf(prop.imageUrl))
-                    } else prop
+            Firebase.firestore
+                .collection("properties")
+                .where { "landlordId" equalTo landlordId }
+                .snapshots
+                .catch { e ->
+                    _landlordProperties.value = PropertyListState.Error(
+                        e.message ?: "Failed to load properties. Check your connection."
+                    )
                 }
-                _landlordProperties.value = if (props.isEmpty()) PropertyListState.Empty
-                                            else PropertyListState.Success(props)
-            } catch (e: Exception) {
-                _landlordProperties.value = PropertyListState.Error(
-                    e.message ?: "Failed to load properties. Check your connection."
-                )
-            }
+                .collect { snapshot ->
+                    val props = snapshot.documents.map { doc ->
+                        val prop = doc.data(Property.serializer())
+                        // If imageUrls is empty but imageUrl exists, populate list for consistency
+                        if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
+                            prop.copy(imageUrls = listOf(prop.imageUrl))
+                        } else prop
+                    }
+                    _landlordProperties.value =
+                        if (props.isEmpty()) PropertyListState.Empty
+                        else PropertyListState.Success(props)
+
+                    // Keep selectedProperty in sync if it is one of the updated docs
+                    val selected = _selectedProperty.value
+                    if (selected != null) {
+                        props.find { it.id == selected.id }?.let { updated ->
+                            _selectedProperty.value = updated
+                        }
+                    }
+                }
         }
     }
 
-    // ── Load approved tenant-visible properties from Firestore ────────────────
+    // ── Load approved tenant-visible properties — real-time Firestore listener ─
+    // Pushes updates instantly whenever admin approves / rejects a listing,
+    // so tenants always see the current state without relaunching the app.
     fun loadTenantPropertiesFromFirestore() {
-        viewModelScope.launch {
+        tenantListenerJob?.cancel()
+        tenantListenerJob = viewModelScope.launch {
             _tenantProperties.value = PropertyListState.Loading
-            try {
-                val db       = Firebase.firestore
-                val snapshot = db.collection("properties")
-                    .where { "status" equalTo "approved" }
-                    .get()
-                val props = snapshot.documents.map { doc ->
-                    val prop = doc.data(Property.serializer())
-                    // If imageUrls is empty but imageUrl exists, populate list for consistency
-                    if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
-                        prop.copy(imageUrls = listOf(prop.imageUrl))
-                    } else prop
+            Firebase.firestore
+                .collection("properties")
+                .where { "status" equalTo "approved" }
+                .snapshots
+                .catch { e ->
+                    _tenantProperties.value = PropertyListState.Error(
+                        e.message ?: "Failed to load listings. Check your connection."
+                    )
                 }
-                _tenantProperties.value = if (props.isEmpty()) PropertyListState.Empty
-                                          else PropertyListState.Success(props)
-            } catch (e: Exception) {
-                _tenantProperties.value = PropertyListState.Error(
-                    e.message ?: "Failed to load listings. Check your connection."
-                )
-            }
+                .collect { snapshot ->
+                    val props = snapshot.documents.map { doc ->
+                        val prop = doc.data(Property.serializer())
+                        // If imageUrls is empty but imageUrl exists, populate list for consistency
+                        if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
+                            prop.copy(imageUrls = listOf(prop.imageUrl))
+                        } else prop
+                    }
+                    _tenantProperties.value =
+                        if (props.isEmpty()) PropertyListState.Empty
+                        else PropertyListState.Success(props)
+                }
         }
     }
 
@@ -259,11 +290,9 @@ class PropertyViewModel : ViewModel() {
                 )
 
                 docRef.set(updatedProperty)
-                // Keep _selectedProperty in sync so screens that observe it
-                // (LandlordPropertyDetailScreen, EditPropertyImagesScreen) immediately
-                // reflect the new image list without requiring a full Firestore refresh.
+                // Keep _selectedProperty in sync immediately for detail/edit screens.
+                // The real-time landlord listener will also push the update to the dashboard.
                 _selectedProperty.value = updatedProperty
-                loadLandlordPropertiesFromFirestore(uid)
                 _formState.value = PropertyFormState.Success
             } catch (e: Exception) {
                 _formState.value = PropertyFormState.Error(e.message ?: "Failed to update property")
@@ -272,14 +301,18 @@ class PropertyViewModel : ViewModel() {
     }
 
     // ── Delete property from Firestore ────────────────────────────────────────
+    // The real-time listener on the landlord query will automatically reflect
+    // the deletion — no manual reload needed.
     fun deleteProperty(propertyId: String) {
         viewModelScope.launch {
             try {
                 Firebase.firestore.collection("properties").document(propertyId).delete()
-                // Refresh landlord list after delete
-                val uid = Firebase.auth.currentUser?.uid ?: return@launch
-                loadLandlordPropertiesFromFirestore(uid)
             } catch (_: Exception) { }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopAllListeners()
     }
 }

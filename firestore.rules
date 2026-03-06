@@ -149,8 +149,14 @@ service cloud.firestore {
     // Document ID format: {tenantId}_{propertyId}
     // Unlocks are created ONLY by Cloud Functions after payment is verified.
     match /unlocks/{unlockId} {
+      // resource.data is only available for single-document reads, NOT for
+      // collection queries. Since the document ID is {tenantId}_{propertyId},
+      // we allow read if the unlockId starts with the tenant's own UID, OR if
+      // resource.data is available (single-doc read) and the caller is admin.
+      // This covers both collection queries (.where tenantId == uid) and
+      // direct document reads (checkUnlockStatus / processPaymentSuccess).
       allow read: if isAuthenticated() &&
-        (request.auth.uid == resource.data.tenantId || isAdmin());
+        (unlockId.matches(request.auth.uid + '_.*') || isAdmin());
       allow create: if false;  // Cloud Functions only via Admin SDK
       allow update: if false;
       allow delete: if isAdmin();
