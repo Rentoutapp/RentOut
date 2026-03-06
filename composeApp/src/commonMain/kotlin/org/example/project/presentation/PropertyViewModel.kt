@@ -384,6 +384,13 @@ class PropertyViewModel : ViewModel() {
         viewModelScope.launch {
             _formState.value = PropertyFormState.Uploading
             try {
+                println("📝 PropertyViewModel.updateProperty() called")
+                println("   Property ID: ${property.id}")
+                println("   Property.imageUrl: ${property.imageUrl}")
+                println("   Property.imageUrls: ${property.imageUrls}")
+                println("   keepImageUrls (${keepImageUrls.size}): $keepImageUrls")
+                println("   newImageBytes count: ${newImageBytes.size}")
+                
                 val auth    = Firebase.auth
                 val db      = Firebase.firestore
                 val storage = Firebase.storage
@@ -392,28 +399,41 @@ class PropertyViewModel : ViewModel() {
                 val docRef = db.collection("properties").document(property.id)
 
                 // Upload any newly picked images
+                println("🔄 Uploading ${newImageBytes.size} new images...")
                 val uploadedUrls = newImageBytes.mapIndexed { index, bytes ->
                     val slot = keepImageUrls.size + index
                     val ref  = storage.reference("property_images/$uid/${property.id}/$slot.jpg")
+                    println("   Uploading image $index to slot $slot...")
                     ref.putData(buildStorageData(bytes))
-                    ref.getDownloadUrl()
+                    val url = ref.getDownloadUrl()
+                    println("   ✅ Uploaded: $url")
+                    url
                 }
 
                 // Final image list = kept existing + newly uploaded
                 val allImageUrls = keepImageUrls + uploadedUrls
+                println("📦 Final image list (${allImageUrls.size} total):")
+                allImageUrls.forEachIndexed { idx, url -> println("   [$idx] $url") }
 
                 val updatedProperty = property.copy(
                     landlordId = uid,
                     imageUrl   = allImageUrls.firstOrNull() ?: property.imageUrl,
                     imageUrls  = allImageUrls
                 )
+                
+                println("💾 Saving to Firestore...")
+                println("   imageUrl: ${updatedProperty.imageUrl}")
+                println("   imageUrls (${updatedProperty.imageUrls.size}): ${updatedProperty.imageUrls}")
 
                 docRef.set(updatedProperty)
                 // Keep _selectedProperty in sync immediately for detail/edit screens.
                 // The real-time landlord listener will also push the update to the dashboard.
                 _selectedProperty.value = updatedProperty
+                println("✅ Property updated successfully!")
                 _formState.value = PropertyFormState.Success
             } catch (e: Exception) {
+                println("❌ Error updating property: ${e.message}")
+                e.printStackTrace()
                 _formState.value = PropertyFormState.Error(e.message ?: "Failed to update property")
             }
         }

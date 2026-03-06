@@ -59,11 +59,24 @@ fun EditPropertyImagesScreen(
     onBack: () -> Unit
 ) {
     // Existing remote images — landlord can remove any of these
+    // Use LaunchedEffect to update when property changes (e.g., after save)
     var keptRemoteUrls by remember(property.id) {
         val all = property.imageUrls.ifEmpty {
             listOfNotNull(property.imageUrl.takeIf { it.isNotBlank() })
         }
+        println("📸 EditPropertyImagesScreen: Initializing keptRemoteUrls with ${all.size} images")
+        all.forEachIndexed { idx, url -> println("   [$idx] $url") }
         mutableStateOf(all)
+    }
+    
+    // Update keptRemoteUrls when property.imageUrls changes
+    LaunchedEffect(property.imageUrls) {
+        val all = property.imageUrls.ifEmpty {
+            listOfNotNull(property.imageUrl.takeIf { it.isNotBlank() })
+        }
+        println("🔄 EditPropertyImagesScreen: property.imageUrls changed, updating keptRemoteUrls to ${all.size} images")
+        all.forEachIndexed { idx, url -> println("   [$idx] $url") }
+        keptRemoteUrls = all
     }
 
     // Newly picked local images
@@ -262,7 +275,12 @@ fun EditPropertyImagesScreen(
                     EditSaveButton(
                         isLoading  = isLoading,
                         totalCount = totalCount,
-                        onClick    = { onSave(keptRemoteUrls, newImages.map { it.bytes }) }
+                        onClick    = {
+                            println("💾 EditPropertyImagesScreen: Save button clicked")
+                            println("   keptRemoteUrls (${keptRemoteUrls.size}): $keptRemoteUrls")
+                            println("   newImages count: ${newImages.size}")
+                            onSave(keptRemoteUrls, newImages.map { it.bytes })
+                        }
                     )
 
                     Spacer(Modifier.height(8.dp))

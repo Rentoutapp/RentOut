@@ -279,11 +279,15 @@ fun App() {
                         formState = formState,
                         viewModel = propertyViewModel,
                         onSave    = { keepUrls, newBytes ->
-                            propertyViewModel.updateProperty(
-                                property      = property,
-                                keepImageUrls = keepUrls,
-                                newImageBytes = newBytes
-                            )
+                            // Use the LATEST property from selectedProperty state, not the captured one
+                            val latestProperty = propertyViewModel.selectedProperty.value
+                            if (latestProperty != null) {
+                                propertyViewModel.updateProperty(
+                                    property      = latestProperty,
+                                    keepImageUrls = keepUrls,
+                                    newImageBytes = newBytes
+                                )
+                            }
                         },
                         onBack = { navController.popBackStack() }
                     )

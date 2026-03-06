@@ -40,8 +40,9 @@ import org.example.project.data.model.Transaction
 import org.example.project.data.model.User
 import org.example.project.ui.components.RentOutPrimaryButton
 import org.example.project.ui.theme.RentOutColors
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 // Reuse the same colour tokens as TenantHomeScreen
 private val ProfileNavy      = Color(0xFF0F2A4A)
@@ -749,9 +750,20 @@ private fun TransactionDetailRow(label: String, value: String) {
 
 private fun formatDate(timestamp: Long): String {
     return if (timestamp > 0L) {
-        val date = Date(timestamp)
-        val fmt = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-        fmt.format(date)
+        try {
+            val instant = Instant.fromEpochMilliseconds(timestamp)
+            val dateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+            val month = when (dateTime.monthNumber) {
+                1 -> "Jan"; 2 -> "Feb"; 3 -> "Mar"; 4 -> "Apr"
+                5 -> "May"; 6 -> "Jun"; 7 -> "Jul"; 8 -> "Aug"
+                9 -> "Sep"; 10 -> "Oct"; 11 -> "Nov"; 12 -> "Dec"
+                else -> ""
+            }
+            "${dateTime.dayOfMonth.toString().padStart(2, '0')} $month ${dateTime.year}, " +
+                    "${dateTime.hour.toString().padStart(2, '0')}:${dateTime.minute.toString().padStart(2, '0')}"
+        } catch (e: Exception) {
+            "Invalid date"
+        }
     } else {
         "Unknown"
     }

@@ -86,7 +86,7 @@ export const initiatePayment = onCall(async (request) => {
     status:           "pending",
     paymentProvider:  "pesepay",
     paymentReference: `REF-${Date.now()}-${tenantId.substring(0, 6)}`,
-    createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+    createdAt:        Date.now(),
   });
 
   // Resolve credentials — prefer env params, fall back to process.env
@@ -225,7 +225,7 @@ async function handleMockPayment(req: any, res: any) {
         status:           "failed",
         paymentProvider:  "pesepay_mock",
         paymentReference: reference,
-        createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+        createdAt:        Date.now(),
       });
       res.status(200).json({ success: false, message: "Payment not successful.", mockMode: true });
       return;
@@ -254,7 +254,7 @@ async function handleMockPayment(req: any, res: any) {
       status:           "success",
       paymentProvider:  "pesepay_mock",
       paymentReference: reference,
-      createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:        Date.now(),
     });
 
     // Write unlock record — this is what the app checks
@@ -356,7 +356,7 @@ export const verifyPesePay = onRequest(async (req, res) => {
         status:           "failed",
         paymentProvider:  "pesepay",
         paymentReference: reference,
-        createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+        createdAt:        Date.now(),
       });
       res.status(200).json({ success: false, message: "Payment not successful." });
       return;
@@ -385,7 +385,7 @@ export const verifyPesePay = onRequest(async (req, res) => {
       status:           "success",
       paymentProvider:  "pesepay",
       paymentReference: reference,
-      createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:        Date.now(),
     });
 
     // Write unlock record — this is what the app checks

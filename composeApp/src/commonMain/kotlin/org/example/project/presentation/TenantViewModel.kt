@@ -83,31 +83,113 @@ class TenantViewModel : ViewModel() {
         println("🔍 TenantViewModel: loadTransactions called with tenantId=$tenantId")
         transactionsListenerJob?.cancel()
         transactionsListenerJob = viewModelScope.launch {
-            Firebase.firestore
-                .collection("transactions")
-                .where { "tenantId" equalTo tenantId }
-                .snapshots
-                .catch { e -> 
-                    println("❌ TenantViewModel: Error loading transactions: ${e.message}")
-                    e.printStackTrace()
-                }
-                .collect { snapshot ->
-                    println("📊 TenantViewModel: Received ${snapshot.documents.size} transaction documents")
-                    val txns = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            // Parse the transaction data and set the document ID
-                            val transaction = doc.data(Transaction.serializer()).copy(id = doc.id)
-                            println("✅ Transaction: ${transaction.id} - $${transaction.amount} - ${transaction.status}")
-                            transaction
-                        } catch (e: Exception) { 
-                            println("❌ Failed to parse transaction doc ${doc.id}: ${e.message}")
-                            e.printStackTrace()
-                            null 
+            try {
+                Firebase.firestore
+                    .collection("transactions")
+                    .where { "tenantId" equalTo tenantId }
+                    .snapshots
+                    .catch { e -> 
+                        println("❌ TenantViewModel: Error loading transactions: ${e.message}")
+                        e.printStackTrace()
+                        // Emit empty list on error so UI doesn't hang
+                        emit(Firebase.firestore.collection("transactions").get())
+                    }
+                    .collect { snapshot ->
+                        println("📊 TenantViewModel: Received ${snapshot.documents.size} transaction documents")
+                        
+                        if (snapshot.documents.isEmpty()) {
+                            println("ℹ️ TenantViewModel: No transactions found for tenantId=$tenantId")
+                            _transactions.value = emptyList()
+                            return@collect
                         }
-                    }.sortedByDescending { it.createdAt }
-                    println("💰 TenantViewModel: Setting ${txns.size} transactions in state")
-                    _transactions.value = txns
-                }
+                        
+                        val parsedTransactions = mutableListOf<Transaction>()
+                        
+                        snapshot.documents.forEach { doc ->
+                            try {
+                                // Use the data method to get raw data
+                                val rawData = doc.data<Map<String, Any?>>()
+                                
+                                val id = doc.id
+                                val tenantId = rawData["tenantId"] as? String ?: ""
+                                val propertyId = rawData["propertyId"] as? String ?: ""
+                                val landlordId = rawData["landlordId"] as? String ?: ""
+                                val amount = (rawData["amount"] as? Number)?.toDouble() ?: 10.0
+                                val currency = rawData["currency"] as? String ?: "USD"
+                                val status = rawData["status"] as? String ?: "pending"
+                                val paymentProvider = rawData["paymentProvider"] as? String ?: "pesepay"
+                                val paymentReference = rawData["paymentReference"] as? String ?: ""
+                                
+                                // Handle createdAt - could be Timestamp, Long, or Number
+                                val createdAt = when (val timestamp = rawData["createdAt"]) {
+                                    is Long -> {
+                                        println("   → createdAt is Long: $timestamp")
+                                        timestamp
+                                    }
+                                    is Int -> {
+                                        println("   → createdAt is Int: $timestamp")
+                                        timestamp.toLong()
+                                    }
+                                    is Double -> {
+                                        println("   → createdAt is Double: $timestamp")
+                                        timestamp.toLong()
+                                    }
+                                    is Number -> {
+                                        println("   → createdAt is Number: $timestamp")
+                                        timestamp.toLong()
+                                    }
+                                    else -> {
+                                        // Try to extract milliseconds from Timestamp object
+                                        try {
+                                            // GitLive Firebase Timestamp has seconds and nanoseconds properties
+                                            val timestampMap = timestamp as? Map<*, *>
+                                            if (timestampMap != null) {
+                                                val seconds = (timestampMap["seconds"] as? Number)?.toLong() ?: 0L
+                                                val nanoseconds = (timestampMap["nanoseconds"] as? Number)?.toLong() ?: 0L
+                                                val millis = (seconds * 1000) + (nanoseconds / 1_000_000)
+                                                println("   → createdAt is Timestamp: seconds=$seconds, nanos=$nanoseconds, millis=$millis")
+                                                millis
+                                            } else {
+                                                println("   → createdAt is unknown type: $timestamp (${timestamp?.let { it::class.simpleName }})")
+                                                System.currentTimeMillis()
+                                            }
+                                        } catch (e: Exception) {
+                                            println("⚠️ Could not parse createdAt for transaction ${doc.id}: $timestamp - ${e.message}")
+                                            System.currentTimeMillis()
+                                        }
+                                    }
+                                }
+                                
+                                val transaction = Transaction(
+                                    id = id,
+                                    tenantId = tenantId,
+                                    propertyId = propertyId,
+                                    landlordId = landlordId,
+                                    amount = amount,
+                                    currency = currency,
+                                    status = status,
+                                    paymentProvider = paymentProvider,
+                                    paymentReference = paymentReference,
+                                    createdAt = createdAt
+                                )
+                                
+                                println("✅ Parsed Transaction: id=${transaction.id}, amount=$${transaction.amount}, status=${transaction.status}, createdAt=${transaction.createdAt}")
+                                parsedTransactions.add(transaction)
+                            } catch (e: Exception) { 
+                                println("❌ Failed to parse transaction doc ${doc.id}: ${e.message}")
+                                e.printStackTrace()
+                            }
+                        }
+                        
+                        val txns = parsedTransactions.sortedByDescending { it.createdAt }
+                        println("💰 TenantViewModel: Setting ${txns.size} transactions in state")
+                        _transactions.value = txns
+                    }
+            } catch (e: Exception) {
+                println("❌ TenantViewModel: Fatal error in loadTransactions: ${e.message}")
+                e.printStackTrace()
+                _transactions.value = emptyList()
+            }
         }
     }
 

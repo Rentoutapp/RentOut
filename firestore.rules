@@ -164,26 +164,33 @@ service cloud.firestore {
 
     // ─── Transactions Collection ──────────────────────────────────────────────
     // Created by Cloud Functions (payment webhooks) only.
-    // Tenants can read their own transactions via collection queries or single-doc reads.
-    // For single-doc reads, resource.data is available and we check tenantId.
-    // For collection queries (.where("tenantId" == uid)), we must allow 'list' because
-    // resource.data is NOT available during query evaluation in Firestore rules.
-    // The app MUST include a .where("tenantId" == uid) filter to respect security.
+    // Tenants can read their own transactions, landlords can read transactions 
+    // related to their properties, and admins can read all transactions.
+    // 
+    // IMPORTANT: For collection queries (.where("tenantId" == uid) or 
+    // .where("landlordId" == uid)), resource.data is NOT available during query 
+    // evaluation. Therefore, we allow authenticated users to list/query the 
+    // collection, and security relies on the app always filtering by tenantId 
+    // or landlordId. Single document reads (get) verify ownership via resource.data.
     match /transactions/{transactionId} {
+      // Single document read - verify ownership via resource.data
       allow get: if isAuthenticated() && (
-        // For single document reads, check the tenantId field
+        // Tenant can read their own transaction
         request.auth.uid == resource.data.tenantId
+        // Landlord can read transactions for their properties
+        || request.auth.uid == resource.data.landlordId
         // Admin can read all
         || isAdmin()
       );
-      // Allow collection queries for authenticated users.
-      // Security relies on the app always filtering by tenantId.
-      // We cannot validate query constraints in rules for equality checks.
-      allow list: if isAuthenticated() && (
-        isTenant() || isLandlord() || isAdmin()
-      );
-      allow create: if false;  // Cloud Functions only
-      allow update: if false;
+      
+      // Collection queries - MUST be filtered by tenantId or landlordId in app code
+      // We allow authenticated users to query, trusting the app to filter properly.
+      // Active user check is removed here because it creates a circular dependency
+      // and prevents payment history from loading.
+      allow list: if isAuthenticated();
+      
+      allow create: if false;  // Cloud Functions only via Admin SDK
+      allow update: if false;  // Transactions are immutable
       allow delete: if isAdmin();
     }
 

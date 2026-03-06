@@ -38,6 +38,8 @@ fun PropertyCard(
     onDelete: (() -> Unit)? = null,
     onToggleAvailability: (() -> Unit)? = null
 ) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -45,6 +47,20 @@ fun PropertyCard(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "card_scale"
     )
+    
+    // Delete Confirmation Dialog
+    if (showDeleteDialog) {
+        DeleteConfirmationDialog(
+            propertyTitle = property.title,
+            onConfirm = {
+                showDeleteDialog = false
+                onDelete?.invoke()
+            },
+            onDismiss = {
+                showDeleteDialog = false
+            }
+        )
+    }
 
     Card(
         modifier = modifier
@@ -131,9 +147,24 @@ fun PropertyCard(
 
             // ── Details ────────────────────────────────────────────────────────
             Column(modifier = Modifier.padding(16.dp)) {
-                // Title
+                // Title with suburb suffix (if not already present)
+                val displayTitle = remember(property.title, property.location) {
+                    // If title already contains "in", assume it has the suburb suffix
+                    if (property.title.contains(" in ", ignoreCase = true)) {
+                        property.title
+                    } else {
+                        // Extract suburb from location (format: "street, suburb, city, country")
+                        val locationParts = property.location.split(", ")
+                        val suburb = if (locationParts.size >= 2) locationParts[1].trim() else ""
+                        if (suburb.isNotBlank()) {
+                            "${property.title} in $suburb"
+                        } else {
+                            property.title
+                        }
+                    }
+                }
                 Text(
-                    text = property.title,
+                    text = displayTitle,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
@@ -231,7 +262,10 @@ fun PropertyCard(
                             }
                         }
                         onDelete?.let {
-                            IconButton(onClick = it, modifier = Modifier.size(38.dp)) {
+                            IconButton(
+                                onClick = { showDeleteDialog = true },
+                                modifier = Modifier.size(38.dp)
+                            ) {
                                 Icon(Icons.Default.Delete, "Delete", tint = RentOutColors.IconRose)
                             }
                         }
@@ -253,4 +287,127 @@ private fun PropertyStat(
         Spacer(Modifier.width(4.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+@Composable
+private fun DeleteConfirmationDialog(
+    propertyTitle: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(RentOutColors.IconRose.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = RentOutColors.IconRose,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Delete Property?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Are you sure you want to delete this property?",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = propertyTitle,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = RentOutColors.IconAmber,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "This action cannot be undone.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = RentOutColors.IconAmber,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RentOutColors.IconRose,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Delete Property",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
+            ) {
+                Text(
+                    text = "Cancel",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp
+                )
+            }
+        },
+        shape = RoundedCornerShape(24.dp),
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp
+    )
 }
