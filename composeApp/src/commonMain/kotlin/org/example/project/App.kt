@@ -207,6 +207,10 @@ fun App() {
                     user = currentUser ?: User(),
                     propertyListState = propertyListState,
                     onAddProperty = { navController.navigate(NavRoutes.ADD_PROPERTY) },
+                    onPropertyClick = { property ->
+                        propertyViewModel.selectProperty(property)
+                        navController.navigate(NavRoutes.landlordPropertyDetail(property.id))
+                    },
                     onEditProperty = { property ->
                         propertyViewModel.selectProperty(property)
                         navController.navigate(NavRoutes.editProperty(property.id))
@@ -219,6 +223,60 @@ fun App() {
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                     }
                 )
+            }
+
+            // -- LANDLORD PROPERTY DETAIL --------------------------------------
+            composable(
+                route = NavRoutes.LANDLORD_PROPERTY_DETAIL,
+                arguments = listOf(navArgument("propertyId") { type = NavType.StringType })
+            ) {
+                val property = propertyViewModel.selectedProperty.collectAsState().value
+                if (property != null) {
+                    LandlordPropertyDetailScreen(
+                        property = property,
+                        onBack = { navController.popBackStack() },
+                        onEdit = {
+                            navController.navigate(NavRoutes.editProperty(property.id))
+                        },
+                        onToggleAvailability = {
+                            propertyViewModel.toggleAvailability(property.id)
+                            navController.popBackStack()
+                        },
+                        onDelete = {
+                            propertyViewModel.deleteProperty(property.id)
+                            navController.popBackStack()
+                        }
+                    )
+                }
+            }
+
+            // -- EDIT PROPERTY IMAGES ------------------------------------------
+            composable(
+                route = NavRoutes.EDIT_PROPERTY_IMAGES,
+                arguments = listOf(navArgument("propertyId") { type = NavType.StringType })
+            ) {
+                val property = propertyViewModel.selectedProperty.collectAsState().value
+                if (property != null) {
+                    LaunchedEffect(formState) {
+                        if (formState is PropertyFormState.Success) {
+                            propertyViewModel.resetFormState()
+                            navController.popBackStack()
+                        }
+                    }
+                    EditPropertyImagesScreen(
+                        property  = property,
+                        formState = formState,
+                        viewModel = propertyViewModel,
+                        onSave    = { keepUrls, newBytes ->
+                            propertyViewModel.updateProperty(
+                                property      = property,
+                                keepImageUrls = keepUrls,
+                                newImageBytes = newBytes
+                            )
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
 
             // -- LANDLORD PROFILE ----------------------------------------------
@@ -296,18 +354,89 @@ fun App() {
             composable(NavRoutes.EDIT_PROPERTY) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
-                    // Edit flow uses its own selectedProperty — no draft needed
+                    // Navigate back to dashboard on successful update
+                    LaunchedEffect(formState) {
+                        if (formState is PropertyFormState.Success) {
+                            propertyViewModel.resetFormState()
+                            navController.navigate(NavRoutes.LANDLORD_DASHBOARD) {
+                                popUpTo(NavRoutes.LANDLORD_DASHBOARD) { inclusive = false }
+                            }
+                        }
+                    }
+                    // Seed the draft from the existing property so all fields are pre-filled
+                    val editDraft = remember(property.id) {
+                        // Parse address back into components (stored as "street, suburb, city, country")
+                        val parts = property.location.split(", ")
+                        PropertyDraft(
+                            title           = property.title
+                                .replace(" in ${property.city}", "")
+                                .let { t ->
+                                    // Strip suburb suffix: "Title in SuburbName" → "Title"
+                                    val suburbPart = if (parts.size >= 2) parts.getOrNull(1) ?: "" else ""
+                                    if (suburbPart.isNotBlank() && t.endsWith(" in $suburbPart"))
+                                        t.removeSuffix(" in $suburbPart") else t
+                                },
+                            price           = property.price.let {
+                                if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+                            },
+                            securityDeposit = property.securityDeposit.let {
+                                if (it == 0.0) "" else if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
+                            },
+                            rooms           = property.rooms.toString(),
+                            bathrooms       = property.bathrooms.toString(),
+                            description     = property.description,
+                            propType        = property.propertyType,
+                            houseAndStreet  = parts.getOrNull(0) ?: "",
+                            suburb          = parts.getOrNull(1) ?: "",
+                            townOrCity      = parts.getOrNull(2) ?: property.city,
+                            country         = parts.getOrNull(3) ?: "Zimbabwe",
+                            contact         = property.contactNumber,
+                            amenityKeys     = property.amenities.toSet()
+                        )
+                    }
+                    // Collect ALL uploaded images — prefer imageUrls list, fall back to imageUrl
+                    val existingImages = remember(property.id) {
+                        property.imageUrls.ifEmpty {
+                            listOfNotNull(property.imageUrl.takeIf { it.isNotBlank() })
+                        }
+                    }
                     AddPropertyScreen(
-                        formState = formState,
-                        onSubmit = { updated: org.example.project.data.model.Property ->
-                            propertyViewModel.submitProperty(updated, emptyList())
+                        formState            = formState,
+                        onSubmit             = { updated: org.example.project.data.model.Property ->
+                            // Preserve existing metadata when updating
+                            propertyViewModel.updateProperty(
+                                updated.copy(
+                                    id           = property.id,
+                                    landlordId   = property.landlordId,
+                                    landlordName = property.landlordName,
+                                    imageUrl     = property.imageUrl,
+                                    isVerified   = property.isVerified,
+                                    createdAt    = property.createdAt,
+                                    status       = property.status
+                                )
+                            )
                         },
-                        onBack = { navController.popBackStack() },
-                        onNavigateToImages = { prop: org.example.project.data.model.Property ->
-                            propertyViewModel.selectProperty(prop)
-                            navController.navigate(NavRoutes.PROPERTY_IMAGES)
+                        onBack               = { navController.popBackStack() },
+                        onNavigateToImages   = { prop: org.example.project.data.model.Property ->
+                            propertyViewModel.selectProperty(
+                                prop.copy(
+                                    id           = property.id,
+                                    landlordId   = property.landlordId,
+                                    landlordName = property.landlordName,
+                                    imageUrl     = property.imageUrl,
+                                    imageUrls    = property.imageUrls,
+                                    isVerified   = property.isVerified,
+                                    createdAt    = property.createdAt,
+                                    status       = property.status
+                                )
+                            )
+                            navController.navigate(NavRoutes.editPropertyImages(property.id))
                         },
-                        landlordPhoneNumber = currentUser?.phoneNumber ?: ""
+                        landlordPhoneNumber  = currentUser?.phoneNumber ?: "",
+                        draft                = editDraft,
+                        onSaveDraft          = { propertyViewModel.saveDraft(it) },
+                        isEditMode           = true,
+                        existingImageUrls    = existingImages
                     )
                 }
             }

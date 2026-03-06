@@ -16,7 +16,8 @@ data class Property(
     val bathrooms: Int = 0,
     val description: String = "",
     val contactNumber: String = "",   // NEVER returned in list queries — only post-unlock
-    val imageUrl: String = "",
+    val imageUrl: String = "",        // primary / cover image (backward compat)
+    val imageUrls: List<String> = emptyList(), // all uploaded images
     val propertyType: String = "apartment", // "apartment" | "house" | "room" | "commercial"
     val amenities: List<String> = emptyList(),
     val status: String = "pending",   // "pending" | "approved" | "rejected"

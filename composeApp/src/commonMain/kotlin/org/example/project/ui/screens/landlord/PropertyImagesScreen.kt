@@ -120,7 +120,8 @@ fun PropertyImagesScreen(
                     textAlign = TextAlign.Center
                 )
                 Spacer(Modifier.weight(1f))
-                Spacer(Modifier.width(48.dp))
+                // Add image FAB — always visible
+                AddImageFab(onClick = { showSourceDialog = true })
             }
 
             Spacer(Modifier.height(16.dp))
@@ -186,10 +187,7 @@ fun PropertyImagesScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // Add image button — only shown when images have been picked
-                        if (pickedImages.isNotEmpty()) {
-                            AddImageFab(onClick = { showSourceDialog = true })
-                        }
+                        // (Add image FAB is always visible in the top bar)
                     }
 
                     Spacer(Modifier.height(16.dp))
@@ -705,7 +703,7 @@ private fun SubmitForReviewButton(imageCount: Int, isLoading: Boolean, onClick: 
 
 // ── Image source picker dialog ──
 @Composable
-private fun ImageSourceDialog(
+fun ImageSourceDialog(
     onGallery: () -> Unit,
     onCamera: () -> Unit,
     onDismiss: () -> Unit

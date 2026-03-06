@@ -62,6 +62,7 @@ fun LandlordDashboardScreen(
     user: User,
     propertyListState: PropertyListState,
     onAddProperty: () -> Unit,
+    onPropertyClick: (Property) -> Unit,
     onEditProperty: (Property) -> Unit,
     onDeleteProperty: (String) -> Unit,
     onToggleAvailability: (String) -> Unit,
@@ -75,6 +76,7 @@ fun LandlordDashboardScreen(
         }
     }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+    var showToggleDialog by remember { mutableStateOf<Property?>(null) }
 
     // Stats
     val properties = (propertyListState as? PropertyListState.Success)?.properties ?: emptyList()
@@ -358,12 +360,12 @@ fun LandlordDashboardScreen(
                 ) { property ->
                     PropertyCard(
                         property = property,
-                        onClick = {},
+                        onClick = { onPropertyClick(property) },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
                         showActions = true,
                         onEdit = { onEditProperty(property) },
                         onDelete = { showDeleteDialog = property.id },
-                        onToggleAvailability = { onToggleAvailability(property.id) }
+                        onToggleAvailability = { showToggleDialog = property }
                     )
                 }
                 is PropertyListState.Error -> item {
@@ -395,6 +397,40 @@ fun LandlordDashboardScreen(
             },
             dismissButton = {
                 RentOutSecondaryButton("Cancel", onClick = { showDeleteDialog = null })
+            },
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
+    // Availability toggle confirmation dialog
+    showToggleDialog?.let { property ->
+        val markingAvailable = !property.isAvailable
+        AlertDialog(
+            onDismissRequest = { showToggleDialog = null },
+            icon = {
+                Icon(
+                    if (markingAvailable) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                    null,
+                    tint = if (markingAvailable) RentOutColors.StatusApproved else RentOutColors.StatusRejected
+                )
+            },
+            title = { Text(if (markingAvailable) "Mark as Available" else "Mark as Unavailable") },
+            text = {
+                Text(
+                    if (markingAvailable)
+                        "This listing will become visible to tenants as available. Continue?"
+                    else
+                        "This listing will be marked as unavailable and hidden from active searches. Continue?"
+                )
+            },
+            confirmButton = {
+                RentOutPrimaryButton(
+                    if (markingAvailable) "Mark Available" else "Mark Unavailable",
+                    onClick = { onToggleAvailability(property.id); showToggleDialog = null }
+                )
+            },
+            dismissButton = {
+                RentOutSecondaryButton("Cancel", onClick = { showToggleDialog = null })
             },
             shape = RoundedCornerShape(20.dp)
         )

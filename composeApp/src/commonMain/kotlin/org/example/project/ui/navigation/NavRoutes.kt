@@ -9,11 +9,13 @@ object NavRoutes {
     const val SUSPENDED      = "suspended"
 
     // Landlord flow
-    const val LANDLORD_DASHBOARD = "landlord_dashboard"
-    const val ADD_PROPERTY       = "add_property"
-    const val PROPERTY_IMAGES    = "property_images"
-    const val EDIT_PROPERTY      = "edit_property/{propertyId}"
-    const val LANDLORD_PROFILE   = "landlord_profile"
+    const val LANDLORD_DASHBOARD        = "landlord_dashboard"
+    const val ADD_PROPERTY              = "add_property"
+    const val PROPERTY_IMAGES           = "property_images"
+    const val EDIT_PROPERTY             = "edit_property/{propertyId}"
+    const val LANDLORD_PROFILE          = "landlord_profile"
+    const val LANDLORD_PROPERTY_DETAIL  = "landlord_property_detail/{propertyId}"
+    const val EDIT_PROPERTY_IMAGES      = "edit_property_images/{propertyId}"
 
     // Tenant flow
     const val TENANT_HOME        = "tenant_home"
@@ -23,6 +25,8 @@ object NavRoutes {
     const val TENANT_PROFILE     = "tenant_profile"
 
     // Helpers
+    fun landlordPropertyDetail(propertyId: String) = "landlord_property_detail/$propertyId"
+    fun editPropertyImages(propertyId: String)     = "edit_property_images/$propertyId"
     fun editProperty(propertyId: String) = "edit_property/$propertyId"
     fun propertyDetail(propertyId: String) = "property_detail/$propertyId"
     fun payment(propertyId: String) = "payment/$propertyId"

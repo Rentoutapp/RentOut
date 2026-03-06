@@ -197,9 +197,13 @@ fun PropertyCard(
                                 )
                             }
                         }
-                        onEdit?.let {
-                            IconButton(onClick = it, modifier = Modifier.size(38.dp)) {
-                                Icon(Icons.Default.Edit, "Edit", tint = RentOutColors.IconBlue)
+                        // Edit is only allowed while the property is pending or rejected.
+                        // Once approved by the admin, the listing is locked for editing.
+                        if (property.status != "approved") {
+                            onEdit?.let {
+                                IconButton(onClick = it, modifier = Modifier.size(38.dp)) {
+                                    Icon(Icons.Default.Edit, "Edit", tint = RentOutColors.IconBlue)
+                                }
                             }
                         }
                         onDelete?.let {

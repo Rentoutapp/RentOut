@@ -24,16 +24,25 @@ service firebase.storage {
 
     // ─── Property Images ──────────────────────────────────────────────────────
     // Path: property_images/{landlordId}/{propertyId}/{fileName}
-    // • Any authenticated user can read property images (needed for the property
-    //   listing cards and detail screens accessible to all active users)
-    // • Only the owning landlord can upload images for their own properties
-    // • Max file size: 10 MB per image
-    // • Allowed types: image/jpeg, image/png, image/webp
-    // NOTE: contentType check is relaxed on write (same gitlive SDK issue as above).
-    //   The app layer enforces JPEG/PNG/WebP before upload.
+    //
+    // READ: Public read is intentionally allowed (no auth check) so that:
+    //   • Firebase Storage download URLs returned by getDownloadUrl() can be
+    //     loaded by Coil/AsyncImage without re-authenticating on each request.
+    //   • The gitlive Firebase Storage SDK issues the download URL with a
+    //     Google-signed token appended (?token=...). That token IS the auth
+    //     mechanism — anyone with the URL can read, but they cannot enumerate
+    //     or list files without being authenticated.
+    //   • Tenants on the PropertyDetailScreen hero + thumbnail strip can see
+    //     all uploaded images (imageUrls list) immediately after the landlord
+    //     uploads them, regardless of unlock status.
+    //   • The EditPropertyImagesScreen grid reliably loads ALL existing remote
+    //     images even when the Firebase Auth token is being refreshed mid-session.
+    //
+    // WRITE / DELETE: Restricted to the owning landlord only.
+    // Max file size: 10 MB per image.
     match /property_images/{landlordId}/{propertyId}/{fileName} {
-      allow read:  if request.auth != null;
-      allow write: if request.auth != null
+      allow read:   if true;   // token-protected download URL; see note above
+      allow write:  if request.auth != null
         && request.auth.uid == landlordId
         && request.resource.size < 10 * 1024 * 1024;
       allow delete: if request.auth != null

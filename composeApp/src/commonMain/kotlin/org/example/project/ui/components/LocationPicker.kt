@@ -484,37 +484,29 @@ private fun CountryRow(
     index: Int,
     onClick: () -> Unit
 ) {
-    val visible = remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(index * 30L)
-        visible.value = true
-    }
-    AnimatedVisibility(
-        visible = visible.value,
-        enter = slideInHorizontally(tween(220)) { -30 } + fadeIn(tween(220))
+    // No staggered delay — same fix as SuburbRow; delayed visibility in a
+    // LazyColumn breaks virtualisation and prevents scrolling past visible items.
+    PickerRow(
+        isSelected = isSelected,
+        onClick = onClick
     ) {
-        PickerRow(
-            isSelected = isSelected,
-            onClick = onClick
-        ) {
-            Text(text = country.flag, fontSize = 26.sp)
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = country.name,
-                    fontSize = 15.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = country.dialCode,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (isSelected) {
-                Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
-            }
+        Text(text = country.flag, fontSize = 26.sp)
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = country.name,
+                fontSize = 15.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = country.dialCode,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (isSelected) {
+            Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -526,49 +518,40 @@ private fun TownRow(
     index: Int,
     onClick: () -> Unit
 ) {
-    val visible = remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(index * 25L)
-        visible.value = true
-    }
-    AnimatedVisibility(
-        visible = visible.value,
-        enter = slideInHorizontally(tween(200)) { -30 } + fadeIn(tween(200))
-    ) {
-        PickerRow(isSelected = isSelected, onClick = onClick) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (isSelected) RentOutColors.Primary.copy(alpha = 0.12f)
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.LocationCity, null,
-                    tint = if (isSelected) RentOutColors.Primary else RentOutColors.IconTeal,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = town.name,
-                    fontSize = 15.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${town.suburbs.size} suburbs available",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (isSelected) {
-                Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
-            }
+    // No staggered delay — same fix as SuburbRow and CountryRow.
+    PickerRow(isSelected = isSelected, onClick = onClick) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (isSelected) RentOutColors.Primary.copy(alpha = 0.12f)
+                    else MaterialTheme.colorScheme.surfaceVariant
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.LocationCity, null,
+                tint = if (isSelected) RentOutColors.Primary else RentOutColors.IconTeal,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = town.name,
+                fontSize = 15.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "${town.suburbs.size} suburbs available",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (isSelected) {
+            Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -580,43 +563,35 @@ private fun SuburbRow(
     index: Int,
     onClick: () -> Unit
 ) {
-    val visible = remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(index * 20L)
-        visible.value = true
-    }
-    AnimatedVisibility(
-        visible = visible.value,
-        enter = slideInHorizontally(tween(180)) { -30 } + fadeIn(tween(180))
-    ) {
-        PickerRow(isSelected = isSelected, onClick = onClick) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isSelected) RentOutColors.Primary
-                        else RentOutColors.IconPurple.copy(alpha = 0.12f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Place, null,
-                    tint = if (isSelected) Color.White else RentOutColors.IconPurple,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(Modifier.width(14.dp))
-            Text(
-                text = suburb,
-                fontSize = 15.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
+    // No staggered delay — LazyColumn virtualises items so delayed visibility
+    // causes items further down the list to never appear, breaking scroll.
+    PickerRow(isSelected = isSelected, onClick = onClick) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(
+                    if (isSelected) RentOutColors.Primary
+                    else RentOutColors.IconPurple.copy(alpha = 0.12f)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Place, null,
+                tint = if (isSelected) Color.White else RentOutColors.IconPurple,
+                modifier = Modifier.size(18.dp)
             )
-            if (isSelected) {
-                Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
-            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(
+            text = suburb,
+            fontSize = 15.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            color = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        if (isSelected) {
+            Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
         }
     }
 }

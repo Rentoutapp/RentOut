@@ -76,6 +76,12 @@ class PropertyViewModel : ViewModel() {
     fun saveDraft(draft: PropertyDraft) { _draft.value = draft }
     fun clearDraft() { _draft.value = PropertyDraft() }
 
+    // ── Generate a Firestore-compatible random document ID ────────────────────
+    private fun generateId(): String {
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+        return (1..20).map { chars.random() }.joinToString("")
+    }
+
     fun setSearchQuery(query: String) { _searchQuery.value = query }
     fun setSelectedCity(city: String) { _selectedCity.value = city }
 
@@ -102,7 +108,7 @@ class PropertyViewModel : ViewModel() {
                 val storage = Firebase.storage
                 val uid     = auth.currentUser?.uid ?: throw Exception("Not authenticated")
 
-                val docRef = db.collection("properties").document
+                val docRef = db.collection("properties").document(generateId())
 
                 val imageUrls = imageBytes.mapIndexed { index, bytes ->
                     val ref = storage.reference("property_images/$uid/${docRef.id}/$index.jpg")
@@ -118,6 +124,7 @@ class PropertyViewModel : ViewModel() {
                     landlordId   = uid,
                     landlordName = landlordName,
                     imageUrl     = imageUrls.firstOrNull() ?: "",
+                    imageUrls    = imageUrls,
                     status       = "pending",
                     isVerified   = false,
                     createdAt    = System.currentTimeMillis()
@@ -144,7 +151,13 @@ class PropertyViewModel : ViewModel() {
                 val snapshot = db.collection("properties")
                     .where { "landlordId" equalTo landlordId }
                     .get()
-                val props = snapshot.documents.map { doc -> doc.data(Property.serializer()) }
+                val props = snapshot.documents.map { doc ->
+                    val prop = doc.data(Property.serializer())
+                    // If imageUrls is empty but imageUrl exists, populate list for consistency
+                    if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
+                        prop.copy(imageUrls = listOf(prop.imageUrl))
+                    } else prop
+                }
                 _landlordProperties.value = if (props.isEmpty()) PropertyListState.Empty
                                             else PropertyListState.Success(props)
             } catch (e: Exception) {
@@ -164,7 +177,13 @@ class PropertyViewModel : ViewModel() {
                 val snapshot = db.collection("properties")
                     .where { "status" equalTo "approved" }
                     .get()
-                val props = snapshot.documents.map { doc -> doc.data(Property.serializer()) }
+                val props = snapshot.documents.map { doc ->
+                    val prop = doc.data(Property.serializer())
+                    // If imageUrls is empty but imageUrl exists, populate list for consistency
+                    if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
+                        prop.copy(imageUrls = listOf(prop.imageUrl))
+                    } else prop
+                }
                 _tenantProperties.value = if (props.isEmpty()) PropertyListState.Empty
                                           else PropertyListState.Success(props)
             } catch (e: Exception) {
@@ -179,12 +198,76 @@ class PropertyViewModel : ViewModel() {
     fun toggleAvailability(propertyId: String) {
         viewModelScope.launch {
             try {
-                val db  = Firebase.firestore
-                val doc = db.collection("properties").document(propertyId).get()
+                val db      = Firebase.firestore
+                val uid     = Firebase.auth.currentUser?.uid ?: return@launch
+                val docRef  = db.collection("properties").document(propertyId)
+                val doc     = docRef.get()
                 val current = doc.get("isAvailable") as? Boolean ?: true
-                db.collection("properties").document(propertyId)
-                    .update("isAvailable" to !current)
+                val newValue = !current
+                docRef.update("isAvailable" to newValue)
+
+                // Update the in-memory list immediately so the UI reflects the change
+                val currentState = _landlordProperties.value
+                if (currentState is PropertyListState.Success) {
+                    val updatedList = currentState.properties.map { prop ->
+                        if (prop.id == propertyId) prop.copy(isAvailable = newValue) else prop
+                    }
+                    _landlordProperties.value = PropertyListState.Success(updatedList)
+                }
+
+                // Also update selectedProperty if it is the toggled one
+                if (_selectedProperty.value?.id == propertyId) {
+                    _selectedProperty.value = _selectedProperty.value?.copy(isAvailable = newValue)
+                }
             } catch (_: Exception) { }
+        }
+    }
+
+    // ── Update an existing property on Firestore (edit flow) ─────────────────
+    // keepImageUrls  = existing remote image URLs the landlord chose to keep
+    // newImageBytes  = freshly picked images to upload and append
+    fun updateProperty(
+        property: Property,
+        keepImageUrls: List<String> = emptyList(),
+        newImageBytes: List<ByteArray> = emptyList()
+    ) {
+        viewModelScope.launch {
+            _formState.value = PropertyFormState.Uploading
+            try {
+                val auth    = Firebase.auth
+                val db      = Firebase.firestore
+                val storage = Firebase.storage
+                val uid     = auth.currentUser?.uid ?: throw Exception("Not authenticated")
+
+                val docRef = db.collection("properties").document(property.id)
+
+                // Upload any newly picked images
+                val uploadedUrls = newImageBytes.mapIndexed { index, bytes ->
+                    val slot = keepImageUrls.size + index
+                    val ref  = storage.reference("property_images/$uid/${property.id}/$slot.jpg")
+                    ref.putData(buildStorageData(bytes))
+                    ref.getDownloadUrl()
+                }
+
+                // Final image list = kept existing + newly uploaded
+                val allImageUrls = keepImageUrls + uploadedUrls
+
+                val updatedProperty = property.copy(
+                    landlordId = uid,
+                    imageUrl   = allImageUrls.firstOrNull() ?: property.imageUrl,
+                    imageUrls  = allImageUrls
+                )
+
+                docRef.set(updatedProperty)
+                // Keep _selectedProperty in sync so screens that observe it
+                // (LandlordPropertyDetailScreen, EditPropertyImagesScreen) immediately
+                // reflect the new image list without requiring a full Firestore refresh.
+                _selectedProperty.value = updatedProperty
+                loadLandlordPropertiesFromFirestore(uid)
+                _formState.value = PropertyFormState.Success
+            } catch (e: Exception) {
+                _formState.value = PropertyFormState.Error(e.message ?: "Failed to update property")
+            }
         }
     }
 

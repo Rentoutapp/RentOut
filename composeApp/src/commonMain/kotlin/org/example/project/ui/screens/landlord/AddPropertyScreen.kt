@@ -10,6 +10,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -64,7 +66,9 @@ fun AddPropertyScreen(
     onNavigateToImages: (Property) -> Unit = {},
     landlordPhoneNumber: String = "",   // auto-filled from landlord profile
     draft: PropertyDraft = PropertyDraft(),
-    onSaveDraft: (PropertyDraft) -> Unit = {}
+    onSaveDraft: (PropertyDraft) -> Unit = {},
+    isEditMode: Boolean = false,
+    existingImageUrls: List<String> = emptyList()  // pre-loaded images shown in edit mode
 ) {
     // -- Form state: seeded from saved draft so values survive navigation --
     var title           by remember { mutableStateOf(draft.title) }
@@ -170,7 +174,7 @@ fun AddPropertyScreen(
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
-                    text = "Add Property",
+                    text = if (isEditMode) "Edit Property" else "Add Property",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -377,12 +381,20 @@ fun AddPropertyScreen(
                         hasAddress     = address.isComplete,
                         hasContact     = contact.isNotBlank()
                     )
+
+                    // -- Edit mode: existing image gallery --
+                    if (isEditMode && existingImageUrls.isNotEmpty()) {
+                        Spacer(Modifier.height(20.dp))
+                        ExistingImagesGallery(imageUrls = existingImageUrls)
+                    }
+
                     Spacer(Modifier.height(16.dp))
 
-                    // -- Add Property Images button --
+                    // -- Add Property Images / Save Changes button --
                     AddImagesButton(
-                        isLoading = isLoading,
-                        onClick   = {
+                        isLoading  = isLoading,
+                        isEditMode = isEditMode,
+                        onClick    = {
                             var valid = true
                             if (title.isBlank())                                   { titleErr   = "Property title is required"; valid = false }
                             if (price.isBlank() || price.toDoubleOrNull() == null) { priceErr   = "Enter a valid price";        valid = false }
@@ -392,47 +404,51 @@ fun AddPropertyScreen(
                             if (contact.isBlank())                                 { contactErr = "Contact number is required"; valid = false }
 
                             if (valid) {
-                                val amenities = selectedAmenityKeys.toList()
-                                // Persist draft so form survives the round-trip to PropertyImagesScreen
-                                onSaveDraft(
-                                    PropertyDraft(
-                                        title           = title,
-                                        price           = price,
-                                        securityDeposit = securityDeposit,
-                                        rooms           = rooms,
-                                        bathrooms       = bathrooms,
-                                        description     = description,
-                                        propType        = propType,
-                                        houseAndStreet  = address.houseAndStreet,
-                                        townOrCity      = address.townOrCity,
-                                        suburb          = address.suburb,
-                                        country         = address.country,
-                                        contact         = contact,
-                                        amenityKeys     = selectedAmenityKeys
-                                    )
-                                )
+                                val amenities    = selectedAmenityKeys.toList()
                                 val fullLocation = buildString {
                                     if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
                                     if (address.suburb.isNotBlank())         append(", ${address.suburb}")
                                     if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
                                     if (address.country.isNotBlank())        append(", ${address.country}")
                                 }
-                                onNavigateToImages(
-                                    Property(
-                                        title           = titleWithSuburb.ifEmpty { title.trim() },
-                                        city            = address.townOrCity.trim(),
-                                        location        = fullLocation,
-                                        price           = price.toDoubleOrNull() ?: 0.0,
-                                        securityDeposit = securityDeposit.toDoubleOrNull() ?: 0.0,
-                                        rooms           = rooms.toIntOrNull() ?: 1,
-                                        bathrooms       = bathrooms.toIntOrNull() ?: 1,
-                                        description     = description.trim(),
-                                        contactNumber   = contact.trim(),
-                                        propertyType    = propType,
-                                        amenities       = amenities,
-                                        status          = "pending"
-                                    )
+                                val builtProperty = Property(
+                                    title           = titleWithSuburb.ifEmpty { title.trim() },
+                                    city            = address.townOrCity.trim(),
+                                    location        = fullLocation,
+                                    price           = price.toDoubleOrNull() ?: 0.0,
+                                    securityDeposit = securityDeposit.toDoubleOrNull() ?: 0.0,
+                                    rooms           = rooms.toIntOrNull() ?: 1,
+                                    bathrooms       = bathrooms.toIntOrNull() ?: 1,
+                                    description     = description.trim(),
+                                    contactNumber   = contact.trim(),
+                                    propertyType    = propType,
+                                    amenities       = amenities,
+                                    status          = "pending"
                                 )
+                                if (isEditMode) {
+                                    // Edit flow: submit directly without going to images screen
+                                    onSubmit(builtProperty)
+                                } else {
+                                    // New listing flow: persist draft then navigate to images
+                                    onSaveDraft(
+                                        PropertyDraft(
+                                            title           = title,
+                                            price           = price,
+                                            securityDeposit = securityDeposit,
+                                            rooms           = rooms,
+                                            bathrooms       = bathrooms,
+                                            description     = description,
+                                            propType        = propType,
+                                            houseAndStreet  = address.houseAndStreet,
+                                            townOrCity      = address.townOrCity,
+                                            suburb          = address.suburb,
+                                            country         = address.country,
+                                            contact         = contact,
+                                            amenityKeys     = selectedAmenityKeys
+                                        )
+                                    )
+                                    onNavigateToImages(builtProperty)
+                                }
                             }
                         }
                     )
@@ -1239,9 +1255,229 @@ private fun ContactDetailsSection(
     }
 }
 
-// -- Add Images button --
+// ── Existing images gallery (edit mode only) ─────────────────────────────────
 @Composable
-private fun AddImagesButton(isLoading: Boolean, onClick: () -> Unit) {
+private fun ExistingImagesGallery(imageUrls: List<String>) {
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Section header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(RentOutColors.Primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.PhotoLibrary,
+                    contentDescription = null,
+                    tint = RentOutColors.Primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(
+                    text = "Property Photos",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${imageUrls.size} photo${if (imageUrls.size != 1) "s" else ""} on record",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        Spacer(Modifier.height(12.dp))
+
+        // Info banner
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(RentOutColors.IconAmber.copy(alpha = 0.10f))
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = null,
+                tint = RentOutColors.IconAmber,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "These photos are already live. Tap any photo to preview it.",
+                fontSize = 11.sp,
+                color = RentOutColors.IconAmber,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+
+        // Horizontal scrollable thumbnail row
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+        ) {
+            itemsIndexed(imageUrls) { index, url ->
+                val isSelected = selectedIndex == index
+                val scale by animateFloatAsState(
+                    targetValue = if (isSelected) 1.05f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "img_scale_$index"
+                )
+                val borderColor by animateColorAsState(
+                    targetValue = if (isSelected) RentOutColors.Primary else Color.Transparent,
+                    animationSpec = tween(200),
+                    label = "img_border_$index"
+                )
+
+                Box(
+                    modifier = Modifier
+                        .scale(scale)
+                        .size(width = 110.dp, height = 90.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(2.dp, borderColor, RoundedCornerShape(12.dp))
+                        .shadow(if (isSelected) 6.dp else 2.dp, RoundedCornerShape(12.dp))
+                        .clickable { selectedIndex = if (isSelected) null else index }
+                ) {
+                    coil3.compose.AsyncImage(
+                        model             = url,
+                        contentDescription = "Property photo ${index + 1}",
+                        contentScale      = ContentScale.Crop,
+                        modifier          = Modifier.fillMaxSize()
+                    )
+                    // Index badge
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(5.dp)
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.55f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${index + 1}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    // Selected checkmark overlay — use graphicsLayer instead of
+                    // AnimatedVisibility to avoid ColumnScope receiver conflict inside LazyListScope
+                    val checkAlpha by animateFloatAsState(
+                        targetValue = if (isSelected) 1f else 0f,
+                        animationSpec = tween(200),
+                        label = "check_alpha_$index"
+                    )
+                    val checkScale by animateFloatAsState(
+                        targetValue = if (isSelected) 1f else 0.6f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "check_scale_$index"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(5.dp)
+                            .size(20.dp)
+                            .graphicsLayer { alpha = checkAlpha; scaleX = checkScale; scaleY = checkScale }
+                            .clip(CircleShape)
+                            .background(RentOutColors.Primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Full-size preview of selected image
+        AnimatedVisibility(
+            visible = selectedIndex != null,
+            enter   = fadeIn(tween(300)) + expandVertically(tween(300)),
+            exit    = fadeOut(tween(200)) + shrinkVertically(tween(200))
+        ) {
+            val url = selectedIndex?.let { imageUrls.getOrNull(it) }
+            if (url != null) {
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .shadow(8.dp, RoundedCornerShape(16.dp))
+                ) {
+                    coil3.compose.AsyncImage(
+                        model              = url,
+                        contentDescription = "Photo preview",
+                        contentScale       = ContentScale.Crop,
+                        modifier           = Modifier.fillMaxSize()
+                    )
+                    // Gradient overlay at bottom
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f))
+                                )
+                            )
+                    )
+                    // Photo N of M label
+                    Text(
+                        text = "Photo ${(selectedIndex ?: 0) + 1} of ${imageUrls.size}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 10.dp)
+                    )
+                    // Close button
+                    IconButton(
+                        onClick = { selectedIndex = null },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.45f))
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Close preview",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddImagesButton(isLoading: Boolean, isEditMode: Boolean = false, onClick: () -> Unit) {
+    val buttonLabel = if (isEditMode) "Save Changes" else "Add Photos & Submit"
+    val buttonIcon  = if (isEditMode) Icons.Default.Save else Icons.Default.PhotoCamera
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -1269,9 +1505,9 @@ private fun AddImagesButton(isLoading: Boolean, onClick: () -> Unit) {
         if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.5.dp)
         } else {
-            Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(20.dp))
+            Icon(buttonIcon, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Add Property Images", fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
+            Text(buttonLabel, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
         }
     }
 }
