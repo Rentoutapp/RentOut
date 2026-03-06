@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Property Detail — RentOut Admin</title>
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta http-equiv="X-Frame-Options" content="DENY"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary:   '#1B4FFF',
+            secondary: '#FF6B35',
+            success:   '#22C55E',
+            danger:    '#EF4444',
+            warning:   '#F59E0B',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin     { to{transform:rotate(360deg)} }
+    @keyframes shimmer  { from{background-position:-400px 0} to{background-position:400px 0} }
+    .fade-in-up  { animation: fadeInUp 0.5s ease forwards; }
+    .spinner     { animation: spin 0.9s linear infinite; }
+    .btn { transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease; }
+    .btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+    .btn:active { transform: scale(0.93); }
+    .nav-link { transition: all 0.2s ease; }
+    .nav-link:hover  { background: rgba(255,255,255,0.15); transform: translateX(4px); }
+    .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 700; }
+    .skeleton {
+      background: linear-gradient(90deg,#f0f0f0 25%,#e0e0e0 50%,#f0f0f0 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px;
+    }
+    /* Image gallery */
+    .gallery-thumb { cursor: pointer; transition: all 0.2s ease; border: 2px solid transparent; opacity: 0.65; }
+    .gallery-thumb:hover  { transform: scale(1.06); border-color: #1B4FFF; opacity: 1; }
+    .gallery-thumb.active { border-color: #1B4FFF; box-shadow: 0 0 0 3px rgba(27,79,255,0.25); opacity: 1; }
+    /* Main image fade transition */
+    #gallery-main { transition: opacity 0.25s ease; }
+    #gallery-main.switching { opacity: 0; }
+    /* Arrow buttons */
+    .gallery-arrow {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(0,0,0,0.45); color: white; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; transition: background 0.2s ease, transform 0.15s ease;
+      backdrop-filter: blur(4px); z-index: 2;
+    }
+    .gallery-arrow:hover { background: rgba(0,0,0,0.7); transform: translateY(-50%) scale(1.1); }
+    .gallery-arrow.left  { left: 12px; }
+    .gallery-arrow.right { right: 12px; }
+    /* Stat pill */
+    .stat-pill {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: white; border: 1px solid #e5e7eb; border-radius: 16px;
+      padding: 16px 24px; min-width: 100px; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    /* Amenity tag */
+    .amenity-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #EFF6FF; color: #1B4FFF; border: 1px solid #BFDBFE;
+      border-radius: 9999px; padding: 4px 12px; font-size: 12px; font-weight: 600;
+    }
+    /* Timeline */
+    .timeline-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 4px;
+    }
+    /* Modal overlay */
+    #img-modal { display: none; }
+    #img-modal.open { display: flex; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+
+  <!-- Auth overlay -->
+  <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:#1B4FFF;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+    <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials…</span>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
+    <div class="p-6 border-b border-white border-opacity-20">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center"><span class="text-xl">🏠</span></div>
+        <div>
+          <div class="text-white font-extrabold text-lg">RentOut</div>
+          <div class="text-blue-200 text-xs">Admin Panel</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="dashboard.html"    class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>📊</span> Dashboard</a>
+      <a href="properties.html"   class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm"><span>🏠</span> Properties</a>
+      <a href="users.html"        class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>👥</span> Users</a>
+      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>💳</span> Transactions</a>
+    </nav>
+    <div class="p-4 border-t border-white border-opacity-20">
+      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">🚪 Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 ml-64 p-8">
+
+    <!-- Breadcrumb & back -->
+    <div class="flex items-center gap-2 mb-6 fade-in-up">
+      <button onclick="history.back()" class="btn flex items-center gap-2 text-sm text-gray-500 hover:text-primary bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
+        ← Back to Properties
+      </button>
+      <span class="text-gray-300">/</span>
+      <span class="text-sm text-gray-400">Property Detail</span>
+    </div>
+
+    <!-- Content -->
+    <div id="detail-content" class="fade-in-up">
+      <!-- Skeleton shown while loading -->
+      <div id="skeleton" class="space-y-6">
+        <div class="skeleton h-10 w-64"></div>
+        <div class="skeleton h-72 w-full rounded-2xl"></div>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="skeleton h-24 rounded-2xl"></div>
+          <div class="skeleton h-24 rounded-2xl"></div>
+          <div class="skeleton h-24 rounded-2xl"></div>
+        </div>
+        <div class="skeleton h-40 rounded-2xl"></div>
+      </div>
+
+      <!-- Actual content — shown after load -->
+      <div id="property-body" class="hidden space-y-6">
+
+        <!-- Header row: title + status badge + action buttons -->
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3 flex-wrap">
+              <h1 id="p-title" class="text-3xl font-extrabold text-gray-800"></h1>
+              <span id="p-status-badge"></span>
+              <span id="p-verified-badge"></span>
+            </div>
+            <div class="flex items-center gap-4 mt-2 text-sm text-gray-500 flex-wrap">
+              <span id="p-type-badge" class="flex items-center gap-1"></span>
+              <span class="flex items-center gap-1"><span class="text-rose-400">📍</span><span id="p-city"></span></span>
+              <span class="flex items-center gap-1">🗓 Listed <span id="p-date" class="ml-1"></span></span>
+              <span class="flex items-center gap-1 font-mono text-xs text-gray-300" id="p-id"></span>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex gap-2 flex-wrap" id="p-actions"></div>
+        </div>
+
+        <!-- Image gallery -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+          <!-- Main image viewer — dark background, object-contain so full image is always visible -->
+          <div class="relative bg-gray-900 flex items-center justify-center overflow-hidden" style="height:420px;">
+
+            <img id="gallery-main" src="" alt="Property"
+              class="max-w-full max-h-full object-contain cursor-zoom-in select-none"
+              style="max-height:420px;"
+              onclick="openModal(this.src)"/>
+
+            <!-- No-image placeholder -->
+            <div id="gallery-placeholder" class="hidden flex-col items-center gap-3 text-gray-500">
+              <span class="text-6xl">🏠</span>
+              <span class="text-sm">No images uploaded yet</span>
+            </div>
+
+            <!-- Prev / Next arrows — only shown when multiple images -->
+            <button id="gallery-prev" class="gallery-arrow left hidden" onclick="navigateGallery(-1)" aria-label="Previous image">‹</button>
+            <button id="gallery-next" class="gallery-arrow right hidden" onclick="navigateGallery(1)"  aria-label="Next image">›</button>
+
+            <!-- Image counter badge -->
+            <div id="gallery-count" class="absolute top-3 right-3 bg-black bg-opacity-55 text-white text-xs font-semibold px-3 py-1 rounded-full hidden backdrop-blur-sm"></div>
+
+            <!-- Zoom hint -->
+            <div id="gallery-zoom-hint" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black bg-opacity-40 text-white text-xs px-3 py-1 rounded-full hidden backdrop-blur-sm pointer-events-none">
+              🔍 Click to zoom
+            </div>
+          </div>
+
+          <!-- Thumbnails — centered horizontally -->
+          <div class="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <div id="gallery-thumbs" class="flex gap-3 justify-center flex-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Stat pills row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="stat-pill">
+            <span class="text-2xl mb-1">💰</span>
+            <span class="text-2xl font-extrabold text-gray-800" id="p-price"></span>
+            <span class="text-xs text-gray-400 mt-1">per month</span>
+          </div>
+          <div class="stat-pill">
+            <span class="text-2xl mb-1">🛡</span>
+            <span class="text-2xl font-extrabold text-gray-800" id="p-deposit"></span>
+            <span class="text-xs text-gray-400 mt-1">security deposit</span>
+          </div>
+          <div class="stat-pill">
+            <span class="text-2xl mb-1">🛏</span>
+            <span class="text-2xl font-extrabold text-gray-800" id="p-rooms"></span>
+            <span class="text-xs text-gray-400 mt-1">bedrooms</span>
+          </div>
+          <div class="stat-pill">
+            <span class="text-2xl mb-1">🚿</span>
+            <span class="text-2xl font-extrabold text-gray-800" id="p-bathrooms"></span>
+            <span class="text-xs text-gray-400 mt-1">bathrooms</span>
+          </div>
+        </div>
+
+        <!-- Two-column detail grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          <!-- Left: main details (2/3) -->
+          <div class="lg:col-span-2 space-y-6">
+
+            <!-- Description -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-3">📋 Description</h2>
+              <p id="p-description" class="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap"></p>
+            </div>
+
+            <!-- Amenities -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6" id="amenities-card">
+              <h2 class="text-lg font-bold text-gray-800 mb-3">✨ Amenities</h2>
+              <div id="p-amenities" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- Location -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-3">📍 Location</h2>
+              <div class="space-y-2 text-sm text-gray-600">
+                <div class="flex items-start gap-2">
+                  <span class="text-rose-400 mt-0.5">🏙</span>
+                  <div><span class="font-semibold text-gray-700">City:</span> <span id="p-location-city"></span></div>
+                </div>
+                <div class="flex items-start gap-2">
+                  <span class="text-rose-400 mt-0.5">📌</span>
+                  <div><span class="font-semibold text-gray-700">Address:</span> <span id="p-location-address"></span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unlock activity -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-4">🔑 Unlock Activity</h2>
+              <div id="unlock-list" class="text-sm text-gray-400">Loading…</div>
+            </div>
+
+          </div>
+
+          <!-- Right: landlord + metadata (1/3) -->
+          <div class="space-y-6">
+
+            <!-- Landlord card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-4">👤 Landlord</h2>
+              <div class="flex items-center gap-3 mb-4">
+                <div id="p-landlord-avatar" class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl font-bold text-primary overflow-hidden flex-shrink-0"></div>
+                <div>
+                  <div id="p-landlord-name" class="font-semibold text-gray-800"></div>
+                  <div id="p-landlord-email" class="text-xs text-gray-400 mt-0.5"></div>
+                </div>
+              </div>
+              <div class="space-y-2 text-sm">
+                <div class="flex items-center gap-2 text-gray-600">
+                  <span>📞</span><span id="p-contact"></span>
+                </div>
+                <div class="flex items-center gap-2 text-gray-500 text-xs">
+                  <span>🆔</span><span class="font-mono" id="p-landlord-id"></span>
+                </div>
+              </div>
+              <a id="p-landlord-link" href="#" class="mt-4 btn w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-primary text-sm font-semibold rounded-xl transition-colors">
+                View Landlord Profile →
+              </a>
+            </div>
+
+            <!-- Property metadata -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-4">ℹ️ Metadata</h2>
+              <div class="space-y-3 text-sm">
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Property ID</span>
+                  <span class="font-mono text-xs text-gray-600 truncate max-w-[140px]" id="meta-id" title=""></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Type</span>
+                  <span class="font-semibold text-gray-700 capitalize" id="meta-type"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Available</span>
+                  <span id="meta-available"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Verified</span>
+                  <span id="meta-verified"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Flagged</span>
+                  <span id="meta-flagged"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Listed</span>
+                  <span class="text-gray-600" id="meta-date"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Total Unlocks</span>
+                  <span class="font-bold text-primary" id="meta-unlocks">—</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Danger zone -->
+            <div class="bg-red-50 border border-red-200 rounded-2xl p-6">
+              <h2 class="text-sm font-bold text-red-600 mb-3">⚠️ Danger Zone</h2>
+              <button onclick="deleteProperty()" class="btn w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                🗑 Delete Property
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /property-body -->
+    </div><!-- /detail-content -->
+
+    <!-- Error state -->
+    <div id="error-state" class="hidden flex flex-col items-center justify-center py-24 text-center">
+      <span class="text-6xl mb-4">😕</span>
+      <h2 class="text-2xl font-bold text-gray-700 mb-2">Property not found</h2>
+      <p class="text-gray-400 mb-6">This property may have been deleted or the URL is invalid.</p>
+      <a href="properties.html" class="btn px-6 py-3 bg-primary text-white font-semibold rounded-xl">← Back to Properties</a>
+    </div>
+
+  </main>
+
+  <!-- Full-screen image modal -->
+  <div id="img-modal" class="fixed inset-0 z-50 bg-black bg-opacity-90 items-center justify-center p-4" onclick="closeModal()">
+    <button class="absolute top-4 right-4 text-white text-3xl font-bold hover:opacity-70 z-10" onclick="closeModal()">✕</button>
+    <img id="modal-img" src="" alt="Property image" class="max-w-full max-h-full object-contain rounded-xl shadow-2xl" onclick="event.stopPropagation()"/>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 hidden z-40">
+    <div class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium" id="toast-msg"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, doc, getDoc,
+             updateDoc, deleteDoc, query, where, orderBy }
+                               from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, onAuthStateChanged, signOut }
+                               from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    // ── Firebase init ──────────────────────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
+      authDomain:        "rentout-12239.firebaseapp.com",
+      databaseURL:       "https://rentout-12239-default-rtdb.firebaseio.com",
+      projectId:         "rentout-12239",
+      storageBucket:     "rentout-12239.firebasestorage.app",
+      messagingSenderId: "670565317324",
+      appId:             "1:670565317324:web:7eb3f892cef246001c2069"
+    };
+    const app  = initializeApp(firebaseConfig);
+    const db   = getFirestore(app);
+    const auth = getAuth(app);
+
+    // ── Auth guard (same two-layer pattern as all protected pages) ─────────────
+    const SESSION_KEY = 'rentout_admin_authed';
+    if (!sessionStorage.getItem(SESSION_KEY)) {
+      window.location.replace('index.html');
+    } else {
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) { sessionStorage.removeItem(SESSION_KEY); window.location.replace('index.html'); return; }
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        if (!userSnap.exists() || userSnap.data().role !== 'admin' || userSnap.data().status !== 'active') {
+          await signOut(auth); sessionStorage.removeItem(SESSION_KEY); window.location.replace('index.html'); return;
+        }
+        document.getElementById('auth-overlay').remove();
+        await init();
+      });
+    }
+
+    window.logout = async function() {
+      sessionStorage.removeItem('rentout_admin_authed');
+      await signOut(auth).catch(() => {});
+      window.location.replace('index.html');
+    };
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+
+    function formatDate(ts) {
+      if (!ts) return '—';
+      const ms = typeof ts === 'object' ? (ts.toMillis?.() ?? ts) : ts;
+      return new Date(ms).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatCurrency(n) {
+      return n ? `$${Number(n).toLocaleString()}` : '—';
+    }
+
+    function statusBadge(s) {
+      const map = {
+        pending:  'bg-yellow-100 text-yellow-700 border-yellow-200',
+        approved: 'bg-green-100 text-green-700 border-green-200',
+        rejected: 'bg-red-100 text-red-700 border-red-200',
+      };
+      const icons = { pending: '⏳', approved: '✅', rejected: '❌' };
+      const cls = map[s] || 'bg-gray-100 text-gray-600 border-gray-200';
+      return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border ${cls}">${icons[s] || ''} ${s?.charAt(0).toUpperCase() + s?.slice(1) || '—'}</span>`;
+    }
+
+    function typeIcon(t) {
+      return { apartment:'🏢', house:'🏠', room:'🛏', commercial:'🏬' }[t] || '🏠';
+    }
+
+    function boolBadge(val, trueLabel = 'Yes', falseLabel = 'No') {
+      return val
+        ? `<span class="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">${trueLabel}</span>`
+        : `<span class="text-xs font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">${falseLabel}</span>`;
+    }
+
+    const amenityIcons = {
+      wifi: '📶', parking: '🚗', pool: '🏊', gym: '🏋️', security: '🔒',
+      garden: '🌿', aircon: '❄️', laundry: '👕', balcony: '🌇',
+      furnished: '🛋️', water: '💧', electricity: '⚡', generator: '🔌',
+      borehole: '🪣', geyser: '🚿', dishwasher: '🍽️', fireplace: '🔥',
+    };
+
+    function amenityIcon(a) {
+      const key = a.toLowerCase().replace(/\s+/g, '');
+      for (const [k, v] of Object.entries(amenityIcons)) {
+        if (key.includes(k)) return v;
+      }
+      return '✓';
+    }
+
+    // ── Gallery ────────────────────────────────────────────────────────────────
+    let galleryImages  = [];
+    let currentGalleryIdx = 0;
+
+    function buildGallery(p) {
+      // Collect all images: imageUrls list first, fall back to imageUrl cover
+      galleryImages = [];
+      if (p.imageUrls && p.imageUrls.length > 0) {
+        galleryImages = [...p.imageUrls];
+      } else if (p.imageUrl) {
+        galleryImages = [p.imageUrl];
+      }
+
+      const mainEl      = $('gallery-main');
+      const thumbsEl    = $('gallery-thumbs');
+      const countEl     = $('gallery-count');
+      const placeholder = $('gallery-placeholder');
+      const prevBtn     = $('gallery-prev');
+      const nextBtn     = $('gallery-next');
+      const zoomHint    = $('gallery-zoom-hint');
+
+      if (!galleryImages.length) {
+        mainEl.classList.add('hidden');
+        placeholder.classList.remove('hidden');
+        placeholder.classList.add('flex');
+        return;
+      }
+
+      // Set first image
+      mainEl.src = galleryImages[0];
+      mainEl.classList.remove('hidden');
+      placeholder.classList.add('hidden');
+      currentGalleryIdx = 0;
+
+      // Show arrows + counter only when multiple images
+      if (galleryImages.length > 1) {
+        countEl.textContent = `1 / ${galleryImages.length}`;
+        countEl.classList.remove('hidden');
+        prevBtn.classList.remove('hidden');
+        nextBtn.classList.remove('hidden');
+      }
+
+      // Show zoom hint briefly then fade
+      zoomHint.classList.remove('hidden');
+      setTimeout(() => zoomHint.classList.add('hidden'), 2500);
+
+      // Thumbnails — centered via flex justify-center on parent
+      thumbsEl.innerHTML = galleryImages.map((url, i) => `
+        <div class="gallery-thumb ${i === 0 ? 'active' : ''} w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-gray-800"
+             onclick="selectImage(${i})" data-idx="${i}" title="Image ${i + 1}">
+          <img src="${url}" alt="Image ${i+1}" class="w-full h-full object-cover"
+               onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full bg-gray-700 flex items-center justify-center text-2xl\\'>🏠</div>'"/>
+        </div>
+      `).join('');
+
+      // Keyboard arrow navigation
+      document.addEventListener('keydown', e => {
+        if ($('img-modal').classList.contains('open')) return;
+        if (e.key === 'ArrowLeft')  navigateGallery(-1);
+        if (e.key === 'ArrowRight') navigateGallery(1);
+      });
+    }
+
+    // Navigate with prev/next arrows
+    window.navigateGallery = function(dir) {
+      const newIdx = (currentGalleryIdx + dir + galleryImages.length) % galleryImages.length;
+      selectImage(newIdx);
+    };
+
+    window.selectImage = function(idx) {
+      if (idx === currentGalleryIdx) return;
+      currentGalleryIdx = idx;
+
+      const mainEl  = $('gallery-main');
+      const countEl = $('gallery-count');
+      const thumbs  = document.querySelectorAll('.gallery-thumb');
+
+      // Fade out → swap src → fade in
+      mainEl.classList.add('switching');
+      setTimeout(() => {
+        mainEl.src = galleryImages[idx];
+        mainEl.onload = () => mainEl.classList.remove('switching');
+        // If image is cached, onload may not fire — remove class after short delay
+        setTimeout(() => mainEl.classList.remove('switching'), 300);
+      }, 200);
+
+      countEl.textContent = `${idx + 1} / ${galleryImages.length}`;
+
+      thumbs.forEach((t, i) => {
+        t.classList.toggle('active', i === idx);
+      });
+
+      // Scroll active thumb into view (for many images)
+      thumbs[idx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    };
+
+    window.openModal = function(src) {
+      $('modal-img').src = src;
+      $('img-modal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    };
+    window.closeModal = function() {
+      $('img-modal').classList.remove('open');
+      document.body.style.overflow = '';
+    };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    // ── Load unlocks for this property ─────────────────────────────────────────
+    async function loadUnlocks(propertyId) {
+      try {
+        const q    = query(collection(db, 'unlocks'), where('propertyId', '==', propertyId));
+        const snap = await getDocs(q);
+        $('meta-unlocks').textContent = snap.size;
+
+        if (!snap.size) {
+          $('unlock-list').innerHTML = `<div class="text-center py-8 text-gray-300">
+            <div class="text-4xl mb-2">🔒</div>
+            <div>No tenants have unlocked this property yet.</div>
+          </div>`;
+          return;
+        }
+
+        // Fetch tenant names in parallel
+        const unlocks = await Promise.all(snap.docs.map(async d => {
+          const u = { id: d.id, ...d.data() };
+          try {
+            const tenantSnap = await getDoc(doc(db, 'users', u.tenantId));
+            u.tenantName  = tenantSnap.exists() ? tenantSnap.data().name  : 'Unknown Tenant';
+            u.tenantEmail = tenantSnap.exists() ? tenantSnap.data().email : '';
+          } catch { u.tenantName = 'Unknown Tenant'; u.tenantEmail = ''; }
+          return u;
+        }));
+
+        // Sort by unlock date descending
+        unlocks.sort((a, b) => {
+          const ta = typeof a.unlockedAt === 'object' ? (a.unlockedAt?.toMillis?.() ?? 0) : (a.unlockedAt || 0);
+          const tb = typeof b.unlockedAt === 'object' ? (b.unlockedAt?.toMillis?.() ?? 0) : (b.unlockedAt || 0);
+          return tb - ta;
+        });
+
+        $('unlock-list').innerHTML = `
+          <div class="space-y-3">
+            ${unlocks.map(u => `
+              <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-100 rounded-xl">
+                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm flex-shrink-0 font-bold text-primary">
+                  ${(u.tenantName?.[0] || '?').toUpperCase()}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold text-gray-800 text-sm">${u.tenantName}</div>
+                  <div class="text-xs text-gray-400">${u.tenantEmail}</div>
+                  <div class="text-xs text-gray-400 mt-0.5">🗓 ${formatDate(u.unlockedAt)}${u.isDemo ? ' <span class="text-orange-500 font-semibold">(Demo)</span>' : ''}</div>
+                </div>
+                <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">🔑 Unlocked</span>
+              </div>
+            `).join('')}
+          </div>`;
+      } catch (e) {
+        console.error('Error loading unlocks:', e);
+        $('unlock-list').innerHTML = '<div class="text-gray-400 text-sm">Could not load unlock activity.</div>';
+      }
+    }
+
+    // ── Load landlord details ──────────────────────────────────────────────────
+    async function loadLandlord(landlordId) {
+      try {
+        const snap = await getDoc(doc(db, 'users', landlordId));
+        if (!snap.exists()) {
+          $('p-landlord-name').textContent  = 'Unknown';
+          $('p-landlord-email').textContent = '';
+          $('p-landlord-avatar').textContent = '?';
+          return;
+        }
+        const l = snap.data();
+        $('p-landlord-name').textContent  = l.name  || '—';
+        $('p-landlord-email').textContent = l.email || '';
+        $('p-landlord-id').textContent    = landlordId.substring(0, 14) + '…';
+
+        // Avatar: photo or initial
+        const avatarEl = $('p-landlord-avatar');
+        if (l.profilePhotoUrl) {
+          avatarEl.innerHTML = `<img src="${l.profilePhotoUrl}" class="w-full h-full object-cover" alt="${l.name}"/>`;
+        } else {
+          avatarEl.textContent = (l.name?.[0] || '?').toUpperCase();
+        }
+
+        $('p-landlord-link').href = `users.html`;
+      } catch (e) {
+        $('p-landlord-name').textContent = 'Could not load';
+      }
+    }
+
+    // ── Action buttons ─────────────────────────────────────────────────────────
+    let currentProperty = null;
+
+    function buildActions(p) {
+      const container = $('p-actions');
+      const actions = [];
+
+      if (p.status !== 'approved') {
+        actions.push(`<button onclick="approveProperty()" class="btn px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-xl flex items-center gap-2">✅ Approve</button>`);
+      }
+      if (p.status !== 'rejected') {
+        actions.push(`<button onclick="rejectProperty()" class="btn px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-xl flex items-center gap-2">❌ Reject</button>`);
+      }
+      if (p.isFlagged) {
+        actions.push(`<button onclick="unflagProperty()" class="btn px-5 py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl flex items-center gap-2">🚩 Unflag</button>`);
+      } else {
+        actions.push(`<button onclick="flagProperty()" class="btn px-5 py-2.5 bg-orange-100 hover:bg-orange-200 text-orange-600 text-sm font-semibold rounded-xl flex items-center gap-2">🚩 Flag</button>`);
+      }
+
+      container.innerHTML = actions.join('');
+    }
+
+    window.approveProperty = async function() {
+      if (!currentProperty) return;
+      try {
+        await updateDoc(doc(db, 'properties', currentProperty.id), { status: 'approved', isVerified: true });
+        currentProperty.status     = 'approved';
+        currentProperty.isVerified = true;
+        $('p-status-badge').innerHTML  = statusBadge('approved');
+        $('p-verified-badge').innerHTML = boolBadge(true, '✓ Verified', 'Unverified');
+        $('meta-verified').innerHTML    = boolBadge(true, 'Yes', 'No');
+        buildActions(currentProperty);
+        showToast('✅ Property approved and now live!', 'success');
+      } catch (e) { showToast('Failed to approve property.', 'danger'); }
+    };
+
+    window.rejectProperty = async function() {
+      if (!currentProperty) return;
+      const reason = prompt('Rejection reason (optional):');
+      try {
+        await updateDoc(doc(db, 'properties', currentProperty.id), {
+          status: 'rejected', rejectionReason: reason || '', rejectedAt: Date.now()
+        });
+        currentProperty.status = 'rejected';
+        $('p-status-badge').innerHTML = statusBadge('rejected');
+        buildActions(currentProperty);
+        showToast('❌ Property rejected.', 'danger');
+      } catch (e) { showToast('Failed to reject property.', 'danger'); }
+    };
+
+    window.flagProperty = async function() {
+      if (!currentProperty) return;
+      try {
+        await updateDoc(doc(db, 'properties', currentProperty.id), { isFlagged: true });
+        currentProperty.isFlagged = true;
+        $('meta-flagged').innerHTML = boolBadge(true, '🚩 Yes', 'No');
+        buildActions(currentProperty);
+        showToast('🚩 Property flagged for review.', 'info');
+      } catch (e) { showToast('Failed to flag property.', 'danger'); }
+    };
+
+    window.unflagProperty = async function() {
+      if (!currentProperty) return;
+      try {
+        await updateDoc(doc(db, 'properties', currentProperty.id), { isFlagged: false });
+        currentProperty.isFlagged = false;
+        $('meta-flagged').innerHTML = boolBadge(false, '🚩 Yes', 'No');
+        buildActions(currentProperty);
+        showToast('✅ Property unflagged.', 'success');
+      } catch (e) { showToast('Failed to unflag property.', 'danger'); }
+    };
+
+    window.deleteProperty = async function() {
+      if (!currentProperty) return;
+      if (!confirm(`Permanently delete "${currentProperty.title}"? This cannot be undone.`)) return;
+      try {
+        await deleteDoc(doc(db, 'properties', currentProperty.id));
+        showToast('🗑 Property deleted. Redirecting…', 'info');
+        setTimeout(() => window.location.replace('properties.html'), 1500);
+      } catch (e) { showToast('Failed to delete property.', 'danger'); }
+    };
+
+    // ── Main init ──────────────────────────────────────────────────────────────
+    async function init() {
+      // Read propertyId from URL query string ?id=...
+      const params     = new URLSearchParams(window.location.search);
+      const propertyId = params.get('id');
+
+      if (!propertyId) { showError(); return; }
+
+      try {
+        const snap = await getDoc(doc(db, 'properties', propertyId));
+        if (!snap.exists()) { showError(); return; }
+
+        const p = { id: snap.id, ...snap.data() };
+        currentProperty = p;
+
+        // ── Populate all fields ──────────────────────────────────────────────
+        document.title = `${p.title} — RentOut Admin`;
+
+        $('p-title').textContent       = p.title || 'Untitled Property';
+        $('p-status-badge').innerHTML  = statusBadge(p.status);
+        $('p-verified-badge').innerHTML = p.isVerified
+          ? '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-blue-100 text-blue-700 border-blue-200">✓ Verified</span>'
+          : '';
+        $('p-type-badge').innerHTML    = `<span>${typeIcon(p.propertyType)}</span><span class="capitalize">${p.propertyType || 'Property'}</span>`;
+        $('p-city').textContent        = p.city || '—';
+        $('p-date').textContent        = formatDate(p.createdAt);
+        $('p-id').textContent          = `ID: ${p.id.substring(0, 12)}…`;
+
+        $('p-price').textContent       = formatCurrency(p.price);
+        $('p-deposit').textContent     = p.securityDeposit ? formatCurrency(p.securityDeposit) : '—';
+        $('p-rooms').textContent       = p.rooms      || '—';
+        $('p-bathrooms').textContent   = p.bathrooms  || '—';
+
+        $('p-description').textContent = p.description || 'No description provided.';
+
+        $('p-location-city').textContent    = p.city     || '—';
+        $('p-location-address').textContent = p.location || '—';
+
+        $('p-contact').textContent = p.contactNumber || '—';
+
+        // Metadata panel
+        $('meta-id').textContent        = p.id;
+        $('meta-id').title              = p.id;
+        $('meta-type').textContent      = p.propertyType || '—';
+        $('meta-available').innerHTML   = boolBadge(p.isAvailable !== false, 'Yes', 'No');
+        $('meta-verified').innerHTML    = boolBadge(p.isVerified,  'Yes', 'No');
+        $('meta-flagged').innerHTML     = boolBadge(p.isFlagged,   '🚩 Yes', 'No');
+        $('meta-date').textContent      = formatDate(p.createdAt);
+
+        // Amenities
+        if (p.amenities && p.amenities.length > 0) {
+          $('p-amenities').innerHTML = p.amenities.map(a =>
+            `<span class="amenity-tag">${amenityIcon(a)} ${a}</span>`
+          ).join('');
+        } else {
+          $('amenities-card').classList.add('hidden');
+        }
+
+        // Action buttons
+        buildActions(p);
+
+        // Gallery
+        buildGallery(p);
+
+        // Load async data in parallel
+        await Promise.all([
+          loadLandlord(p.landlordId),
+          loadUnlocks(p.id),
+        ]);
+
+        // Hide skeleton, show content
+        $('skeleton').classList.add('hidden');
+        $('property-body').classList.remove('hidden');
+
+      } catch (e) {
+        console.error('Error loading property:', e);
+        showError();
+      }
+    }
+
+    function showError() {
+      $('skeleton').classList.add('hidden');
+      $('error-state').classList.remove('hidden');
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast   = $('toast');
+      const toastEl = $('toast-msg');
+      const colors  = { success: 'bg-green-600', danger: 'bg-red-600', info: 'bg-gray-800' };
+      toastEl.className = `${colors[type] || 'bg-gray-800'} text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium`;
+      toastEl.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3500);
+    }
+  </script>
+</body>
+</html>

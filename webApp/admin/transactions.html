@@ -163,7 +163,25 @@
       showLoading();
       try {
         const snap = await getDocs(query(collection(db, 'transactions'), orderBy('createdAt', 'desc')));
-        allTx = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        allTx = await Promise.all(snap.docs.map(async d => {
+          const txData = { id: d.id, ...d.data() };
+          
+          // Fetch tenant name if tenantId exists but tenantName is missing
+          if (txData.tenantId && !txData.tenantName) {
+            try {
+              const tenantDoc = await getDoc(doc(db, 'users', txData.tenantId));
+              if (tenantDoc.exists()) {
+                const tenantData = tenantDoc.data();
+                txData.tenantName = tenantData.name || tenantData.email || 'Unknown Tenant';
+                txData.tenantEmail = tenantData.email || '';
+              }
+            } catch (err) {
+              console.error('Error fetching tenant:', err);
+            }
+          }
+          
+          return txData;
+        }));
         updateStats();
         renderTable();
       } catch(e) {
@@ -235,11 +253,17 @@
         <tr class="border-b border-gray-50 hover:bg-gray-50 transition-all fade-in-up">
           <td class="px-6 py-3">${shortId(t.id)}</td>
           <td class="px-6 py-3">
-            <div class="font-medium text-gray-800 text-sm">${t.tenantName || t.tenantId || '—'}</div>
+            ${t.tenantId 
+              ? `<a href="user-detail.html?id=${t.tenantId}" class="font-medium text-primary hover:underline text-sm">${t.tenantName || t.tenantId}</a>`
+              : `<div class="font-medium text-gray-800 text-sm">${t.tenantName || '—'}</div>`
+            }
             <div class="text-xs text-gray-400">${t.tenantEmail || ''}</div>
           </td>
           <td class="px-6 py-3">
-            <div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '—'}</div>
+            ${t.propertyId
+              ? `<a href="property-detail.html?id=${t.propertyId}" class="font-medium text-gray-800 hover:text-primary text-sm">${t.propertyTitle || '—'}</a>`
+              : `<div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '—'}</div>`
+            }
             <div class="text-xs text-gray-400">${t.propertyId ? t.propertyId.substring(0,10)+'...' : ''}</div>
           </td>
           <td class="px-6 py-3 font-bold text-gray-800">$${Number(t.amount || 0).toFixed(2)}</td>

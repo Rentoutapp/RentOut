@@ -46,6 +46,7 @@ fun App() {
         val unlockedIds by tenantViewModel.unlockedPropertyIds.collectAsState()
         val unlockedProps by tenantViewModel.unlockedProperties.collectAsState()
         val unlockState by tenantViewModel.unlockState.collectAsState()
+        val transactions by tenantViewModel.transactions.collectAsState()
         val propertyDraft by propertyViewModel.draft.collectAsState()
         val propertyFilter by propertyViewModel.propertyFilter.collectAsState()
 
@@ -461,6 +462,7 @@ fun App() {
                     propertyViewModel.loadTenantPropertiesFromFirestore()
                     currentUser?.uid?.let { uid ->
                         tenantViewModel.loadUnlockedProperties(uid)
+                        tenantViewModel.loadTransactions(uid)
                     }
                 }
                 TenantHomeScreen(
@@ -543,9 +545,17 @@ fun App() {
 
             // -- TENANT PROFILE ------------------------------------------------
             composable(NavRoutes.TENANT_PROFILE) {
+                // Ensure transactions are loaded when navigating to profile screen
+                LaunchedEffect(currentUser?.uid) {
+                    currentUser?.uid?.let { uid ->
+                        println("🔄 TENANT_PROFILE: Starting transaction listener for uid=$uid")
+                        tenantViewModel.loadTransactions(uid)
+                    }
+                }
                 TenantProfileScreen(
                     user = currentUser ?: User(),
                     unlockedCount = unlockedProps.size,
+                    transactions = transactions,
                     onUnlockedClick = { navController.navigate(NavRoutes.UNLOCKED_PROPERTIES) },
                     onBack = { navController.popBackStack() },
                     onLogout = {

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import org.example.project.data.model.Property
+import org.example.project.data.model.Transaction
 import org.example.project.data.model.Unlock
 
 sealed class UnlockState {
@@ -34,8 +35,12 @@ class TenantViewModel : ViewModel() {
     private val _unlockState = MutableStateFlow<UnlockState>(UnlockState.Idle)
     val unlockState: StateFlow<UnlockState> = _unlockState.asStateFlow()
 
+    private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
+    val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
+
     // ── Real-time listener job for unlocks ────────────────────────────────────
     private var unlocksListenerJob: Job? = null
+    private var transactionsListenerJob: Job? = null
 
     // ── Load unlocks for this tenant — real-time Firestore listener ───────────
     // Whenever a Cloud Function writes a new unlock doc (after payment), this
@@ -73,10 +78,45 @@ class TenantViewModel : ViewModel() {
         }
     }
 
+    // ── Load payment transactions for this tenant — real-time listener ───────
+    fun loadTransactions(tenantId: String) {
+        println("🔍 TenantViewModel: loadTransactions called with tenantId=$tenantId")
+        transactionsListenerJob?.cancel()
+        transactionsListenerJob = viewModelScope.launch {
+            Firebase.firestore
+                .collection("transactions")
+                .where { "tenantId" equalTo tenantId }
+                .snapshots
+                .catch { e -> 
+                    println("❌ TenantViewModel: Error loading transactions: ${e.message}")
+                    e.printStackTrace()
+                }
+                .collect { snapshot ->
+                    println("📊 TenantViewModel: Received ${snapshot.documents.size} transaction documents")
+                    val txns = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            // Parse the transaction data and set the document ID
+                            val transaction = doc.data(Transaction.serializer()).copy(id = doc.id)
+                            println("✅ Transaction: ${transaction.id} - $${transaction.amount} - ${transaction.status}")
+                            transaction
+                        } catch (e: Exception) { 
+                            println("❌ Failed to parse transaction doc ${doc.id}: ${e.message}")
+                            e.printStackTrace()
+                            null 
+                        }
+                    }.sortedByDescending { it.createdAt }
+                    println("💰 TenantViewModel: Setting ${txns.size} transactions in state")
+                    _transactions.value = txns
+                }
+        }
+    }
+
     // ── Stop the unlocks listener (call on logout) ────────────────────────────
     fun stopListeners() {
         unlocksListenerJob?.cancel()
         unlocksListenerJob = null
+        transactionsListenerJob?.cancel()
+        transactionsListenerJob = null
     }
 
     // ── Check if a single property is unlocked ────────────────────────────────

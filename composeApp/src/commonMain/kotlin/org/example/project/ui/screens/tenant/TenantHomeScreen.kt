@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,11 +27,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import org.example.project.data.model.Property
 import org.example.project.data.model.User
 import org.example.project.data.model.ZIMBABWE_TOWNS
@@ -42,11 +46,24 @@ import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+
+// ── Tenant dashboard colour tokens — inspired by the property detail screenshot
+// Deep navy header, warm cream background, coral accent, slate greys for text.
+private val TenantNavy       = Color(0xFF0F2A4A)   // deep navy — header bg
+private val TenantNavyLight  = Color(0xFF1A3F6F)   // lighter navy — gradient end
+private val TenantCream      = Color(0xFFF5F0EB)   // warm cream — page background
+private val TenantCoral      = Color(0xFFE8724A)   // warm coral — CTA / accents
+private val TenantAmber      = Color(0xFFF5A623)   // amber — unlocked badge / FAB
+private val TenantCardBg     = Color(0xFFFFFFFF)   // white cards on cream bg
+private val TenantSlate      = Color(0xFF4A5568)   // body text on cream
+private val TenantSlateLight = Color(0xFF718096)   // secondary text
+private val TenantMint       = Color(0xFF38B2AC)   // mint teal — stat accent
+private val TenantSage       = Color(0xFF68D391)   // sage green — available badge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,8 +82,7 @@ fun TenantHomeScreen(
     onUnlockedClick: () -> Unit,
     onProfileClick: () -> Unit,
     onLogout: () -> Unit,
-    applyFilters: (List<Property>, String, String, PropertyFilter) -> List<Property> = { props, query, city, filter ->
-        // Fallback local implementation if not provided
+    applyFilters: (List<Property>, String, String, PropertyFilter) -> List<Property> = { props, query, city, _ ->
         props.filter { p ->
             (city.isBlank() || city == "All" || p.city.equals(city, ignoreCase = true)) &&
             (query.isBlank() || p.title.contains(query, ignoreCase = true))
@@ -81,52 +97,69 @@ fun TenantHomeScreen(
         applyFilters(properties, searchQuery, selectedCity, activeFilter)
     }
 
-    var showTownPicker by remember { mutableStateOf(false) }
+    // Entrance animation
+    var headerVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { headerVisible = true }
+
     var showFilterSheet by remember { mutableStateOf(false) }
 
-    // Town picker dialog
-    if (showTownPicker) {
-        TenantTownPickerDialog(
-            selectedTown = selectedCity,
-            onSelect = { town -> onCityChange(town); showTownPicker = false },
-            onSelectAll = { onCityChange("All"); showTownPicker = false },
-            onDismiss = { showTownPicker = false }
-        )
+    // Animated time-of-day icon
+    val tod = remember {
+        val h = try { java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) } catch (_: Exception) { 10 }
+        when (h) {
+            in 5..6   -> Triple(Icons.Default.WbTwilight, Color(0xFFFFB347), "Good morning")
+            in 7..11  -> Triple(Icons.Default.WbSunny, Color(0xFFFFD700), "Good morning")
+            in 12..16 -> Triple(Icons.Default.LightMode, Color(0xFFFF9500), "Good afternoon")
+            in 17..19 -> Triple(Icons.Default.WbTwilight, Color(0xFFFF6B6B), "Good evening")
+            else      -> Triple(Icons.Default.NightlightRound, Color(0xFFB0C4DE), "Good night")
+        }
     }
+    val infiniteTransition = rememberInfiniteTransition(label = "icon_pulse")
+    val iconScale by infiniteTransition.animateFloat(
+        initialValue = 1f, targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "icon_scale"
+    )
+    val iconRotation by infiniteTransition.animateFloat(
+        initialValue = -8f, targetValue = 8f,
+        animationSpec = infiniteRepeatable(tween(2000, easing = EaseInOutSine), RepeatMode.Reverse),
+        label = "icon_rot"
+    )
 
-    // Filter bottom sheet
     if (showFilterSheet) {
         PropertyFilterSheet(
             current = activeFilter,
+            selectedCity = selectedCity,
             onApply = { newFilter -> onFilterChange(newFilter); showFilterSheet = false },
+            onApplyCity = { city -> onCityChange(city) },
             onDismiss = { showFilterSheet = false },
-            onReset = { onClearFilter(); showFilterSheet = false }
+            onReset = { onClearFilter(); onCityChange("All"); showFilterSheet = false }
         )
     }
 
     Scaffold(
+        containerColor = TenantCream,
         floatingActionButton = {
             AnimatedVisibility(
                 visible = isFabVisible,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit  = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                val isPressed by interactionSource.collectIsPressedAsState()
+                val fabInteraction = remember { MutableInteractionSource() }
+                val isFabPressed by fabInteraction.collectIsPressedAsState()
                 val fabScale by animateFloatAsState(
-                    targetValue = if (isPressed) 0.88f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "fab_scale"
+                    if (isFabPressed) 0.88f else 1f,
+                    spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "fab"
                 )
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = onUnlockedClick,
-                    containerColor = RentOutColors.Secondary,
+                    icon = { Icon(Icons.Default.Key, null) },
+                    text = { Text("My Unlocked", fontWeight = FontWeight.Bold) },
+                    containerColor = TenantAmber,
                     contentColor = Color.White,
                     modifier = Modifier.scale(fabScale),
-                    interactionSource = interactionSource
-                ) {
-                    Icon(Icons.Default.Key, "My Unlocked Properties")
-                }
+                    interactionSource = fabInteraction
+                )
             }
         }
     ) { padding ->
@@ -134,217 +167,232 @@ fun TenantHomeScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 100.dp)
+                .background(TenantCream),
+            contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 100.dp)
         ) {
-            // Header
+            // ── Hero header ────────────────────────────────────────────────────
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(
-                            Brush.verticalGradient(
-                                listOf(RentOutColors.Primary, RentOutColors.Primary.copy(alpha = 0f)),
-                                endY = 400f
+                            Brush.linearGradient(
+                                listOf(TenantNavy, TenantNavyLight)
                             )
                         )
                         .statusBarsPadding()
-                        .padding(20.dp)
+                        .padding(horizontal = 20.dp)
+                        .padding(top = 6.dp, bottom = 18.dp)
                 ) {
                     Column {
+                        // ── Row 1: greeting left | avatar + bell right ────────
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val (greeting, emoji) = rememberGreeting(user.name.ifBlank { "Tenant" })
-                            Column {
-                                Text("$emoji  $greeting", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
-                                Text("Find Your Perfect Home 🔑", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            // Greeting + name column
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                AnimatedVisibility(
+                                    visible = headerVisible,
+                                    enter = fadeIn(tween(400)) + slideInHorizontally(tween(400)) { -30 }
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .offset(y = 3.dp)
+                                                .scale(iconScale)
+                                                .graphicsLayer { rotationZ = iconRotation }
+                                                .background(
+                                                    Brush.radialGradient(
+                                                        listOf(tod.second.copy(alpha = 0.4f), Color.Transparent)
+                                                    ),
+                                                    CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(tod.first, null, tint = tod.second, modifier = Modifier.size(20.dp))
+                                        }
+                                        Text(tod.third, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(0.88f))
+                                    }
+                                }
+                                AnimatedVisibility(
+                                    visible = headerVisible,
+                                    enter = fadeIn(tween(500, delayMillis = 120)) + slideInVertically(tween(500, delayMillis = 120)) { 20 }
+                                ) {
+                                    val firstName = user.name.ifBlank { "Tenant" }.split(" ").firstOrNull() ?: "Tenant"
+                                    Text(
+                                        firstName,
+                                        fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = Color.White,
+                                        modifier = Modifier.padding(start = 36.dp)
+                                    )
+                                }
+                                AnimatedVisibility(
+                                    visible = headerVisible,
+                                    enter = fadeIn(tween(500, delayMillis = 220))
+                                ) {
+                                    Text(
+                                        "Find your perfect home 🏠",
+                                        fontSize = 12.sp, color = Color.White.copy(0.65f),
+                                        modifier = Modifier.padding(start = 36.dp)
+                                    )
+                                }
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+                            // Right: bell + avatar
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Box(
-                                    modifier = Modifier.size(42.dp).clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.2f))
-                                        .noRippleClickable(onClick = onProfileClick),
+                                    modifier = Modifier.size(36.dp).clip(CircleShape)
+                                        .background(Color.White.copy(0.15f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(20.dp))
                                 }
+                                // Profile avatar — rounded rect, image or initials
+                                val profileInteraction = remember { MutableInteractionSource() }
+                                val isProfilePressed by profileInteraction.collectIsPressedAsState()
+                                val profileScale by animateFloatAsState(
+                                    if (isProfilePressed) 0.90f else 1f,
+                                    spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "pscale"
+                                )
                                 Box(
-                                    modifier = Modifier.size(42.dp).clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.2f))
-                                        .noRippleClickable(onClick = onLogout),
+                                    modifier = Modifier
+                                        .width(56.dp).height(64.dp)
+                                        .scale(profileScale)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(Brush.linearGradient(listOf(TenantCoral, TenantAmber)))
+                                        .clickable(interactionSource = profileInteraction, indication = null) { onProfileClick() },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Logout, "Logout", tint = Color.White, modifier = Modifier.size(22.dp))
+                                    if (user.profilePhotoUrl.isNotBlank()) {
+                                        AsyncImage(
+                                            model = user.profilePhotoUrl,
+                                            contentDescription = "Profile",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        val initials = user.name.split(" ").filter { it.isNotBlank() }
+                                            .take(2).joinToString("") { it.first().uppercaseChar().toString() }.ifBlank { "T" }
+                                        Text(initials, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                                    }
                                 }
+                            }
+                        }
+
+                        Spacer(Modifier.height(20.dp))
+
+                        // ── Stats strip ───────────────────────────────────────
+                        AnimatedVisibility(
+                            visible = headerVisible,
+                            enter = fadeIn(tween(500, delayMillis = 300)) + slideInVertically(tween(500, delayMillis = 300)) { 24 }
+                        ) {
+                            val total = properties.size
+                            val available = properties.count { it.isAvailable }
+                            val unlocked = unlockedPropertyIds.size
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White.copy(0.10f))
+                                    .padding(vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TenantStatPill(total.toString(), "Listings", TenantMint)
+                                Box(modifier = Modifier.width(1.dp).height(28.dp).background(Color.White.copy(0.25f)))
+                                TenantStatPill(available.toString(), "Available", TenantSage)
+                                Box(modifier = Modifier.width(1.dp).height(28.dp).background(Color.White.copy(0.25f)))
+                                TenantStatPill(unlocked.toString(), "Unlocked", TenantAmber)
                             }
                         }
 
                         Spacer(Modifier.height(16.dp))
 
-                        // Search bar + filter button row
+                        // ── Search bar + filter button ─────────────────────
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextField(
-                                value = searchQuery,
-                                onValueChange = onSearchQueryChange,
-                                placeholder = {
-                                    Text(
-                                        "Search by city, location, name...",
-                                        color = Color.White.copy(alpha = 0.6f)
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Default.Search, null, tint = Color.White.copy(alpha = 0.8f))
-                                },
-                                trailingIcon = if (searchQuery.isNotEmpty()) ({
-                                    IconButton(onClick = { onSearchQueryChange("") }) {
-                                        Icon(Icons.Default.Clear, null, tint = Color.White.copy(alpha = 0.8f))
-                                    }
-                                }) else null,
+                            // Search field — cream background on navy
+                            Box(
                                 modifier = Modifier
                                     .weight(1f)
+                                    .shadow(0.dp, RoundedCornerShape(16.dp))
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.White.copy(alpha = 0.15f)),
-                                shape = RoundedCornerShape(16.dp),
-                                singleLine = true
-                            )
-
-                            // Filter button with active badge
+                                    .background(TenantCream)
+                            ) {
+                                OutlinedTextField(
+                                    value = searchQuery,
+                                    onValueChange = onSearchQueryChange,
+                                    placeholder = { Text("Search properties...", color = TenantSlateLight, fontSize = 14.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Search, null, tint = TenantCoral, modifier = Modifier.size(20.dp)) },
+                                    trailingIcon = if (searchQuery.isNotEmpty()) ({
+                                        IconButton(onClick = { onSearchQueryChange("") }) {
+                                            Icon(Icons.Default.Close, null, tint = TenantSlateLight, modifier = Modifier.size(18.dp))
+                                        }
+                                    }) else null,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(16.dp),
+                                    singleLine = true
+                                )
+                            }
+                            // Filter button — FilterList is the best icon for filtering
                             Box {
                                 Box(
                                     modifier = Modifier
                                         .size(52.dp)
                                         .shadow(4.dp, RoundedCornerShape(14.dp))
                                         .clip(RoundedCornerShape(14.dp))
-                                        .background(
-                                            if (activeFilter.isActive)
-                                                RentOutColors.Secondary
-                                            else
-                                                Color.White.copy(alpha = 0.18f)
-                                        )
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) { showFilterSheet = true },
+                                        .background(if (activeFilter.isActive) TenantCoral else TenantCream.copy(0.20f))
+                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showFilterSheet = true },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        Icons.Default.Tune,
-                                        contentDescription = "Filter",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Icon(Icons.Default.FilterList, "Filter", tint = if (activeFilter.isActive) Color.White else TenantCream, modifier = Modifier.size(24.dp))
                                 }
-                                // Active filter count badge
                                 if (activeFilter.activeCount > 0) {
                                     Box(
-                                        modifier = Modifier
-                                            .size(18.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White)
-                                            .align(Alignment.TopEnd)
-                                            .offset(x = 4.dp, y = (-4).dp),
+                                        modifier = Modifier.size(18.dp).clip(CircleShape)
+                                            .background(TenantAmber)
+                                            .align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            "${activeFilter.activeCount}",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = RentOutColors.Secondary
-                                        )
+                                        Text("${activeFilter.activeCount}", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                                     }
                                 }
                             }
                         }
 
-                        // Active filter chips row
-                        if (activeFilter.isActive) {
+                        // ── Active filter chips ───────────────────────────────
+                        val isAllTowns = selectedCity.isBlank() || selectedCity == "All"
+                        if (activeFilter.isActive || !isAllTowns) {
                             Spacer(Modifier.height(10.dp))
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                contentPadding = PaddingValues(end = 8.dp)
-                            ) {
-                                // Price chip
-                                if (activeFilter.minPrice != null || activeFilter.maxPrice != null) {
-                                    item {
-                                        ActiveFilterChip(
-                                            label = buildString {
-                                                append("$")
-                                                append(activeFilter.minPrice?.toInt() ?: 0)
-                                                append(" – $")
-                                                append(activeFilter.maxPrice?.toInt()?.toString() ?: "∞")
-                                            },
-                                            onRemove = { onFilterChange(activeFilter.copy(minPrice = null, maxPrice = null)) }
-                                        )
-                                    }
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 8.dp)) {
+                                if (!isAllTowns) item {
+                                    ActiveFilterChip("📍 $selectedCity", onRemove = { onCityChange("All") })
                                 }
-                                // Property type chips
-                                activeFilter.propertyTypes.forEach { type ->
-                                    item {
-                                        ActiveFilterChip(
-                                            label = type.replaceFirstChar { it.uppercase() },
-                                            onRemove = { onFilterChange(activeFilter.copy(propertyTypes = activeFilter.propertyTypes - type)) }
-                                        )
-                                    }
+                                if (activeFilter.minPrice != null || activeFilter.maxPrice != null) item {
+                                    ActiveFilterChip("$${activeFilter.minPrice?.toInt() ?: 0}–$${activeFilter.maxPrice?.toInt()?.toString() ?: "∞"}", onRemove = { onFilterChange(activeFilter.copy(minPrice = null, maxPrice = null)) })
                                 }
-                                // Bedrooms chip
-                                if (activeFilter.minBedrooms != null) {
-                                    item {
-                                        val label = if (activeFilter.maxBedrooms != null)
-                                            "${activeFilter.minBedrooms}–${activeFilter.maxBedrooms} beds"
-                                        else "${activeFilter.minBedrooms}+ beds"
-                                        ActiveFilterChip(label = label, onRemove = { onFilterChange(activeFilter.copy(minBedrooms = null, maxBedrooms = null)) })
-                                    }
+                                activeFilter.propertyTypes.forEach { type -> item { ActiveFilterChip(type.replaceFirstChar { it.uppercase() }, onRemove = { onFilterChange(activeFilter.copy(propertyTypes = activeFilter.propertyTypes - type)) }) } }
+                                if (activeFilter.minBedrooms != null) item {
+                                    ActiveFilterChip(if (activeFilter.maxBedrooms != null) "${activeFilter.minBedrooms}–${activeFilter.maxBedrooms} beds" else "${activeFilter.minBedrooms}+ beds", onRemove = { onFilterChange(activeFilter.copy(minBedrooms = null, maxBedrooms = null)) })
                                 }
-                                // Bathrooms chip
-                                if (activeFilter.minBathrooms != null) {
-                                    item {
-                                        ActiveFilterChip(
-                                            label = "${activeFilter.minBathrooms}+ baths",
-                                            onRemove = { onFilterChange(activeFilter.copy(minBathrooms = null)) }
-                                        )
-                                    }
-                                }
-                                // Available only
-                                if (activeFilter.availableOnly) {
-                                    item { ActiveFilterChip("Available Only", onRemove = { onFilterChange(activeFilter.copy(availableOnly = false)) }) }
-                                }
-                                // Verified only
-                                if (activeFilter.verifiedOnly) {
-                                    item { ActiveFilterChip("Verified Only", onRemove = { onFilterChange(activeFilter.copy(verifiedOnly = false)) }) }
-                                }
-                                // Amenity chips
-                                activeFilter.requiredAmenities.forEach { amenity ->
-                                    item {
-                                        ActiveFilterChip(
-                                            label = amenity,
-                                            onRemove = { onFilterChange(activeFilter.copy(requiredAmenities = activeFilter.requiredAmenities - amenity)) }
-                                        )
-                                    }
-                                }
-                                // Sort chip
-                                if (activeFilter.sortBy != SortOption.NEWEST) {
-                                    item { ActiveFilterChip("Sort: ${activeFilter.sortBy.label}", onRemove = { onFilterChange(activeFilter.copy(sortBy = SortOption.NEWEST)) }) }
-                                }
-                                // Clear all chip
+                                if (activeFilter.minBathrooms != null) item { ActiveFilterChip("${activeFilter.minBathrooms}+ baths", onRemove = { onFilterChange(activeFilter.copy(minBathrooms = null)) }) }
+                                if (activeFilter.availableOnly) item { ActiveFilterChip("Available Only", onRemove = { onFilterChange(activeFilter.copy(availableOnly = false)) }) }
+                                if (activeFilter.verifiedOnly) item { ActiveFilterChip("Verified Only", onRemove = { onFilterChange(activeFilter.copy(verifiedOnly = false)) }) }
+                                activeFilter.requiredAmenities.forEach { a -> item { ActiveFilterChip(a, onRemove = { onFilterChange(activeFilter.copy(requiredAmenities = activeFilter.requiredAmenities - a)) }) } }
+                                if (activeFilter.sortBy != SortOption.NEWEST) item { ActiveFilterChip("Sort: ${activeFilter.sortBy.label}", onRemove = { onFilterChange(activeFilter.copy(sortBy = SortOption.NEWEST)) }) }
                                 item {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(20.dp))
-                                            .background(Color.White.copy(alpha = 0.25f))
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null
-                                            ) { onClearFilter() }
-                                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
+                                    Box(modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(0.22f)).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onClearFilter() }.padding(horizontal = 12.dp, vertical = 6.dp)) {
                                         Text("Clear All", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
                                     }
                                 }
@@ -354,146 +402,10 @@ fun TenantHomeScreen(
                 }
             }
 
-            // Town picker + results bar
+            // ── Results bar ────────────────────────────────────────────────────
             item {
-                Spacer(Modifier.height(8.dp))
-
-                // ── Town picker tappable field ────────────────────────────────
                 val isAllTowns = selectedCity.isBlank() || selectedCity == "All"
-                val suburbCount = if (!isAllTowns) suburbsForTown(selectedCity).size else 0
-
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Town picker button
-                    val interactionSource = remember { MutableInteractionSource() }
-                    val isPressed by interactionSource.collectIsPressedAsState()
-                    val scale by animateFloatAsState(
-                        targetValue = if (isPressed) 0.96f else 1f,
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                        label = "town_btn_scale"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .scale(scale)
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(
-                                width = if (!isAllTowns) 2.dp else 1.dp,
-                                color = if (!isAllTowns) RentOutColors.Primary
-                                        else MaterialTheme.colorScheme.outline,
-                                shape = RoundedCornerShape(14.dp)
-                            )
-                            .background(
-                                if (!isAllTowns) RentOutColors.Primary.copy(alpha = 0.06f)
-                                else MaterialTheme.colorScheme.surface
-                            )
-                            .clickable(
-                                interactionSource = interactionSource,
-                                indication = null
-                            ) { showTownPicker = true }
-                            .padding(horizontal = 14.dp, vertical = 12.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                Icons.Default.LocationCity,
-                                contentDescription = null,
-                                tint = if (!isAllTowns) RentOutColors.Primary
-                                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Town / City",
-                                    fontSize = 10.sp,
-                                    color = if (!isAllTowns) RentOutColors.Primary
-                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = if (isAllTowns) "All Towns" else selectedCity,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (!isAllTowns) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (!isAllTowns) MaterialTheme.colorScheme.onSurface
-                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.6f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Icon(
-                                Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = if (!isAllTowns) RentOutColors.Primary
-                                       else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-
-                    // "All" clear button — only visible when a town is selected
-                    AnimatedVisibility(
-                        visible = !isAllTowns,
-                        enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                        exit  = scaleOut() + fadeOut()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.errorContainer)
-                                .clickable { onCityChange("All") },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Clear town filter",
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Suburb count hint when a town is selected and has known suburbs
-                AnimatedVisibility(
-                    visible = !isAllTowns && suburbCount > 0,
-                    enter = fadeIn() + expandVertically(),
-                    exit  = fadeOut() + shrinkVertically()
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(RentOutColors.IconTeal.copy(alpha = 0.08f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Map, null,
-                            tint = RentOutColors.IconTeal,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Showing properties in $selectedCity · $suburbCount suburbs covered",
-                            fontSize = 11.sp,
-                            color = RentOutColors.IconTeal,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                // Results count row
+                Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -501,42 +413,40 @@ fun TenantHomeScreen(
                 ) {
                     Text(
                         buildString {
-                            append("${filtered.size} ${if (filtered.size == 1) "property" else "properties"} found")
+                            append("${filtered.size} ${if (filtered.size == 1) "property" else "properties"}")
                             if (!isAllTowns) append(" in $selectedCity")
-                            if (activeFilter.isActive) append(" · ${activeFilter.activeCount} filter${if (activeFilter.activeCount > 1) "s" else ""} active")
+                            if (activeFilter.isActive) append(" · ${activeFilter.activeCount} filter${if (activeFilter.activeCount > 1) "s" else ""}")
                         },
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TenantSlate
                     )
                     if (filtered.isNotEmpty()) {
-                        Text(
-                            "✓ Verified",
-                            fontSize = 12.sp, color = RentOutColors.StatusApproved,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(Icons.Default.CheckCircle, null, tint = TenantSage, modifier = Modifier.size(14.dp))
+                            Text("Verified", fontSize = 12.sp, color = TenantSage, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
             }
 
             when {
-                propertyListState is PropertyListState.Loading -> item { FullScreenLoader("Finding properties...") }
+                propertyListState is PropertyListState.Loading -> item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            CircularProgressIndicator(color = TenantCoral, strokeWidth = 3.dp, modifier = Modifier.size(42.dp))
+                            Text("Finding properties...", fontSize = 14.sp, color = TenantSlateLight, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
                 filtered.isEmpty() -> item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(48.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🏘️", fontSize = 64.sp)
                         Spacer(Modifier.height(16.dp))
-                        Text("No properties found", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Try adjusting your search or filters", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                        Text("No properties found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TenantSlate)
+                        Text("Try adjusting your search or filters", color = TenantSlateLight, fontSize = 14.sp)
                         if (searchQuery.isNotEmpty() || selectedCity != "All" || activeFilter.isActive) {
                             Spacer(Modifier.height(16.dp))
-                            RentOutSecondaryButton("Clear All Filters", onClick = {
-                                onSearchQueryChange("")
-                                onCityChange("All")
-                                onClearFilter()
-                            })
+                            RentOutSecondaryButton("Clear All Filters", onClick = { onSearchQueryChange(""); onCityChange("All"); onClearFilter() })
                         }
                     }
                 }
@@ -865,6 +775,14 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = this.cli
     onClick = onClick
 )
 
+@Composable
+private fun TenantStatPill(value: String, label: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = color)
+        Text(label, fontSize = 11.sp, color = Color.White.copy(0.75f), fontWeight = FontWeight.Medium)
+    }
+}
+
 // ── Active filter chip (dismissible pill shown below search bar) ──────────────
 @Composable
 private fun ActiveFilterChip(label: String, onRemove: () -> Unit) {
@@ -891,12 +809,15 @@ private fun ActiveFilterChip(label: String, onRemove: () -> Unit) {
 @Composable
 private fun PropertyFilterSheet(
     current: PropertyFilter,
+    selectedCity: String,
     onApply: (PropertyFilter) -> Unit,
+    onApplyCity: (String) -> Unit,
     onDismiss: () -> Unit,
     onReset: () -> Unit
 ) {
     // Local draft — user can cancel without affecting the active filter
     var draft by remember { mutableStateOf(current) }
+    var draftCity by remember { mutableStateOf(selectedCity) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -919,7 +840,7 @@ private fun PropertyFilterSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        Brush.horizontalGradient(listOf(RentOutColors.Primary, RentOutColors.PrimaryLight))
+                        Brush.horizontalGradient(listOf(TenantNavy, TenantNavyLight))
                     )
                     .padding(horizontal = 20.dp, vertical = 18.dp)
             ) {
@@ -952,6 +873,50 @@ private fun PropertyFilterSheet(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
+                // ── 0. Town / City ────────────────────────────────────────────
+                FilterSection(title = "Town / City", icon = Icons.Default.LocationCity) {
+                    val towns = listOf("All") + org.example.project.data.model.ZIMBABWE_TOWNS.map { it.name }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // "All Towns" chip
+                        val isAll = draftCity.isBlank() || draftCity == "All"
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                .background(if (isAll) RentOutColors.Primary.copy(0.10f) else MaterialTheme.colorScheme.surfaceVariant)
+                                .border(if (isAll) 1.5.dp else 0.dp, if (isAll) RentOutColors.Primary else Color.Transparent, RoundedCornerShape(12.dp))
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { draftCity = "All" }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.Public, null, tint = if (isAll) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                            Text("All Towns", fontSize = 14.sp, fontWeight = if (isAll) FontWeight.Bold else FontWeight.Normal, color = if (isAll) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                            if (isAll) Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+                        }
+                        // Town chips scrollable row
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(org.example.project.data.model.ZIMBABWE_TOWNS) { town ->
+                                val isSelected = draftCity == town.name
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant)
+                                        .border(if (isSelected) 0.dp else 0.dp, Color.Transparent, RoundedCornerShape(10.dp))
+                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { draftCity = town.name }
+                                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        town.name,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
                 // ── 1. Sort By ────────────────────────────────────────────────
                 FilterSection(title = "Sort By", icon = Icons.Default.Sort) {
@@ -1197,7 +1162,7 @@ private fun PropertyFilterSheet(
                     .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
                 Button(
-                    onClick = { onApply(draft) },
+                    onClick = { onApply(draft); onApplyCity(draftCity) },
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary)

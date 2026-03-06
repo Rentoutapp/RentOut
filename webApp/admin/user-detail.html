@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Details — RentOut Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { --primary: #6C63FF; }
+    .bg-primary { background-color: var(--primary); }
+    .text-primary { color: var(--primary); }
+    .border-primary { border-color: var(--primary); }
+    .spinner { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in-up { animation: fadeUp 0.3s ease both; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    .slide-in { animation: slideIn 0.4s ease both; }
+    @keyframes slideIn { from { opacity:0; transform:translateX(-20px); } to { opacity:1; transform:none; } }
+    .stat-card { transition: all 0.3s ease; }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+    .info-row { transition: background 0.2s ease; }
+    .info-row:hover { background: rgba(108, 99, 255, 0.05); }
+    .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans">
+
+  <!-- Auth overlay -->
+  <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:#1B4FFF;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+    <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Loading user details…</span>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-30 flex flex-col">
+    <div class="p-6 border-b border-gray-100">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-lg">R</div>
+        <div>
+          <div class="font-bold text-gray-800">RentOut</div>
+          <div class="text-xs text-gray-400">Admin Dashboard</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">📊 Dashboard</a>
+      <a href="properties.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">🏠 Properties</a>
+      <a href="users.html" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 text-primary font-semibold">👥 Users</a>
+      <a href="transactions.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">💳 Transactions</a>
+    </nav>
+    <div class="p-4 border-t border-gray-100">
+      <button onclick="auth.signOut(); window.location.replace('index.html');" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 font-medium transition-colors">
+        🚪 Sign Out
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="ml-64 p-8">
+    <!-- Back Button -->
+    <div class="mb-6">
+      <a href="users.html" class="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm hover:shadow-md transition-all text-gray-700 font-medium">
+        <span>←</span> Back to Users
+      </a>
+    </div>
+
+    <!-- User Profile Card -->
+    <div class="bg-white rounded-2xl shadow-lg overflow-hidden mb-6 slide-in">
+      <!-- Header with gradient -->
+      <div class="bg-gradient-to-r from-purple-600 to-blue-600 p-8 text-white relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
+        <div class="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-10 rounded-full -ml-24 -mb-24"></div>
+        
+        <div class="relative flex items-start gap-6">
+          <div id="user-avatar" class="w-24 h-24 rounded-2xl bg-white bg-opacity-20 backdrop-blur flex items-center justify-center text-3xl font-bold border-4 border-white border-opacity-30"></div>
+          <div class="flex-1">
+            <h1 id="user-name" class="text-3xl font-bold mb-2">—</h1>
+            <p id="user-email" class="text-white text-opacity-90 mb-3">—</p>
+            <div class="flex gap-3">
+              <span id="user-role-badge" class="px-3 py-1.5 rounded-lg bg-white bg-opacity-20 backdrop-blur text-sm font-semibold"></span>
+              <span id="user-status-badge" class="px-3 py-1.5 rounded-lg bg-white bg-opacity-20 backdrop-blur text-sm font-semibold"></span>
+            </div>
+          </div>
+          <div id="user-actions" class="flex gap-2"></div>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div id="stats-grid" class="grid grid-cols-4 gap-6 p-8 border-b border-gray-100">
+        <!-- Stats will be inserted here -->
+      </div>
+
+      <!-- Information Sections -->
+      <div class="p-8">
+        <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+          <span class="text-2xl">📋</span> User Information
+        </h2>
+        <div class="space-y-1 bg-gray-50 rounded-xl p-1">
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium">User ID</span>
+            <span id="info-uid" class="text-gray-800 font-mono text-sm">—</span>
+          </div>
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium">Phone Number</span>
+            <span id="info-phone" class="text-gray-800">—</span>
+          </div>
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium">Role</span>
+            <span id="info-role" class="text-gray-800 capitalize">—</span>
+          </div>
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium">Account Status</span>
+            <span id="info-status" class="text-gray-800 capitalize">—</span>
+          </div>
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium">Member Since</span>
+            <span id="info-created" class="text-gray-800">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Properties Section (for landlords) -->
+    <div id="properties-section" class="hidden bg-white rounded-2xl shadow-lg p-8 mb-6 fade-in-up">
+      <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="text-2xl">🏠</span> Properties
+      </h2>
+      <div id="properties-list" class="space-y-4"></div>
+    </div>
+
+    <!-- Unlocks Section (for tenants) -->
+    <div id="unlocks-section" class="hidden bg-white rounded-2xl shadow-lg p-8 mb-6 fade-in-up">
+      <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="text-2xl">🔓</span> Unlocked Properties
+      </h2>
+      <div id="unlocks-list" class="space-y-4"></div>
+    </div>
+
+    <!-- Transactions Section -->
+    <div id="transactions-section" class="bg-white rounded-2xl shadow-lg p-8 fade-in-up">
+      <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+        <span class="text-2xl">💳</span> Transaction History
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr class="text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th class="px-6 py-3 rounded-tl-xl">Transaction ID</th>
+              <th class="px-6 py-3">Property</th>
+              <th class="px-6 py-3">Amount</th>
+              <th class="px-6 py-3">Date</th>
+              <th class="px-6 py-3 rounded-tr-xl">Status</th>
+            </tr>
+          </thead>
+          <tbody id="transactions-table">
+            <tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">Loading transactions...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="hidden fixed bottom-8 right-8 z-50">
+    <div id="toast-msg" class="bg-gray-800 text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium"></div>
+  </div>
+
+  <!-- Firebase & Logic -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, doc, getDoc, getDocs, collection, query, where, orderBy, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
+      authDomain:        "rentout-12239.firebaseapp.com",
+      databaseURL:       "https://rentout-12239-default-rtdb.firebaseio.com",
+      projectId:         "rentout-12239",
+      storageBucket:     "rentout-12239.appspot.com",
+      messagingSenderId: "740381855033",
+      appId:             "1:740381855033:web:7c5c4db8a5c0e0f0e3b3e3"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    window.auth = auth;
+
+    const SESSION_KEY = 'rentout_admin_verified';
+    let currentUser = null;
+
+    // Get user ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('id');
+
+    if (!userId) {
+      alert('No user ID provided');
+      window.location.replace('users.html');
+    }
+
+    // Auth check
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        sessionStorage.removeItem(SESSION_KEY);
+        window.location.replace('index.html');
+        return;
+      }
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      if (!userSnap.exists() || userSnap.data().role !== 'admin' || userSnap.data().status !== 'active') {
+        await auth.signOut();
+        sessionStorage.removeItem(SESSION_KEY);
+        alert('Access denied. Admin privileges required.');
+        window.location.replace('index.html');
+        return;
+      }
+      sessionStorage.setItem(SESSION_KEY, 'true');
+      document.getElementById('auth-overlay').remove();
+      loadUserDetails();
+    });
+
+    async function loadUserDetails() {
+      try {
+        // Load user data
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (!userDoc.exists()) {
+          alert('User not found');
+          window.location.replace('users.html');
+          return;
+        }
+
+        currentUser = { id: userDoc.id, ...userDoc.data() };
+        renderUserProfile();
+        await loadUserStats();
+        await loadTransactions();
+        
+        if (currentUser.role === 'landlord') {
+          await loadProperties();
+        } else if (currentUser.role === 'tenant') {
+          await loadUnlocks();
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Error loading user details: ' + e.message);
+      }
+    }
+
+    function renderUserProfile() {
+      const u = currentUser;
+      
+      // Avatar
+      const avatarEl = document.getElementById('user-avatar');
+      if (u.profilePhotoUrl) {
+        avatarEl.innerHTML = `<img src="${u.profilePhotoUrl}" class="w-full h-full rounded-2xl object-cover" onerror="this.parentElement.innerHTML='${getInitials(u)}'" />`;
+      } else {
+        avatarEl.textContent = getInitials(u);
+      }
+
+      // Basic info
+      document.getElementById('user-name').textContent = u.name || 'Unknown User';
+      document.getElementById('user-email').textContent = u.email || '—';
+      
+      // Badges
+      document.getElementById('user-role-badge').innerHTML = getRoleIcon(u.role) + ' ' + capitalizeFirst(u.role);
+      const statusBadge = document.getElementById('user-status-badge');
+      if (u.status === 'active') {
+        statusBadge.innerHTML = '✅ Active';
+        statusBadge.classList.add('bg-green-500', 'bg-opacity-20');
+      } else {
+        statusBadge.innerHTML = '🚫 Suspended';
+        statusBadge.classList.add('bg-red-500', 'bg-opacity-20');
+      }
+
+      // Actions
+      const actionsEl = document.getElementById('user-actions');
+      if (u.status !== 'suspended') {
+        actionsEl.innerHTML = `
+          <button onclick="suspendUser()" class="px-4 py-2 bg-red-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all">
+            🚫 Suspend
+          </button>`;
+      } else {
+        actionsEl.innerHTML = `
+          <button onclick="reinstateUser()" class="px-4 py-2 bg-green-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all">
+            ✅ Reinstate
+          </button>`;
+      }
+
+      // Info fields
+      document.getElementById('info-uid').textContent = u.id;
+      document.getElementById('info-phone').textContent = u.phoneNumber || '—';
+      document.getElementById('info-role').textContent = capitalizeFirst(u.role);
+      document.getElementById('info-status').textContent = capitalizeFirst(u.status);
+      document.getElementById('info-created').textContent = formatDate(u.createdAt);
+    }
+
+    async function loadUserStats() {
+      const u = currentUser;
+      let stats = [];
+
+      if (u.role === 'landlord') {
+        const propsSnap = await getDocs(query(collection(db, 'properties'), where('landlordId', '==', userId)));
+        const totalUnlocks = propsSnap.docs.reduce((sum, doc) => sum + (doc.data().unlockCount || 0), 0);
+        const totalRevenue = propsSnap.docs.reduce((sum, doc) => sum + (doc.data().unlockCount || 0) * (doc.data().price || 0), 0);
+        
+        stats = [
+          { label: 'Properties', value: propsSnap.size, icon: '🏠', color: 'blue' },
+          { label: 'Total Unlocks', value: totalUnlocks, icon: '🔓', color: 'green' },
+          { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}`, icon: '💰', color: 'purple' },
+          { label: 'Avg Rating', value: '4.5★', icon: '⭐', color: 'yellow' }
+        ];
+      } else if (u.role === 'tenant') {
+        const unlocksSnap = await getDocs(query(collection(db, 'unlocks'), where('tenantId', '==', userId)));
+        const txSnap = await getDocs(query(collection(db, 'transactions'), where('tenantId', '==', userId), where('status', '==', 'success')));
+        const totalSpent = txSnap.docs.reduce((sum, doc) => sum + (Number(doc.data().amount) || 0), 0);
+        
+        stats = [
+          { label: 'Unlocked', value: unlocksSnap.size, icon: '🔓', color: 'green' },
+          { label: 'Transactions', value: txSnap.size, icon: '💳', color: 'blue' },
+          { label: 'Total Spent', value: `$${totalSpent.toFixed(2)}`, icon: '💰', color: 'purple' },
+          { label: 'Active', value: unlocksSnap.docs.filter(d => d.data().status === 'active').length, icon: '✅', color: 'teal' }
+        ];
+      } else {
+        stats = [
+          { label: 'Admin', value: 'Yes', icon: '🛡', color: 'purple' },
+          { label: 'Access', value: 'Full', icon: '🔑', color: 'blue' },
+          { label: 'Status', value: 'Active', icon: '✅', color: 'green' },
+          { label: 'Role', value: 'Admin', icon: '👑', color: 'yellow' }
+        ];
+      }
+
+      const statsGrid = document.getElementById('stats-grid');
+      const colorMap = {
+        blue: 'bg-blue-50 text-blue-700 border-blue-200',
+        green: 'bg-green-50 text-green-700 border-green-200',
+        purple: 'bg-purple-50 text-purple-700 border-purple-200',
+        yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        teal: 'bg-teal-50 text-teal-700 border-teal-200'
+      };
+
+      statsGrid.innerHTML = stats.map(s => `
+        <div class="stat-card bg-white border-2 ${colorMap[s.color]} rounded-xl p-6 text-center">
+          <div class="text-3xl mb-2">${s.icon}</div>
+          <div class="text-2xl font-bold text-gray-800 mb-1">${s.value}</div>
+          <div class="text-sm text-gray-600 font-medium">${s.label}</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadProperties() {
+      const propsSnap = await getDocs(query(collection(db, 'properties'), where('landlordId', '==', userId)));
+      const section = document.getElementById('properties-section');
+      const list = document.getElementById('properties-list');
+      
+      if (propsSnap.empty) {
+        list.innerHTML = '<p class="text-gray-400 text-center py-8">No properties found</p>';
+      } else {
+        list.innerHTML = propsSnap.docs.map(doc => {
+          const p = doc.data();
+          return `
+            <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
+              <img src="${p.images?.[0] || 'https://via.placeholder.com/80'}" class="w-20 h-20 rounded-lg object-cover" />
+              <div class="flex-1">
+                <h3 class="font-bold text-gray-800">${p.title || 'Untitled'}</h3>
+                <p class="text-sm text-gray-600">${p.location || '—'} • $${p.price || 0}</p>
+                <p class="text-xs text-gray-500 mt-1">${p.unlockCount || 0} unlocks • ${p.status || 'active'}</p>
+              </div>
+              <a href="property-detail.html?id=${doc.id}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+                View →
+              </a>
+            </div>
+          `;
+        }).join('');
+      }
+      section.classList.remove('hidden');
+    }
+
+    async function loadUnlocks() {
+      const unlocksSnap = await getDocs(query(collection(db, 'unlocks'), where('tenantId', '==', userId)));
+      const section = document.getElementById('unlocks-section');
+      const list = document.getElementById('unlocks-list');
+      
+      if (unlocksSnap.empty) {
+        list.innerHTML = '<p class="text-gray-400 text-center py-8">No unlocked properties</p>';
+      } else {
+        const unlocks = await Promise.all(unlocksSnap.docs.map(async doc => {
+          const unlock = doc.data();
+          const propDoc = await getDoc(doc(db, 'properties', unlock.propertyId));
+          return { ...unlock, property: propDoc.exists() ? propDoc.data() : null };
+        }));
+
+        list.innerHTML = unlocks.map(u => `
+          <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
+            <img src="${u.property?.images?.[0] || 'https://via.placeholder.com/80'}" class="w-20 h-20 rounded-lg object-cover" />
+            <div class="flex-1">
+              <h3 class="font-bold text-gray-800">${u.property?.title || 'Unknown Property'}</h3>
+              <p class="text-sm text-gray-600">${u.property?.location || '—'}</p>
+              <p class="text-xs text-gray-500 mt-1">Unlocked: ${formatDate(u.unlockedAt)}</p>
+            </div>
+            <span class="px-3 py-1.5 rounded-lg text-xs font-semibold ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+              ${u.status === 'active' ? '✅ Active' : '⏸ Inactive'}
+            </span>
+          </div>
+        `).join('');
+      }
+      section.classList.remove('hidden');
+    }
+
+    async function loadTransactions() {
+      const txQuery = currentUser.role === 'landlord'
+        ? query(collection(db, 'transactions'), where('landlordId', '==', userId), orderBy('createdAt', 'desc'))
+        : query(collection(db, 'transactions'), where('tenantId', '==', userId), orderBy('createdAt', 'desc'));
+      
+      const txSnap = await getDocs(txQuery);
+      const tbody = document.getElementById('transactions-table');
+      
+      if (txSnap.empty) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">No transactions found</td></tr>';
+      } else {
+        tbody.innerHTML = txSnap.docs.map(doc => {
+          const t = doc.data();
+          return `
+            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+              <td class="px-6 py-4 font-mono text-xs text-gray-500">${doc.id.substring(0, 12)}...</td>
+              <td class="px-6 py-4">
+                <div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '—'}</div>
+                <div class="text-xs text-gray-400">${t.propertyId?.substring(0, 10)}...</div>
+              </td>
+              <td class="px-6 py-4 font-bold text-gray-800">$${Number(t.amount || 0).toFixed(2)}</td>
+              <td class="px-6 py-4 text-sm text-gray-500">${formatDate(t.createdAt)}</td>
+              <td class="px-6 py-4">${getStatusBadge(t.status)}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    window.suspendUser = async function() {
+      if (!confirm('Suspend this user? They will lose access to the platform.')) return;
+      try {
+        await updateDoc(doc(db, 'users', userId), { status: 'suspended' });
+        showToast('🚫 User suspended successfully', 'success');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        showToast('Error: ' + e.message, 'danger');
+      }
+    };
+
+    window.reinstateUser = async function() {
+      if (!confirm('Reinstate this user? They will regain access to the platform.')) return;
+      try {
+        await updateDoc(doc(db, 'users', userId), { status: 'active' });
+        showToast('✅ User reinstated successfully', 'success');
+        setTimeout(() => location.reload(), 1500);
+      } catch (e) {
+        showToast('Error: ' + e.message, 'danger');
+      }
+    };
+
+    function getInitials(u) {
+      return (u.name || u.email || '?').substring(0, 2).toUpperCase();
+    }
+
+    function getRoleIcon(role) {
+      const icons = { landlord: '🏠', tenant: '👤', admin: '🛡' };
+      return icons[role] || '👤';
+    }
+
+    function capitalizeFirst(str) {
+      return str ? str.charAt(0).toUpperCase() + str.slice(1) : '—';
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '—';
+      const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function getStatusBadge(status) {
+      const badges = {
+        success: '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">✅ Success</span>',
+        failed: '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">❌ Failed</span>',
+        pending: '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">⏳ Pending</span>'
+      };
+      return badges[status] || `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">${status}</span>`;
+    }
+
+    function showToast(msg, type = 'info') {
+      const toast = document.getElementById('toast');
+      const el = document.getElementById('toast-msg');
+      const colors = { success: 'bg-green-600', danger: 'bg-red-600', info: 'bg-gray-800' };
+      el.className = `${colors[type] || 'bg-gray-800'} text-white px-5 py-3 rounded-xl shadow-lg text-sm font-medium`;
+      el.textContent = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+  </script>
+</body>
+</html>

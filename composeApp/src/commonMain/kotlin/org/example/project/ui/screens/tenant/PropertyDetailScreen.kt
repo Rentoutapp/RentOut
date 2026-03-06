@@ -35,15 +35,91 @@ import coil3.compose.AsyncImage
 import org.example.project.data.model.Property
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.graphics.SolidColor
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PropertyDetailScreen — Tenant view
 // Mirrors the LandlordPropertyDetailScreen layout: full hero, thumbnail strip,
 // sliding white card, tab bar (Overview / Amenities / Contact), sticky bottom
 // bar with price + unlock/call actions.
+// Using TenantNavy & TenantNavyLight as base colors for consistency
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Base colors from TenantHomeScreen for consistent tenant UI
+private val DetailNavy = Color(0xFF0F2A4A)
+private val DetailNavyLight = Color(0xFF1A3F6F)
+
 private enum class TenantDetailTab { OVERVIEW, AMENITIES, CONTACT }
+
+// WhatsApp Icon using official WhatsApp logo path
+@Composable
+private fun rememberWhatsAppIcon(): ImageVector {
+    return remember {
+        androidx.compose.ui.graphics.vector.ImageVector.Builder(
+            name = "WhatsApp",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.White),
+                stroke = null
+            ) {
+                // WhatsApp logo path
+                moveTo(17.472f, 14.382f)
+                curveToRelative(-0.297f, -0.149f, -1.758f, -0.867f, -2.03f, -0.967f)
+                curveToRelative(-0.273f, -0.099f, -0.471f, -0.149f, -0.67f, 0.15f)
+                curveToRelative(-0.197f, 0.297f, -0.767f, 0.966f, -0.94f, 1.164f)
+                curveToRelative(-0.173f, 0.199f, -0.347f, 0.223f, -0.644f, 0.075f)
+                curveToRelative(-0.297f, -0.15f, -1.255f, -0.463f, -2.39f, -1.475f)
+                curveToRelative(-0.883f, -0.788f, -1.48f, -1.761f, -1.653f, -2.059f)
+                curveToRelative(-0.173f, -0.297f, -0.018f, -0.458f, 0.13f, -0.606f)
+                curveToRelative(0.134f, -0.133f, 0.297f, -0.347f, 0.446f, -0.521f)
+                curveToRelative(0.151f, -0.172f, 0.2f, -0.296f, 0.3f, -0.495f)
+                curveToRelative(0.099f, -0.198f, 0.05f, -0.372f, -0.025f, -0.521f)
+                curveToRelative(-0.075f, -0.148f, -0.669f, -1.611f, -0.916f, -2.206f)
+                curveToRelative(-0.242f, -0.579f, -0.487f, -0.5f, -0.669f, -0.51f)
+                curveToRelative(-0.173f, -0.008f, -0.371f, -0.01f, -0.57f, -0.01f)
+                curveToRelative(-0.198f, 0f, -0.52f, 0.074f, -0.792f, 0.372f)
+                curveToRelative(-0.272f, 0.297f, -1.04f, 1.016f, -1.04f, 2.479f)
+                curveToRelative(0f, 1.462f, 1.065f, 2.875f, 1.213f, 3.074f)
+                curveToRelative(0.149f, 0.198f, 2.096f, 3.2f, 5.077f, 4.487f)
+                curveToRelative(0.709f, 0.306f, 1.262f, 0.489f, 1.694f, 0.625f)
+                curveToRelative(0.712f, 0.227f, 1.36f, 0.195f, 1.871f, 0.118f)
+                curveToRelative(0.571f, -0.085f, 1.758f, -0.719f, 2.006f, -1.413f)
+                curveToRelative(0.248f, -0.694f, 0.248f, -1.289f, 0.173f, 1.413f)
+                curveToRelative(-0.074f, -0.124f, -0.272f, -0.198f, -0.57f, -0.347f)
+                moveTo(12.04f, 21.73f)
+                lineToRelative(-0.004f, 0f)
+                curveToRelative(-1.776f, 0f, -3.524f, -0.477f, -5.055f, -1.377f)
+                lineToRelative(-0.362f, -0.215f)
+                lineToRelative(-3.754f, 0.984f)
+                lineToRelative(1.001f, -3.656f)
+                lineToRelative(-0.237f, -0.375f)
+                arcToRelative(9.869f, 9.869f, 0f, false, true, -1.513f, -5.26f)
+                curveToRelative(0f, -5.45f, 4.436f, -9.884f, 9.888f, -9.884f)
+                curveToRelative(2.64f, 0f, 5.122f, 1.03f, 6.988f, 2.898f)
+                arcToRelative(9.825f, 9.825f, 0f, false, true, 2.893f, 6.994f)
+                curveToRelative(-0.003f, 5.45f, -4.437f, 9.884f, -9.885f, 9.884f)
+                moveTo(20.52f, 3.449f)
+                arcTo(11.885f, 11.885f, 0f, false, false, 12.043f, 0f)
+                curveTo(5.463f, 0f, 0.104f, 5.359f, 0.101f, 11.937f)
+                curveToRelative(-0.001f, 2.101f, 0.548f, 4.153f, 1.59f, 5.945f)
+                lineTo(0f, 24f)
+                lineToRelative(6.335f, -1.652f)
+                arcToRelative(11.946f, 11.946f, 0f, false, false, 5.713f, 1.456f)
+                horizontalLineToRelative(0.005f)
+                curveToRelative(6.585f, 0f, 11.942f, -5.359f, 11.945f, -11.94f)
+                arcToRelative(11.859f, 11.859f, 0f, false, false, -3.48f, -8.413f)
+                close()
+            }
+        }.build()
+    }
+}
 
 @Composable
 fun PropertyDetailScreen(
@@ -138,7 +214,7 @@ fun PropertyDetailScreen(
                                 if (isSelected) {
                                     Box(
                                         modifier = Modifier.fillMaxSize()
-                                            .background(RentOutColors.Primary.copy(alpha = 0.25f))
+                                            .background(DetailNavy.copy(alpha = 0.25f))
                                     )
                                 }
                             }
@@ -174,13 +250,13 @@ fun PropertyDetailScreen(
                             ) {
                                 Icon(
                                     Icons.Default.Apartment, null,
-                                    tint = RentOutColors.Primary,
+                                    tint = DetailNavy,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
                                     property.propertyType.replaceFirstChar { it.uppercase() },
                                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                    color = RentOutColors.Primary
+                                    color = DetailNavy
                                 )
                             }
                             Row(
@@ -378,7 +454,7 @@ fun PropertyDetailScreen(
                                 .height(54.dp)
                                 .shadow(6.dp, RoundedCornerShape(16.dp))
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(RentOutColors.PrimaryDark)
+                                .background(Color(0xFF25D366)) // Official WhatsApp green
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
@@ -390,7 +466,12 @@ fun PropertyDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(Icons.Default.Chat, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Icon(
+                                    imageVector = rememberWhatsAppIcon(),
+                                    contentDescription = "WhatsApp",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
                                 Text("WhatsApp", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             }
                         }
@@ -468,7 +549,7 @@ private fun TenantDetailTabBar(
                     label,
                     fontSize = 14.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) RentOutColors.Primary
+                    color = if (isSelected) DetailNavy
                             else MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(6.dp))
@@ -477,7 +558,7 @@ private fun TenantDetailTabBar(
                         modifier = Modifier
                             .width(32.dp).height(3.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(RentOutColors.Primary)
+                            .background(DetailNavy)
                     )
                 }
             }
@@ -569,12 +650,12 @@ private fun TenantAmenitiesContent(property: Property) {
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(RentOutColors.Primary.copy(alpha = 0.08f))
+                                .background(DetailNavy.copy(alpha = 0.08f))
                                 .padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.CheckCircle, null, tint = DetailNavy, modifier = Modifier.size(16.dp))
                             Text(
                                 amenity, fontSize = 13.sp, fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -622,10 +703,10 @@ private fun TenantContactContent(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier.size(42.dp).clip(CircleShape)
-                                .background(RentOutColors.Primary.copy(alpha = 0.12f)),
+                                .background(DetailNavy.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Person, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
+                            Icon(Icons.Default.Person, null, tint = DetailNavy, modifier = Modifier.size(22.dp))
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {

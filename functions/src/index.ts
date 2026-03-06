@@ -212,10 +212,14 @@ async function handleMockPayment(req: any, res: any) {
     // Handle different mock statuses
     if (status !== "SUCCESS" && status !== "PAID") {
       logger.warn(`Mock payment not successful: ${status}`);
+      // Fetch property to get landlordId for failed transaction tracking
+      const propertyDoc = await db.collection("properties").doc(propertyId).get();
+      const landlordId = propertyDoc.exists ? propertyDoc.data()?.landlordId : "";
       // Write failed transaction
       await db.collection("transactions").add({
         tenantId,
         propertyId,
+        landlordId,
         amount,
         currency,
         status:           "failed",
@@ -236,10 +240,15 @@ async function handleMockPayment(req: any, res: any) {
       return;
     }
 
+    // Fetch property to get landlordId
+    const propertyDoc = await db.collection("properties").doc(propertyId).get();
+    const landlordId = propertyDoc.exists ? propertyDoc.data()?.landlordId : "";
+
     // Write transaction record
     const transactionRef = await db.collection("transactions").add({
       tenantId,
       propertyId,
+      landlordId,
       amount,
       currency,
       status:           "success",
@@ -334,10 +343,14 @@ export const verifyPesePay = onRequest(async (req, res) => {
     // Validate payment status from PesePay
     if (status !== "SUCCESS" && status !== "PAID") {
       logger.warn(`Payment not successful: ${status}`);
+      // Fetch property to get landlordId for failed transaction tracking
+      const propertyDoc = await db.collection("properties").doc(propertyId).get();
+      const landlordId = propertyDoc.exists ? propertyDoc.data()?.landlordId : "";
       // Write failed transaction
       await db.collection("transactions").add({
         tenantId,
         propertyId,
+        landlordId,
         amount,
         currency,
         status:           "failed",
@@ -358,10 +371,15 @@ export const verifyPesePay = onRequest(async (req, res) => {
       return;
     }
 
+    // Fetch property to get landlordId
+    const propertyDoc = await db.collection("properties").doc(propertyId).get();
+    const landlordId = propertyDoc.exists ? propertyDoc.data()?.landlordId : "";
+
     // Write transaction record
     const transactionRef = await db.collection("transactions").add({
       tenantId,
       propertyId,
+      landlordId,
       amount,
       currency,
       status:           "success",

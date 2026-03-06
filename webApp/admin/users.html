@@ -18,6 +18,8 @@
     .row-tenant   { background: #eff6ff; }
     .row-suspended{ background: #fef2f2; }
     .active-tab   { background: var(--primary) !important; color: white !important; }
+    .user-row { cursor: pointer !important; }
+    .user-row:hover { background-color: rgba(108, 99, 255, 0.1) !important; transform: translateX(4px); transition: all 0.2s ease; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -265,7 +267,7 @@
         return;
       }
       tbody.innerHTML = filtered.map(u => `
-        <tr class="${u.status === 'suspended' ? 'row-suspended' : u.role === 'landlord' ? 'row-landlord' : u.role === 'tenant' ? 'row-tenant' : ''} border-b border-gray-50 hover:bg-opacity-80 transition-all fade-in-up">
+        <tr class="user-row ${u.status === 'suspended' ? 'row-suspended' : u.role === 'landlord' ? 'row-landlord' : u.role === 'tenant' ? 'row-tenant' : ''} border-b border-gray-50 fade-in-up" onclick="navigateToUser('${u.id}')" style="cursor: pointer !important;">
           <td class="px-6 py-3">
             <div class="flex items-center gap-3">
               ${avatar(u)}
@@ -279,16 +281,25 @@
           <td class="px-6 py-3 text-sm text-gray-600">${u.phoneNumber || '—'}</td>
           <td class="px-6 py-3 text-sm text-gray-400">${formatDate(u.createdAt)}</td>
           <td class="px-6 py-3">${statusBadge(u)}</td>
-          <td class="px-6 py-3">
+          <td class="px-6 py-3" onclick="event.stopPropagation()">
             <div class="flex gap-2">
               ${u.status !== 'suspended'
                 ? `<button onclick="suspendUser('${u.id}')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-semibold rounded-lg transition-colors">🚫 Suspend</button>`
                 : `<button onclick="reinstateUser('${u.id}')" class="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 text-xs font-semibold rounded-lg transition-colors">✅ Reinstate</button>`
               }
+              <a href="user-detail.html?id=${u.id}" class="px-3 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg transition-colors hover:opacity-90">View Details</a>
             </div>
           </td>
         </tr>
       `).join('');
+    };
+
+    window.navigateToUser = function(userId) {
+      if (!userId) {
+        console.error('No user ID provided');
+        return;
+      }
+      window.location.href = 'user-detail.html?id=' + userId;
     };
 
     window.filterUsers = function(f) {

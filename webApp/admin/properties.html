@@ -216,7 +216,8 @@
         return;
       }
       tbody.innerHTML = filtered.map(p => `
-        <tr class="${p.status === 'pending' ? 'row-pending' : p.status === 'approved' ? 'row-approved' : 'row-rejected'} border-b border-gray-50 hover:bg-opacity-80 transition-all duration-200 fade-in-up">
+        <tr class="${p.status === 'pending' ? 'row-pending' : p.status === 'approved' ? 'row-approved' : 'row-rejected'} border-b border-gray-50 hover:bg-blue-50 transition-all duration-150 fade-in-up cursor-pointer group"
+            onclick="viewProperty('${p.id}')">
           <td class="px-4 py-3">
             <div class="flex items-center gap-3">
               <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
@@ -226,7 +227,7 @@
                 }
               </div>
               <div>
-                <div class="font-semibold text-gray-800 text-sm leading-tight">${p.title}</div>
+                <div class="font-semibold text-gray-800 text-sm leading-tight group-hover:text-primary transition-colors">${p.title} <span class="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs">→ View</span></div>
                 <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
                   <span>${typeIcon(p.propertyType)}</span>
                   <span class="capitalize">${p.propertyType || '—'}</span>
@@ -251,11 +252,12 @@
             </div>
           </td>
           <td class="px-4 py-3">${statusBadge(p.status)}</td>
-          <td class="px-4 py-3">
+          <td class="px-4 py-3" onclick="event.stopPropagation()">
             <div class="flex gap-1.5 flex-wrap">
-              ${p.status !== 'approved' ? `<button onclick="approveP('${p.id}')" class="btn px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg transition-colors">✅ Approve</button>` : ''}
-              ${p.status !== 'rejected' ? `<button onclick="rejectP('${p.id}')" class="btn px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition-colors">❌ Reject</button>` : ''}
-              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg transition-colors">🗑</button>
+              <button onclick="viewProperty('${p.id}')" class="btn px-3 py-1.5 bg-primary hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">👁 View</button>
+              ${p.status !== 'approved' ? `<button onclick="approveP('${p.id}')" class="btn px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg">✅</button>` : ''}
+              ${p.status !== 'rejected' ? `<button onclick="rejectP('${p.id}')" class="btn px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg">❌</button>` : ''}
+              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg">🗑</button>
             </div>
           </td>
         </tr>
@@ -319,6 +321,10 @@
         updateTabCounts(); renderTable();
         showToast("🗑 Property deleted.", "info");
       }
+    };
+
+    window.viewProperty = function(id) {
+      window.location.href = `property-detail.html?id=${id}`;
     };
 
     function showToast(msg, type = 'info') {

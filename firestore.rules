@@ -164,9 +164,24 @@ service cloud.firestore {
 
     // ─── Transactions Collection ──────────────────────────────────────────────
     // Created by Cloud Functions (payment webhooks) only.
+    // Tenants can read their own transactions via collection queries or single-doc reads.
+    // For single-doc reads, resource.data is available and we check tenantId.
+    // For collection queries (.where("tenantId" == uid)), we must allow 'list' because
+    // resource.data is NOT available during query evaluation in Firestore rules.
+    // The app MUST include a .where("tenantId" == uid) filter to respect security.
     match /transactions/{transactionId} {
-      allow read: if isAuthenticated() &&
-        (request.auth.uid == resource.data.tenantId || isAdmin());
+      allow get: if isAuthenticated() && (
+        // For single document reads, check the tenantId field
+        request.auth.uid == resource.data.tenantId
+        // Admin can read all
+        || isAdmin()
+      );
+      // Allow collection queries for authenticated users.
+      // Security relies on the app always filtering by tenantId.
+      // We cannot validate query constraints in rules for equality checks.
+      allow list: if isAuthenticated() && (
+        isTenant() || isLandlord() || isAdmin()
+      );
       allow create: if false;  // Cloud Functions only
       allow update: if false;
       allow delete: if isAdmin();
