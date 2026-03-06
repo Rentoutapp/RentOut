@@ -33,6 +33,7 @@ fun PropertyCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showActions: Boolean = false,
+    isUnlocked: Boolean = true,          // false = tenant view, address hidden until paid
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onToggleAvailability: (() -> Unit)? = null
@@ -140,22 +141,45 @@ fun PropertyCard(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(4.dp))
-                // Location
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = RentOutColors.IconRose,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = property.location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                // Location — hidden until tenant unlocks the property
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isUnlocked) {
+                        // ── Revealed: show full address ───────────────────────
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = RentOutColors.IconRose,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = property.location.ifBlank { property.city },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } else {
+                        // ── Locked: show lock badge ───────────────────────────
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = RentOutColors.IconAmber,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            text = "Address hidden · unlock to view",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = RentOutColors.IconAmber,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 // Stats row

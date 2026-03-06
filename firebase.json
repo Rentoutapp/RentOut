@@ -27,12 +27,8 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
+    "cleanUrls": false,
+    "trailingSlash": false
   },
   "storage": {
     "rules": "storage.rules"

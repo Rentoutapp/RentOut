@@ -28,6 +28,13 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex">
 
+  <!-- Auth overlay — covers entire page until admin is confirmed. Removed by JS. -->
+  <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:#1B4FFF;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+    <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials…</span>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
+
   <!-- Sidebar -->
   <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
     <div class="p-6 border-b border-white border-opacity-20">
@@ -106,20 +113,34 @@
     const db   = getFirestore(app);
     const auth = getAuth(app);
 
-    // ── Auth guard — real Firebase Auth + admin role check ──
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) { window.location.href = 'index.html'; return; }
-      const userSnap = await getDoc(doc(db, 'users', user.uid));
-      if (!userSnap.exists() || userSnap.data().role !== 'admin') {
-        await signOut(auth);
-        window.location.href = 'index.html'; return;
-      }
-      await loadProperties();
-    });
+    // ── Auth guard ────────────────────────────────────────────────────────────
+    // LAYER 1 (synchronous): sessionStorage gate — instant, no Firebase round-trip.
+    const SESSION_KEY = 'rentout_admin_authed';
+    if (!sessionStorage.getItem(SESSION_KEY)) {
+      window.location.replace('index.html');
+    } else {
+      // LAYER 2 (async): Firebase token + Firestore role re-validation.
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          sessionStorage.removeItem(SESSION_KEY);
+          window.location.replace('index.html'); return;
+        }
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        if (!userSnap.exists() || userSnap.data().role !== 'admin' || userSnap.data().status !== 'active') {
+          await signOut(auth);
+          sessionStorage.removeItem(SESSION_KEY);
+          window.location.replace('index.html'); return;
+        }
+        // ✅ Confirmed admin — remove overlay and load data
+        document.getElementById('auth-overlay').remove();
+        await loadProperties();
+      });
+    }
 
     window.logout = async function() {
+      sessionStorage.removeItem('rentout_admin_authed');
       await signOut(auth).catch(() => {});
-      window.location.href = 'index.html';
+      window.location.replace('index.html');
     };
 
     let allProperties = [];

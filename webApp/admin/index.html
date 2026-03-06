@@ -4,17 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>RentOut Admin — Login</title>
+  <!-- Security headers via meta tags -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta http-equiv="X-Frame-Options" content="DENY"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            primary: '#1B4FFF',
+            primary:   '#1B4FFF',
             secondary: '#FF6B35',
-            success: '#22C55E',
-            danger: '#EF4444',
-            warning: '#F59E0B',
+            success:   '#22C55E',
+            danger:    '#EF4444',
+            warning:   '#F59E0B',
           }
         }
       }
@@ -25,16 +28,30 @@
       from { opacity: 0; transform: translateY(24px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .fade-in-up { animation: fadeInUp 0.6s ease forwards; }
-    .spinner { animation: spin 0.9s linear infinite; }
-    .btn {
-      transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease;
-    }
+    .spinner    { animation: spin 0.9s linear infinite; }
+    .btn { transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease; }
     .btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
     .btn:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+
+    /* Toggle switch */
+    .toggle-track {
+      width: 40px; height: 22px; border-radius: 9999px;
+      background: #D1D5DB; position: relative; cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .toggle-track.on { background: #1B4FFF; }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: white; transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    }
+    .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+
+    /* Hide the real inputs initially to defeat autofill timing attacks */
+    .field-shield { opacity: 0; pointer-events: none; position: absolute; }
   </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-blue-900 via-primary to-blue-800 flex items-center justify-center p-4">
@@ -54,41 +71,85 @@
       <h2 class="text-2xl font-bold text-gray-800 mb-2">Welcome back</h2>
       <p class="text-gray-500 mb-6 text-sm">Sign in to manage your platform</p>
 
+      <!-- Error box -->
       <div id="error-box" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center gap-2">
         <span>⚠️</span><span id="error-msg"></span>
       </div>
 
-      <form id="login-form" class="space-y-4">
+      <!--
+        AUTOFILL DEFEAT STRATEGY:
+        1. The real inputs start as type="text"/"text" so browsers don't recognise them as login fields.
+        2. autocomplete="off" and autocomplete="new-password" are set to suppress browser fill.
+        3. A pair of invisible honeypot fields at the top of the form confuse password managers.
+        4. On DOMContentLoaded we clear both fields programmatically before the user can see any fill.
+        5. When Remember Me is ON we restore autocomplete="email"/"current-password" so the
+           browser's own save-password prompt works normally next time.
+      -->
+      <form id="login-form" class="space-y-4" autocomplete="off">
+
+        <!-- Honeypot inputs — invisible, confuse autofill engines -->
+        <input type="text"     name="username_fake" style="display:none" tabindex="-1" aria-hidden="true" autocomplete="username"/>
+        <input type="password" name="password_fake" style="display:none" tabindex="-1" aria-hidden="true" autocomplete="current-password"/>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-          <input id="email" type="email" placeholder="admin@rentout.demo"
+          <input id="email" name="admin_email" type="text"
+            placeholder="Enter admin email"
+            autocomplete="new-password"
+            spellcheck="false"
             class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition text-sm"
             required/>
         </div>
+
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-          <input id="password" type="password" placeholder="••••••••"
-            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition text-sm"
-            required/>
+          <div class="relative">
+            <input id="password" name="admin_pass" type="password"
+              placeholder="Enter password"
+              autocomplete="new-password"
+              class="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition text-sm"
+              required/>
+            <!-- Show/hide password toggle -->
+            <button type="button" id="toggle-pw"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg focus:outline-none"
+              aria-label="Toggle password visibility">👁</button>
+          </div>
         </div>
+
+        <!-- Remember Me toggle -->
+        <div class="flex items-center justify-between pt-1">
+          <span class="text-sm text-gray-600 select-none">Remember Me</span>
+          <div class="flex items-center gap-2">
+            <span id="remember-label" class="text-xs font-medium text-gray-400">Off</span>
+            <div id="remember-toggle" class="toggle-track" role="switch" aria-checked="false" tabindex="0" aria-label="Remember Me">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+
         <button type="submit" id="login-btn"
-          class="btn w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm mt-2">
-          Sign In to Admin Panel
+          class="btn w-full bg-primary text-white font-semibold py-3 rounded-xl text-sm mt-2 flex items-center justify-center gap-2">
+          <span id="btn-text">Sign In to Admin Panel</span>
         </button>
       </form>
 
       <div class="mt-6 p-3 bg-blue-50 rounded-xl">
         <p class="text-xs font-semibold text-primary mb-1">🔒 Admin access only</p>
-        <p class="text-xs text-gray-500">Sign in with your Firebase admin account credentials.</p>
+        <p class="text-xs text-gray-500">Only verified admin accounts can access this panel. All activity is logged.</p>
       </div>
     </div>
   </div>
 
   <script type="module">
-    import { initializeApp }                        from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-    import { getFirestore, doc, getDoc }            from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { initializeApp }        from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth,
+             signInWithEmailAndPassword,
+             signOut,
+             setPersistence,
+             browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
+    // ─── Firebase init ──────────────────────────────────────────────────────────
     const firebaseConfig = {
       apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
       authDomain:        "rentout-12239.firebaseapp.com",
@@ -98,50 +159,179 @@
       messagingSenderId: "670565317324",
       appId:             "1:670565317324:web:7eb3f892cef246001c2069"
     };
-
     const app  = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db   = getFirestore(app);
 
-    // If already signed in as admin, skip login
-    onAuthStateChanged(auth, async user => {
-      if (user) {
-        const snap = await getDoc(doc(db, 'users', user.uid));
-        if (snap.exists() && snap.data().role === 'admin') {
-          window.location.href = './dashboard.html';
-        }
+    // ─── Constants ──────────────────────────────────────────────────────────────
+    // SECURITY: Firebase token is ALWAYS session-only (browserSessionPersistence).
+    // "Remember Me" only restores the email address — the password and Firebase
+    // auth token are NEVER persisted across browser sessions. This means closing
+    // the tab always requires a fresh login, preventing the auto-redirect bug.
+    const REMEMBER_KEY    = 'rentout_admin_remember';
+    const SAVED_EMAIL_KEY = 'rentout_admin_email';
+    // This flag is written to sessionStorage on successful login and is the
+    // primary gate used by all protected pages before onAuthStateChanged fires.
+    const SESSION_KEY = 'rentout_admin_authed';
+
+    // ─── Element refs ───────────────────────────────────────────────────────────
+    const emailInput    = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const loginBtn      = document.getElementById('login-btn');
+    const btnText       = document.getElementById('btn-text');
+    const errorBox      = document.getElementById('error-box');
+    const errorMsg      = document.getElementById('error-msg');
+    const togglePw      = document.getElementById('toggle-pw');
+    const rememberToggle= document.getElementById('remember-toggle');
+    const rememberLabel = document.getElementById('remember-label');
+
+    // ─── Step 1: Immediately clear both fields to defeat autofill ───────────────
+    // Browsers inject autofill values after DOMContentLoaded. Clearing here
+    // and on a short delay catches both the initial fill and deferred fill.
+    function clearFields() {
+      emailInput.value    = '';
+      passwordInput.value = '';
+    }
+    clearFields();
+    setTimeout(clearFields, 100);
+    setTimeout(clearFields, 300);
+
+    // ─── Step 2: Nuke ALL persisted auth state ──────────────────────────────────
+    // Clear sessionStorage flag immediately — any protected page checking this
+    // flag synchronously will see it missing and show a loading screen.
+    sessionStorage.removeItem(SESSION_KEY);
+    // Sign out from Firebase — awaited so the SDK's in-memory token is cleared
+    // before any other code runs. This is the definitive anti-auto-redirect fix.
+    await signOut(auth).catch(() => {});
+
+    // ─── Step 3: Remember Me — restore saved email only if opted in ─────────────
+    let rememberMe = localStorage.getItem(REMEMBER_KEY) === 'true';
+
+    function applyRememberState() {
+      rememberToggle.classList.toggle('on', rememberMe);
+      rememberToggle.setAttribute('aria-checked', String(rememberMe));
+      rememberLabel.textContent = rememberMe ? 'On' : 'Off';
+
+      if (rememberMe) {
+        // Restore saved email; user still must type their password
+        const savedEmail = localStorage.getItem(SAVED_EMAIL_KEY) || '';
+        emailInput.value = savedEmail;
+        emailInput.setAttribute('autocomplete', 'email');
+        passwordInput.setAttribute('autocomplete', 'current-password');
+      } else {
+        // No autofill at all — clear and suppress
+        clearFields();
+        emailInput.setAttribute('autocomplete', 'new-password');
+        passwordInput.setAttribute('autocomplete', 'new-password');
       }
+    }
+    applyRememberState();
+
+    // Toggle click / keyboard
+    function toggleRemember() {
+      rememberMe = !rememberMe;
+      localStorage.setItem(REMEMBER_KEY, String(rememberMe));
+      if (!rememberMe) localStorage.removeItem(SAVED_EMAIL_KEY);
+      applyRememberState();
+    }
+    rememberToggle.addEventListener('click', toggleRemember);
+    rememberToggle.addEventListener('keydown', e => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleRemember(); }
     });
 
+    // ─── Show/hide password ─────────────────────────────────────────────────────
+    togglePw.addEventListener('click', () => {
+      const isHidden = passwordInput.type === 'password';
+      passwordInput.type  = isHidden ? 'text' : 'password';
+      togglePw.textContent = isHidden ? '🙈' : '👁';
+    });
+
+    // ─── Step 4: Form submission ─────────────────────────────────────────────────
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn      = document.getElementById('login-btn');
-      const email    = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const errorBox = document.getElementById('error-box');
-      const errorMsg = document.getElementById('error-msg');
 
-      btn.textContent = 'Signing in...';
-      btn.disabled = true;
-      errorBox.classList.add('hidden');
+      const email    = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        showError('Please enter both email and password.');
+        return;
+      }
+
+      setLoading(true);
+      hideError();
 
       try {
+        // SECURITY: ALWAYS use session-only persistence — the Firebase auth token
+        // is NEVER written to localStorage. This is the root fix for the auto-
+        // redirect bug. Closing the tab always means the session is gone.
+        await setPersistence(auth, browserSessionPersistence);
+
         const cred = await signInWithEmailAndPassword(auth, email, password);
-        // Verify the signed-in user has admin role in Firestore
+
+        // ── Firestore role check — the definitive security gate ──────────────
         const snap = await getDoc(doc(db, 'users', cred.user.uid));
-        if (snap.exists() && snap.data().role === 'admin') {
-          window.location.href = './dashboard.html';
+
+        const isAdmin  = snap.exists() && snap.data().role   === 'admin';
+        const isActive = snap.exists() && snap.data().status === 'active';
+
+        if (isAdmin && isActive) {
+          // ✅ Confirmed admin + active
+          // Save email for Remember Me (email only — NEVER the password or token)
+          if (rememberMe) {
+            localStorage.setItem(SAVED_EMAIL_KEY, email);
+          } else {
+            localStorage.removeItem(SAVED_EMAIL_KEY);
+          }
+          // Write the sessionStorage gate flag BEFORE navigating.
+          // Protected pages read this synchronously on load — if it's missing
+          // they show a loading screen and wait for onAuthStateChanged to resolve.
+          sessionStorage.setItem(SESSION_KEY, '1');
+          window.location.replace('./dashboard.html');
         } else {
-          await auth.signOut();
-          throw new Error('Access denied. You are not an admin.');
+          // ❌ Authenticated but NOT an active admin — deny immediately
+          await signOut(auth);
+          sessionStorage.removeItem(SESSION_KEY);
+          if (!snap.exists()) {
+            throw new Error('Account not found in the system. Contact your system administrator.');
+          } else if (!isAdmin) {
+            throw new Error('Access denied. This account does not have admin privileges.');
+          } else {
+            throw new Error('Access denied. This admin account has been suspended.');
+          }
         }
       } catch (err) {
-        errorBox.classList.remove('hidden');
-        errorMsg.textContent = err.message.replace('Firebase: ', '');
-        btn.textContent = 'Sign In to Admin Panel';
-        btn.disabled = false;
+        let msg = err.message || 'An error occurred. Please try again.';
+        // Sanitise Firebase Auth error codes into friendly messages
+        if (msg.includes('invalid-credential') ||
+            msg.includes('wrong-password')     ||
+            msg.includes('user-not-found')     ||
+            msg.includes('invalid-email')) {
+          msg = 'Incorrect email or password. Please try again.';
+        } else if (msg.includes('too-many-requests')) {
+          msg = 'Too many failed attempts. Please wait a few minutes and try again.';
+        } else if (msg.includes('network-request-failed')) {
+          msg = 'Network error. Please check your connection and try again.';
+        }
+        // Strip raw Firebase prefix/suffix
+        msg = msg.replace('Firebase: ', '').replace(/\s*\(auth\/[^)]+\)\.?/g, '').trim();
+        showError(msg);
+        setLoading(false);
       }
     });
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+    function setLoading(loading) {
+      loginBtn.disabled    = loading;
+      btnText.textContent  = loading ? 'Signing in…' : 'Sign In to Admin Panel';
+    }
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+    function hideError() {
+      errorBox.classList.add('hidden');
+    }
   </script>
 </body>
 </html>

@@ -23,6 +23,49 @@ sealed class PropertyListState {
     object Empty : PropertyListState()
 }
 
+// ── Sort options ──────────────────────────────────────────────────────────────
+enum class SortOption(val label: String) {
+    NEWEST("Newest First"),
+    PRICE_LOW_HIGH("Price: Low → High"),
+    PRICE_HIGH_LOW("Price: High → Low"),
+    MOST_ROOMS("Most Bedrooms"),
+    LEAST_ROOMS("Fewest Bedrooms")
+}
+
+// ── Filter state — all real estate relevant dimensions ────────────────────────
+data class PropertyFilter(
+    val minPrice: Double? = null,           // null = no lower bound
+    val maxPrice: Double? = null,           // null = no upper bound
+    val propertyTypes: Set<String> = emptySet(),   // "apartment"|"house"|"room"|"commercial"
+    val minBedrooms: Int? = null,           // null = any
+    val maxBedrooms: Int? = null,
+    val minBathrooms: Int? = null,          // null = any
+    val availableOnly: Boolean = false,
+    val verifiedOnly: Boolean = false,
+    val requiredAmenities: Set<String> = emptySet(),
+    val sortBy: SortOption = SortOption.NEWEST
+) {
+    val isActive: Boolean get() =
+        minPrice != null || maxPrice != null ||
+        propertyTypes.isNotEmpty() ||
+        minBedrooms != null || maxBedrooms != null ||
+        minBathrooms != null ||
+        availableOnly || verifiedOnly ||
+        requiredAmenities.isNotEmpty() ||
+        sortBy != SortOption.NEWEST
+
+    val activeCount: Int get() = listOfNotNull(
+        if (minPrice != null || maxPrice != null) "price" else null,
+        if (propertyTypes.isNotEmpty()) "type" else null,
+        if (minBedrooms != null || maxBedrooms != null) "beds" else null,
+        if (minBathrooms != null) "baths" else null,
+        if (availableOnly) "available" else null,
+        if (verifiedOnly) "verified" else null,
+        if (requiredAmenities.isNotEmpty()) "amenities" else null,
+        if (sortBy != SortOption.NEWEST) "sort" else null
+    ).size
+}
+
 sealed class PropertyFormState {
     object Idle      : PropertyFormState()
     object Uploading : PropertyFormState()
@@ -70,6 +113,82 @@ class PropertyViewModel : ViewModel() {
 
     private val _selectedCity = MutableStateFlow("Gweru")
     val selectedCity: StateFlow<String> = _selectedCity.asStateFlow()
+
+    private val _propertyFilter = MutableStateFlow(PropertyFilter())
+    val propertyFilter: StateFlow<PropertyFilter> = _propertyFilter.asStateFlow()
+
+    fun setFilter(filter: PropertyFilter) { _propertyFilter.value = filter }
+    fun clearFilter() { _propertyFilter.value = PropertyFilter() }
+
+    // ── Apply all active filters + sort to a property list ────────────────────
+    fun applyFilters(
+        properties: List<Property>,
+        query: String,
+        city: String,
+        filter: PropertyFilter
+    ): List<Property> {
+        var result = properties
+
+        // City / town filter
+        if (city.isNotBlank() && city != "All") {
+            result = result.filter { p ->
+                p.city.equals(city, ignoreCase = true) ||
+                p.location.contains(city, ignoreCase = true)
+            }
+        }
+
+        // Search query
+        if (query.isNotBlank()) {
+            result = result.filter { p ->
+                p.title.contains(query, ignoreCase = true) ||
+                p.city.contains(query, ignoreCase = true) ||
+                p.location.contains(query, ignoreCase = true) ||
+                p.description.contains(query, ignoreCase = true)
+            }
+        }
+
+        // Price range
+        filter.minPrice?.let { min -> result = result.filter { it.price >= min } }
+        filter.maxPrice?.let { max -> result = result.filter { it.price <= max } }
+
+        // Property type
+        if (filter.propertyTypes.isNotEmpty()) {
+            result = result.filter { it.propertyType in filter.propertyTypes }
+        }
+
+        // Bedrooms
+        filter.minBedrooms?.let { min -> result = result.filter { it.rooms >= min } }
+        filter.maxBedrooms?.let { max -> result = result.filter { it.rooms <= max } }
+
+        // Bathrooms
+        filter.minBathrooms?.let { min -> result = result.filter { it.bathrooms >= min } }
+
+        // Availability
+        if (filter.availableOnly) result = result.filter { it.isAvailable }
+
+        // Verified
+        if (filter.verifiedOnly) result = result.filter { it.isVerified }
+
+        // Amenities — must have ALL required amenities
+        if (filter.requiredAmenities.isNotEmpty()) {
+            result = result.filter { p ->
+                filter.requiredAmenities.all { amenity ->
+                    p.amenities.any { it.equals(amenity, ignoreCase = true) }
+                }
+            }
+        }
+
+        // Sort
+        result = when (filter.sortBy) {
+            SortOption.NEWEST        -> result.sortedByDescending { it.createdAt }
+            SortOption.PRICE_LOW_HIGH -> result.sortedBy { it.price }
+            SortOption.PRICE_HIGH_LOW -> result.sortedByDescending { it.price }
+            SortOption.MOST_ROOMS    -> result.sortedByDescending { it.rooms }
+            SortOption.LEAST_ROOMS   -> result.sortedBy { it.rooms }
+        }
+
+        return result
+    }
 
     // Draft — persists across AddPropertyScreen ↔ PropertyImagesScreen navigation
     private val _draft = MutableStateFlow(PropertyDraft())

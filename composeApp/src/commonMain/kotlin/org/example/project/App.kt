@@ -47,6 +47,7 @@ fun App() {
         val unlockedProps by tenantViewModel.unlockedProperties.collectAsState()
         val unlockState by tenantViewModel.unlockState.collectAsState()
         val propertyDraft by propertyViewModel.draft.collectAsState()
+        val propertyFilter by propertyViewModel.propertyFilter.collectAsState()
 
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
@@ -467,8 +468,12 @@ fun App() {
                     propertyListState = tenantPropertyState,
                     searchQuery = searchQuery,
                     selectedCity = selectedCity,
+                    unlockedPropertyIds = unlockedIds,
+                    activeFilter = propertyFilter,
                     onSearchQueryChange = { propertyViewModel.setSearchQuery(it) },
                     onCityChange = { propertyViewModel.setSelectedCity(it) },
+                    onFilterChange = { propertyViewModel.setFilter(it) },
+                    onClearFilter = { propertyViewModel.clearFilter() },
                     onPropertyClick = { property ->
                         propertyViewModel.selectProperty(property)
                         navController.navigate(NavRoutes.propertyDetail(property.id))
@@ -480,6 +485,9 @@ fun App() {
                         tenantViewModel.stopListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                    },
+                    applyFilters = { props, query, city, filter ->
+                        propertyViewModel.applyFilters(props, query, city, filter)
                     }
                 )
             }
