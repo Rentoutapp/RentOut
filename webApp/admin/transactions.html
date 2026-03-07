@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,7 +6,13 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Transactions — RentOut Admin</title>
+  <title>Transactions � RentOut Admin</title>  
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="/admin/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/admin/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/admin/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon.png">
+  <link rel="manifest" href="/admin/site.webmanifest">
   
   <!-- Landscape Orientation Enforcer -->
   <script src="landscape-enforcer.js"></script>
@@ -24,10 +30,10 @@
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
 
-  <!-- Auth overlay — covers entire page until admin is confirmed. Removed by JS. -->
+  <!-- Auth overlay � covers entire page until admin is confirmed. Removed by JS. -->
   <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:#1B4FFF;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
     <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials…</span>
+    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials�</span>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
 
@@ -43,13 +49,13 @@
       </div>
     </div>
     <nav class="flex-1 p-4 space-y-1">
-      <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">📊 Dashboard</a>
-      <a href="properties.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">🏠 Properties</a>
-      <a href="users.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">👥 Users</a>
-      <a href="transactions.html" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 text-primary font-semibold">💳 Transactions</a>
+      <a href="dashboard.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">?? Dashboard</a>
+      <a href="properties.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">?? Properties</a>
+      <a href="users.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">?? Users</a>
+      <a href="transactions.html" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 text-primary font-semibold">?? Transactions</a>
     </nav>
     <div class="p-4 border-t border-gray-100">
-      <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-xl font-medium transition-colors">🚪 Logout</button>
+      <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-xl font-medium transition-colors">?? Logout</button>
     </div>
   </div>
 
@@ -61,26 +67,26 @@
         <p class="text-gray-400 text-sm mt-1">All property unlock payments on the platform</p>
       </div>
       <button onclick="loadTransactions()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium text-sm">
-        🔄 Refresh
+        ?? Refresh
       </button>
     </div>
 
     <!-- Stats -->
     <div class="grid grid-cols-4 gap-4 mb-6">
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-gray-800" id="stat-total">—</div>
+        <div class="text-2xl font-bold text-gray-800" id="stat-total">�</div>
         <div class="text-sm text-gray-400 mt-1">Total Transactions</div>
       </div>
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-green-600" id="stat-revenue">—</div>
+        <div class="text-2xl font-bold text-green-600" id="stat-revenue">�</div>
         <div class="text-sm text-gray-400 mt-1">Total Revenue</div>
       </div>
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-blue-600" id="stat-success">—</div>
+        <div class="text-2xl font-bold text-blue-600" id="stat-success">�</div>
         <div class="text-sm text-gray-400 mt-1">Successful</div>
       </div>
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-red-500" id="stat-failed">—</div>
+        <div class="text-2xl font-bold text-red-500" id="stat-failed">�</div>
         <div class="text-sm text-gray-400 mt-1">Failed</div>
       </div>
     </div>
@@ -88,9 +94,9 @@
     <!-- Tabs -->
     <div class="flex gap-2 mb-4">
       <button id="tab-all"     onclick="filterTx('all')"     class="tab-btn active-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all">All</button>
-      <button id="tab-success" onclick="filterTx('success')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">✅ Successful</button>
-      <button id="tab-failed"  onclick="filterTx('failed')"  class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">❌ Failed</button>
-      <button id="tab-pending" onclick="filterTx('pending')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">⏳ Pending</button>
+      <button id="tab-success" onclick="filterTx('success')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">? Successful</button>
+      <button id="tab-failed"  onclick="filterTx('failed')"  class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">? Failed</button>
+      <button id="tab-pending" onclick="filterTx('pending')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">? Pending</button>
     </div>
 
     <!-- Table -->
@@ -132,8 +138,8 @@
     const db   = getFirestore(app);
     const auth = getAuth(app);
 
-    // ── Auth guard ────────────────────────────────────────────────────────────
-    // LAYER 1 (synchronous): sessionStorage gate — instant, no Firebase round-trip.
+    // -- Auth guard ------------------------------------------------------------
+    // LAYER 1 (synchronous): sessionStorage gate � instant, no Firebase round-trip.
     const SESSION_KEY = 'rentout_admin_authed';
     if (!sessionStorage.getItem(SESSION_KEY)) {
       window.location.replace('index.html');
@@ -150,7 +156,7 @@
           sessionStorage.removeItem(SESSION_KEY);
           window.location.replace('index.html'); return;
         }
-        // ✅ Confirmed admin — remove overlay and load data
+        // ? Confirmed admin � remove overlay and load data
         document.getElementById('auth-overlay').remove();
         await loadTransactions();
       });
@@ -193,7 +199,7 @@
       } catch(e) {
         document.getElementById('tx-table').innerHTML =
           `<tr><td colspan="6" class="px-6 py-16 text-center text-red-400 font-medium">
-            ⚠️ Failed to load transactions. Check Firebase config and Firestore rules.
+            ?? Failed to load transactions. Check Firebase config and Firestore rules.
            </td></tr>`;
       }
     };
@@ -219,28 +225,28 @@
       document.getElementById('stat-success').textContent = success;
       document.getElementById('stat-failed').textContent  = failed;
       document.getElementById('tab-all').textContent      = `All (${allTx.length})`;
-      document.getElementById('tab-success').textContent  = `✅ Successful (${success})`;
-      document.getElementById('tab-failed').textContent   = `❌ Failed (${failed})`;
-      document.getElementById('tab-pending').textContent  = `⏳ Pending (${pending})`;
+      document.getElementById('tab-success').textContent  = `? Successful (${success})`;
+      document.getElementById('tab-failed').textContent   = `? Failed (${failed})`;
+      document.getElementById('tab-pending').textContent  = `? Pending (${pending})`;
     }
 
     function statusBadge(s) {
       const m = {
-        success: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">✅ Success</span>`,
-        failed:  `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">❌ Failed</span>`,
-        pending: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">⏳ Pending</span>`,
+        success: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">? Success</span>`,
+        failed:  `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">? Failed</span>`,
+        pending: `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">? Pending</span>`,
       };
       return m[s] || `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-500">${s}</span>`;
     }
 
     function formatDate(ts) {
-      if (!ts) return '—';
+      if (!ts) return '�';
       const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
       return d.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
     }
 
     function shortId(id) {
-      return id ? `<span class="font-mono text-xs text-gray-500">${id.substring(0, 12)}...</span>` : '—';
+      return id ? `<span class="font-mono text-xs text-gray-500">${id.substring(0, 12)}...</span>` : '�';
     }
 
     window.renderTable = function() {
@@ -249,7 +255,7 @@
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-16 text-center">
           <div class="flex flex-col items-center gap-2">
-            <span class="text-4xl">💳</span>
+            <span class="text-4xl">??</span>
             <span class="text-gray-400 font-medium">No ${currentFilter === 'all' ? '' : currentFilter} transactions found.</span>
           </div>
         </td></tr>`;
@@ -261,14 +267,14 @@
           <td class="px-6 py-3">
             ${t.tenantId 
               ? `<a href="user-detail.html?id=${t.tenantId}" class="font-medium text-primary hover:underline text-sm">${t.tenantName || t.tenantId}</a>`
-              : `<div class="font-medium text-gray-800 text-sm">${t.tenantName || '—'}</div>`
+              : `<div class="font-medium text-gray-800 text-sm">${t.tenantName || '�'}</div>`
             }
             <div class="text-xs text-gray-400">${t.tenantEmail || ''}</div>
           </td>
           <td class="px-6 py-3">
             ${t.propertyId
-              ? `<a href="property-detail.html?id=${t.propertyId}" class="font-medium text-gray-800 hover:text-primary text-sm">${t.propertyTitle || '—'}</a>`
-              : `<div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '—'}</div>`
+              ? `<a href="property-detail.html?id=${t.propertyId}" class="font-medium text-gray-800 hover:text-primary text-sm">${t.propertyTitle || '�'}</a>`
+              : `<div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '�'}</div>`
             }
             <div class="text-xs text-gray-400">${t.propertyId ? t.propertyId.substring(0,10)+'...' : ''}</div>
           </td>

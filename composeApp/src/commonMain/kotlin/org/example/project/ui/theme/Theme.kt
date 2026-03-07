@@ -4,6 +4,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 // ─── Brand Palette ───────────────────────────────────────────────────────────
 object RentOutColors {
@@ -110,8 +112,86 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant   = Color(0xFF1E293B),
 )
 
+// ─── Screen Background Colors ─────────────────────────────────────────────────
+object RentOutBackgrounds {
+    // Light mode backgrounds - subtle tints for better card visibility
+    val LightGradientTop = Color(0xFFE8EDF5)      // Subtle blue-gray
+    val LightGradientBottom = Color(0xFFF2F4F7)   // Lighter gray-white
+    
+    // Dark mode uses theme colors directly
+}
+
+// ─── Text Colors for Screens ──────────────────────────────────────────────────
+object RentOutTextColors {
+    // Light mode text colors
+    val LightPrimaryText = Color(0xFF1A1F36)      // Dark blue-gray for headers
+    val LightSecondaryText = Color(0xFF5B6B8C)    // Medium gray-blue for subtitles
+    
+    // These adapt to theme automatically
+}
+
 // ─── Typography ───────────────────────────────────────────────────────────────
-private val RentOutTypography = Typography()
+private val RentOutTypography = Typography(
+    // Display - Large headlines (e.g., "Who are you?")
+    displaySmall = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.Black,
+        fontSize = 32.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.5).sp
+    ),
+    
+    // Title - Section headers and card titles
+    titleLarge = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = (-0.3).sp
+    ),
+    
+    titleMedium = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = (-0.2).sp
+    ),
+    
+    // Body - Regular text content
+    bodyLarge = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.Medium,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.15.sp
+    ),
+    
+    bodyMedium = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp
+    ),
+    
+    bodySmall = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.25.sp
+    ),
+    
+    // Label - Buttons and small UI elements
+    labelLarge = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.3.sp
+    ),
+    
+    labelMedium = androidx.compose.ui.text.TextStyle(
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.4.sp
+    )
+)
 
 // ─── Theme Composable ─────────────────────────────────────────────────────────
 @Composable

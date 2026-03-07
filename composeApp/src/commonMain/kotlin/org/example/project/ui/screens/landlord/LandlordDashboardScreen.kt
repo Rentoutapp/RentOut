@@ -5,6 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +34,8 @@ import org.example.project.data.model.User
 import org.example.project.presentation.PropertyListState
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.theme.RentOutBackgrounds
+import org.example.project.ui.theme.RentOutTextColors
 
 // ── Time-of-day data ──────────────────────────────────────────────────────────
 private enum class TimeOfDay(
@@ -318,11 +321,26 @@ fun LandlordDashboardScreen(
             }
         }
     ) { padding ->
+        val isDark = isSystemInDarkTheme()
+        
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .then(
+                    if (isDark) {
+                        Modifier.background(MaterialTheme.colorScheme.background)
+                    } else {
+                        Modifier.background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    RentOutBackgrounds.LightGradientTop,
+                                    RentOutBackgrounds.LightGradientBottom
+                                )
+                            )
+                        )
+                    }
+                )
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {

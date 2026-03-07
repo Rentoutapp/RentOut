@@ -3,6 +3,7 @@ package org.example.project.ui.screens.auth
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,10 +25,13 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.example.project.ui.components.RentOutPrimaryButton
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.theme.RentOutBackgrounds
+import org.example.project.ui.theme.RentOutTextColors
 
 @Composable
 fun IntroScreen(onGetStarted: () -> Unit) {
     var visible by remember { mutableStateOf(false) }
+    val isDark = isSystemInDarkTheme()
 
     LaunchedEffect(Unit) {
         delay(300)
@@ -53,13 +57,25 @@ fun IntroScreen(onGetStarted: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        RentOutColors.Primary,
-                        RentOutColors.PrimaryDark,
-                        Color(0xFF001A80)
+                if (isDark) {
+                    // Dark mode: deep gradient
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            RentOutColors.Primary,
+                            RentOutColors.PrimaryDark,
+                            Color(0xFF001A80)
+                        )
                     )
-                )
+                } else {
+                    // Light mode: softer, lighter gradient
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            RentOutColors.Primary,
+                            RentOutColors.PrimaryLight,
+                            Color(0xFF6B8FFF)
+                        )
+                    )
+                }
             )
     ) {
         // Decorative circles
@@ -105,25 +121,30 @@ fun IntroScreen(onGetStarted: () -> Unit) {
 
             Spacer(Modifier.height(32.dp))
 
-            // App name
+            // App name with rich typography
             Text(
                 text = "RentOut",
-                fontSize = 48.sp,
-                fontWeight = FontWeight.ExtraBold,
                 color = Color.White,
-                letterSpacing = (-1).sp,
-                modifier = Modifier.alpha(contentAlpha)
+                letterSpacing = (-1.2).sp,
+                modifier = Modifier.alpha(contentAlpha),
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontSize = 48.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-1.2).sp
+                )
             )
 
             Spacer(Modifier.height(12.dp))
 
             Text(
                 text = "Zimbabwe's Premier\nRental Marketplace",
-                fontSize = 18.sp,
-                color = Color.White.copy(alpha = 0.85f),
+                color = Color.White.copy(alpha = 0.92f),
                 textAlign = TextAlign.Center,
-                lineHeight = 26.sp,
-                modifier = Modifier.alpha(contentAlpha)
+                modifier = Modifier.alpha(contentAlpha),
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = 18.sp,
+                    lineHeight = 26.sp
+                )
             )
 
             Spacer(Modifier.height(16.dp))

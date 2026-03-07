@@ -63,6 +63,7 @@ fun AuthScreen(
     selectedRole: String,
     authState: AuthState,
     onLogin: (String, String, Boolean) -> Unit,
+    onNavigateAfterLogin: () -> Unit,
     onRegister: (String, String, String, String, String, ByteArray?) -> Unit,
     onBack: () -> Unit,
     onClearError: () -> Unit,
@@ -299,16 +300,48 @@ fun AuthScreen(
                             )
                         }
                         Spacer(Modifier.height(24.dp))
-                        RentOutPrimaryButton(
-                            text = "Sign In",
+                        var signInLoading by remember { mutableStateOf(false) }
+                        // Tracks whether the 4s progress bar has fully completed
+                        var signInBarDone by remember { mutableStateOf(false) }
+
+                        // When the bar finishes AND Firebase already succeeded → navigate.
+                        // When Firebase succeeds first → wait for bar → then navigate.
+                        // If Firebase returns an error at any point → reset the button immediately.
+                        LaunchedEffect(authState, signInBarDone) {
+                            when {
+                                signInLoading && signInBarDone && authState is AuthState.Success -> {
+                                    signInLoading = false
+                                    onNavigateAfterLogin()
+                                }
+                                signInLoading && authState is AuthState.Error -> {
+                                    // Firebase failed — stop the bar and let the error message show
+                                    signInLoading = false
+                                    signInBarDone = false
+                                }
+                            }
+                        }
+
+                        ProgressButton(
+                            itemCount = 1,
+                            isLoading = signInLoading,
                             onClick = {
                                 var valid = true
                                 if (loginEmail.isBlank()) { emailError = "Email is required"; valid = false }
                                 if (loginPassword.isBlank()) { passwordError = "Password is required"; valid = false }
-                                if (valid) onLogin(loginEmail.trim(), loginPassword, rememberMe)
+                                if (valid) {
+                                    signInBarDone = false
+                                    signInLoading = true
+                                    // Fire Firebase sign-in instantly, in parallel with the bar
+                                    onLogin(loginEmail.trim(), loginPassword, rememberMe)
+                                }
                             },
-                            modifier = Modifier.fillMaxWidth(),
-                            isLoading = isLoading
+                            buttonText = "Sign In →",
+                            loadingText = "Signing in",
+                            successText = "",
+                            onComplete = { signInBarDone = true },
+                            variant = ProgressVariant.LINEAR,
+                            animationDurationMs = 4000,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 } else {
@@ -636,8 +669,10 @@ fun AuthScreen(
                         Spacer(Modifier.height(24.dp))
 
                         // ── Create Account button with intelligent validation ──
-                        RentOutPrimaryButton(
-                            text = "Create Account",
+                        var createAccountLoading by remember { mutableStateOf(false) }
+                        ProgressButton(
+                            itemCount = 1,
+                            isLoading = createAccountLoading,
                             onClick = {
                                 // Reset all errors
                                 nameError = ""; emailError = ""; phoneError = ""
@@ -672,12 +707,22 @@ fun AuthScreen(
                                         scrollState.animateScrollTo(errors.first().scrollY)
                                     }
                                 } else {
-                                    val fullPhone = "${regCountry.code} ${regPhone.trim()}"
-                                    onRegister(regName.trim(), regEmail.trim(), regPassword, fullPhone, regPhotoUri, regPhotoBytes)
+                                    createAccountLoading = true
+                                    // 3.5s synced animation (slightly longer for account creation)
+                                    coroutineScope.launch {
+                                        delay(3500)
+                                        createAccountLoading = false
+                                        val fullPhone = "${regCountry.code} ${regPhone.trim()}"
+                                        onRegister(regName.trim(), regEmail.trim(), regPassword, fullPhone, regPhotoUri, regPhotoBytes)
+                                    }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth(),
-                            isLoading = isLoading
+                            buttonText = "Create Account →",
+                            loadingText = "Creating account",
+                            successText = "Account created!",
+                            variant = ProgressVariant.LINEAR,
+                            animationDurationMs = 3500,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }

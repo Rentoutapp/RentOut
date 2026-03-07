@@ -2,6 +2,7 @@ package org.example.project.ui.screens.auth
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,7 @@ fun SplashScreen(
     onNavigateToTenant: () -> Unit,
     currentUserRole: String? = null
 ) {
+    val isDark = isSystemInDarkTheme()
     var logoVisible by remember { mutableStateOf(false) }
     var textVisible by remember { mutableStateOf(false) }
 
@@ -72,9 +74,15 @@ fun SplashScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(RentOutColors.Primary, Color(0xFF001A80))
-                )
+                if (isDark) {
+                    Brush.verticalGradient(
+                        colors = listOf(RentOutColors.Primary, Color(0xFF001A80))
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        colors = listOf(RentOutColors.Primary, RentOutColors.PrimaryLight)
+                    )
+                }
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -107,20 +115,22 @@ fun SplashScreen(
             Spacer(Modifier.height(24.dp))
 
             Text(
-                "RentOut",
-                fontSize = 40.sp,
-                fontWeight = FontWeight.ExtraBold,
+                text = "RentOut",
                 color = Color.White,
-                modifier = Modifier.alpha(textAlpha)
+                modifier = Modifier.alpha(textAlpha),
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Black
+                )
             )
 
             Spacer(Modifier.height(8.dp))
 
             Text(
-                "Setting up your experience...",
-                fontSize = 15.sp,
-                color = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.alpha(textAlpha)
+                text = "Setting up your experience...",
+                color = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.alpha(textAlpha),
+                style = MaterialTheme.typography.bodyMedium
             )
 
             Spacer(Modifier.height(32.dp))

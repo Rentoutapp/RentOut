@@ -11,8 +11,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,16 +42,18 @@ fun ProgressButton(
     loadingText: String = "Processing",
     successText: String = "Complete!",
     variant: ProgressVariant = ProgressVariant.LINEAR,
+    animationDurationMs: Int = 2500,
+    onComplete: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    // ── States ────────────────────────────────────────────────────────────────
+    // ═══ States ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
     val enabled = itemCount > 0 && !isLoading
 
     // Progress state
     var simulatedProgress by remember { mutableStateOf(0f) }
     var isDone by remember { mutableStateOf(false) }
 
-    // ── Progress Logic: Multiple Variants ─────────────────────────────────────
+    // ═══ Progress Logic: Multiple Variants ═══════════════════════════════════════════════════════════════════
     LaunchedEffect(isLoading) {
         if (isLoading) {
             simulatedProgress = 0f
@@ -61,22 +61,20 @@ fun ProgressButton(
 
             when (variant) {
                 ProgressVariant.LINEAR -> {
-                    // Original: Linear progression to 92%
-                    val steps = 46
-                    repeat(steps) { i ->
-                        delay(60L)
-                        simulatedProgress = (i + 1) / 50f  // Max 0.92
-                    }
+                    // Single jump to 1f – animateFloatAsState drives the smooth 0→100%
+                    // over exactly animationDurationMs via its tween animation spec
+                    simulatedProgress = 1f
+                    // Wait for the tween to finish, then fire onComplete immediately
+                    delay(animationDurationMs.toLong())
+                    isDone = true
+                    onComplete?.invoke()
                 }
 
                 ProgressVariant.RANDOM -> {
                     // Random increments with variable delays
                     while (simulatedProgress < 0.92f) {
-                        // Random increment: 2% to 8%
                         val increment = (0.02f..0.08f).random()
                         simulatedProgress = (simulatedProgress + increment).coerceAtMost(0.92f)
-                        
-                        // Random delay: 40ms to 150ms
                         delay((40L..150L).random())
                     }
                 }
@@ -84,15 +82,12 @@ fun ProgressButton(
                 ProgressVariant.FAST_BURST -> {
                     // Fast bursts with occasional pauses
                     while (simulatedProgress < 0.92f) {
-                        // Large burst: 5% to 12%
                         val burst = (0.05f..0.12f).random()
                         simulatedProgress = (simulatedProgress + burst).coerceAtMost(0.92f)
-                        
-                        // Quick delay or occasional pause
                         val delayMs = if (Math.random() > 0.7) {
-                            (150L..300L).random()  // Occasional thinking pause
+                            (150L..300L).random()
                         } else {
-                            (20L..60L).random()    // Fast increment
+                            (20L..60L).random()
                         }
                         delay(delayMs)
                     }
@@ -108,24 +103,26 @@ fun ProgressButton(
                             simulatedProgress = start + (milestone - start) * (i + 1) / steps
                             delay((40L..100L).random())
                         }
-                        delay((100L..200L).random())  // Pause at milestone
+                        delay((100L..200L).random())
                     }
                 }
             }
-        } else if (simulatedProgress > 0f) {
-            // Backend operation completed — snap to 100%
+        } else if (simulatedProgress > 0f && variant != ProgressVariant.LINEAR) {
+            // Non-LINEAR: backend completed — snap to 100%
             simulatedProgress = 1f
             delay(400)
             isDone = true
         }
     }
 
-    // ── Animated Values ───────────────────────────────────────────────────────
+    // ═══ Animated Values
     
-    // Smooth progress interpolation
+    // For LINEAR: one smooth tween from 0→1 over the configured animationDurationMs
+    // For other variants: fast 50ms tween to follow incremental steps closely
+    val progressAnimDuration = if (variant == ProgressVariant.LINEAR && isLoading) animationDurationMs else 50
     val animatedProgress by animateFloatAsState(
         targetValue = simulatedProgress,
-        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = progressAnimDuration, easing = LinearEasing),
         label = "upload_progress"
     )
 
@@ -173,16 +170,16 @@ fun ProgressButton(
         label = "check_scale"
     )
 
-    // Icon rotation (infinite while loading)
-    val iconTransition = rememberInfiniteTransition(label = "icon_spin")
-    val spinAngle by iconTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
+    // Arrow bounce: slides UP ↕ DOWN vertically while loading
+    val iconTransition = rememberInfiniteTransition(label = "arrow_bounce")
+    val arrowOffset by iconTransition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
+            animation = tween(500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
         ),
-        label = "spin_angle"
+        label = "arrow_offset"
     )
 
     // ── Layout ────────────────────────────────────────────────────────────────
@@ -262,7 +259,7 @@ fun ProgressButton(
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (isDone) {
-                    // ✓ Success: Checkmark pop
+                    // ✔ Bar reached 100% — show checkmark briefly while navigation fires
                     Box(
                         modifier = Modifier
                             .scale(checkScale)
@@ -278,25 +275,16 @@ fun ProgressButton(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
+                } else {
+                    // ↕ Loading: Arrow bouncing UP/DOWN vertically + percentage
                     Text(
-                        text = successText,
-                        fontSize = 15.sp,
+                        text = "↑",
+                        fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        letterSpacing = 0.3.sp
+                        modifier = Modifier.graphicsLayer { translationY = arrowOffset * density }
                     )
-                } else {
-                    // ⟳ Loading: Spinning icon + percentage
-                    Icon(
-                        Icons.Default.CloudUpload,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .graphicsLayer { rotationZ = spinAngle }
-                    )
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = "$loadingText… ${(animatedProgress * 100).toInt()}%",
                         fontSize = 14.sp,
@@ -324,16 +312,8 @@ fun ProgressButton(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Icon(
-                        Icons.Default.Send,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = if (enabled) Color.White
-                               else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (itemCount == 0) "Add items first" else buttonText,
+                        text = if (itemCount == 0) "Select your role" else buttonText,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.3.sp,

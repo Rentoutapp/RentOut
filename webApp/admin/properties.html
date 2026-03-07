@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
@@ -6,7 +6,13 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>RentOut Admin — Properties</title>
+  <title>RentOut Admin � Properties</title>  
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="/admin/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/admin/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/admin/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon.png">
+  <link rel="manifest" href="/admin/site.webmanifest">
   
   <!-- Landscape Orientation Enforcer -->
   <script src="landscape-enforcer.js"></script>
@@ -34,10 +40,10 @@
 </head>
 <body class="bg-gray-50 min-h-screen flex">
 
-  <!-- Auth overlay — covers entire page until admin is confirmed. Removed by JS. -->
+  <!-- Auth overlay � covers entire page until admin is confirmed. Removed by JS. -->
   <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:#1B4FFF;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
     <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials…</span>
+    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials�</span>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
 
@@ -45,18 +51,18 @@
   <aside class="w-64 bg-gradient-to-b from-blue-900 to-primary min-h-screen flex flex-col fixed left-0 top-0 z-10">
     <div class="p-6 border-b border-white border-opacity-20">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center"><span class="text-xl">🏠</span></div>
+        <div class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center"><span class="text-xl">??</span></div>
         <div><div class="text-white font-extrabold text-lg">RentOut</div><div class="text-blue-200 text-xs">Admin Panel</div></div>
       </div>
     </div>
     <nav class="flex-1 p-4 space-y-1">
-      <a href="dashboard.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>📊</span> Dashboard</a>
-      <a href="properties.html" class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm"><span>🏠</span> Properties</a>
-      <a href="users.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>👥</span> Users</a>
-      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>💳</span> Transactions</a>
+      <a href="dashboard.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>??</span> Dashboard</a>
+      <a href="properties.html" class="nav-link active flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm"><span>??</span> Properties</a>
+      <a href="users.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>??</span> Users</a>
+      <a href="transactions.html" class="nav-link flex items-center gap-3 text-blue-100 px-4 py-3 rounded-xl text-sm"><span>??</span> Transactions</a>
     </nav>
     <div class="p-4 border-t border-white border-opacity-20">
-      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">🚪 Sign Out</button>
+      <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">?? Sign Out</button>
     </div>
   </aside>
 
@@ -70,9 +76,9 @@
     <!-- Filter tabs -->
     <div class="flex gap-2 mb-6 fade-in-up">
       <button onclick="filterProps('all')" id="tab-all" class="btn tab-btn active-tab px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-white">All</button>
-      <button onclick="filterProps('pending')" id="tab-pending" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">⏳ Pending</button>
-      <button onclick="filterProps('approved')" id="tab-approved" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">✅ Approved</button>
-      <button onclick="filterProps('rejected')" id="tab-rejected" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">❌ Rejected</button>
+      <button onclick="filterProps('pending')" id="tab-pending" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">? Pending</button>
+      <button onclick="filterProps('approved')" id="tab-approved" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">? Approved</button>
+      <button onclick="filterProps('rejected')" id="tab-rejected" class="btn tab-btn px-5 py-2 rounded-xl text-sm font-semibold bg-white text-gray-600 border border-gray-200">? Rejected</button>
     </div>
 
     <!-- Table -->
@@ -104,7 +110,7 @@
     import { getFirestore, collection, getDocs, doc, getDoc, updateDoc, deleteDoc, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
     import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-    // ── Firebase config (reads from google-services.json values) ──
+    // -- Firebase config (reads from google-services.json values) --
     const firebaseConfig = {
       apiKey:            "AIzaSyB5lKu_Ngtkv8hiqKWB9z8VScJx_GcP8dE",
       authDomain:        "rentout-12239.firebaseapp.com",
@@ -119,8 +125,8 @@
     const db   = getFirestore(app);
     const auth = getAuth(app);
 
-    // ── Auth guard ────────────────────────────────────────────────────────────
-    // LAYER 1 (synchronous): sessionStorage gate — instant, no Firebase round-trip.
+    // -- Auth guard ------------------------------------------------------------
+    // LAYER 1 (synchronous): sessionStorage gate � instant, no Firebase round-trip.
     const SESSION_KEY = 'rentout_admin_authed';
     if (!sessionStorage.getItem(SESSION_KEY)) {
       window.location.replace('index.html');
@@ -137,7 +143,7 @@
           sessionStorage.removeItem(SESSION_KEY);
           window.location.replace('index.html'); return;
         }
-        // ✅ Confirmed admin — remove overlay and load data
+        // ? Confirmed admin � remove overlay and load data
         document.getElementById('auth-overlay').remove();
         await loadProperties();
       });
@@ -152,7 +158,7 @@
     let allProperties = [];
     let currentFilter = 'all';
 
-    // ── Load from Firestore ──
+    // -- Load from Firestore --
     async function loadProperties() {
       showTableLoading();
       try {
@@ -182,27 +188,27 @@
       const approved = allProperties.filter(p => p.status === 'approved').length;
       const rejected = allProperties.filter(p => p.status === 'rejected').length;
       document.getElementById('tab-all').textContent      = `All (${allProperties.length})`;
-      document.getElementById('tab-pending').innerHTML    = `⏳ Pending (${pending})`;
-      document.getElementById('tab-approved').innerHTML   = `✅ Approved (${approved})`;
-      document.getElementById('tab-rejected').innerHTML   = `❌ Rejected (${rejected})`;
+      document.getElementById('tab-pending').innerHTML    = `? Pending (${pending})`;
+      document.getElementById('tab-approved').innerHTML   = `? Approved (${approved})`;
+      document.getElementById('tab-rejected').innerHTML   = `? Rejected (${rejected})`;
     }
 
     function statusBadge(s) {
       const map = {
-        pending:  '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">⏳ Pending</span>',
-        approved: '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">✅ Approved</span>',
-        rejected: '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">❌ Rejected</span>',
+        pending:  '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">? Pending</span>',
+        approved: '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200">? Approved</span>',
+        rejected: '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">? Rejected</span>',
       };
       return map[s] || `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">${s}</span>`;
     }
 
     function typeIcon(t) {
-      const m = { apartment:'🏢', house:'🏠', room:'🛏', commercial:'🏬' };
-      return m[t] || '🏠';
+      const m = { apartment:'??', house:'??', room:'??', commercial:'??' };
+      return m[t] || '??';
     }
 
     function formatDate(ts) {
-      if (!ts) return '—';
+      if (!ts) return '�';
       const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
       return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
     }
@@ -215,7 +221,7 @@
       if (!filtered.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center">
           <div class="flex flex-col items-center gap-2">
-            <span class="text-4xl">🏠</span>
+            <span class="text-4xl">??</span>
             <span class="text-gray-400 font-medium">No ${currentFilter === 'all' ? '' : currentFilter} properties found.</span>
           </div>
         </td></tr>`;
@@ -233,37 +239,37 @@
                 }
               </div>
               <div>
-                <div class="font-semibold text-gray-800 text-sm leading-tight group-hover:text-primary transition-colors">${p.title} <span class="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs">→ View</span></div>
+                <div class="font-semibold text-gray-800 text-sm leading-tight group-hover:text-primary transition-colors">${p.title} <span class="text-primary opacity-0 group-hover:opacity-100 transition-opacity text-xs">? View</span></div>
                 <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
                   <span>${typeIcon(p.propertyType)}</span>
-                  <span class="capitalize">${p.propertyType || '—'}</span>
-                  ${p.rooms ? `<span>·</span><span>${p.rooms} bed</span>` : ''}
-                  ${p.bathrooms ? `<span>·</span><span>${p.bathrooms} bath</span>` : ''}
+                  <span class="capitalize">${p.propertyType || '�'}</span>
+                  ${p.rooms ? `<span>�</span><span>${p.rooms} bed</span>` : ''}
+                  ${p.bathrooms ? `<span>�</span><span>${p.bathrooms} bath</span>` : ''}
                 </div>
                 <div class="text-xs text-gray-300 mt-0.5">${formatDate(p.createdAt)}</div>
               </div>
             </div>
           </td>
           <td class="px-4 py-3 text-sm text-gray-600">
-            <div class="flex items-center gap-1"><span class="text-rose-400">📍</span>${p.city || '—'}</div>
+            <div class="flex items-center gap-1"><span class="text-rose-400">??</span>${p.city || '�'}</div>
           </td>
           <td class="px-4 py-3">
             <div class="font-bold text-gray-800 text-sm">$${Number(p.price || 0).toLocaleString()}<span class="font-normal text-gray-400 text-xs">/mo</span></div>
-            ${p.securityDeposit ? `<div class="text-xs text-amber-600 mt-0.5">🛡 $${Number(p.securityDeposit).toLocaleString()} deposit</div>` : ''}
+            ${p.securityDeposit ? `<div class="text-xs text-amber-600 mt-0.5">?? $${Number(p.securityDeposit).toLocaleString()} deposit</div>` : ''}
           </td>
           <td class="px-4 py-3 text-sm text-gray-600">
             <div class="flex items-center gap-1.5">
-              <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">👤</div>
-              ${p.landlordName || '—'}
+              <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">??</div>
+              ${p.landlordName || '�'}
             </div>
           </td>
           <td class="px-4 py-3">${statusBadge(p.status)}</td>
           <td class="px-4 py-3" onclick="event.stopPropagation()">
             <div class="flex gap-1.5 flex-wrap">
-              <button onclick="viewProperty('${p.id}')" class="btn px-3 py-1.5 bg-primary hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">👁 View</button>
-              ${p.status !== 'approved' ? `<button onclick="approveP('${p.id}')" class="btn px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg">✅</button>` : ''}
-              ${p.status !== 'rejected' ? `<button onclick="rejectP('${p.id}')" class="btn px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg">❌</button>` : ''}
-              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg">🗑</button>
+              <button onclick="viewProperty('${p.id}')" class="btn px-3 py-1.5 bg-primary hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">?? View</button>
+              ${p.status !== 'approved' ? `<button onclick="approveP('${p.id}')" class="btn px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-semibold rounded-lg">?</button>` : ''}
+              ${p.status !== 'rejected' ? `<button onclick="rejectP('${p.id}')" class="btn px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg">?</button>` : ''}
+              <button onclick="deleteP('${p.id}')" class="btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-lg">??</button>
             </div>
           </td>
         </tr>
@@ -288,11 +294,11 @@
         await updateDoc(doc(db, 'properties', id), { status: 'approved', isVerified: true });
         allProperties = allProperties.map(p => p.id === id ? {...p, status:'approved', isVerified:true} : p);
         updateTabCounts(); renderTable();
-        showToast('✅ Property approved and now live!', 'success');
+        showToast('? Property approved and now live!', 'success');
       } catch (e) {
         allProperties = allProperties.map(p => p.id === id ? {...p, status:'approved'} : p);
         updateTabCounts(); renderTable();
-        showToast("✅ Property approved!", "success");
+        showToast("? Property approved!", "success");
       }
     };
 
@@ -307,11 +313,11 @@
         });
         allProperties = allProperties.map(p => p.id === id ? {...p, status:'rejected'} : p);
         updateTabCounts(); renderTable();
-        showToast('❌ Property rejected.', 'danger');
+        showToast('? Property rejected.', 'danger');
       } catch (e) {
         allProperties = allProperties.map(p => p.id === id ? {...p, status:'rejected'} : p);
         updateTabCounts(); renderTable();
-        showToast("❌ Property rejected.", "danger");
+        showToast("? Property rejected.", "danger");
       }
     };
 
@@ -321,11 +327,11 @@
         await deleteDoc(doc(db, 'properties', id));
         allProperties = allProperties.filter(p => p.id !== id);
         updateTabCounts(); renderTable();
-        showToast('🗑 Property deleted.', 'info');
+        showToast('?? Property deleted.', 'info');
       } catch (e) {
         allProperties = allProperties.filter(p => p.id !== id);
         updateTabCounts(); renderTable();
-        showToast("🗑 Property deleted.", "info");
+        showToast("?? Property deleted.", "info");
       }
     };
 

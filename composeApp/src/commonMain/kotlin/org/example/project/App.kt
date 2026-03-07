@@ -123,6 +123,11 @@ fun App() {
                     onLogin = { email, password, rememberMe ->
                         authViewModel.onEvent(AuthEvent.Login(email, password, rememberMe))
                     },
+                    onNavigateAfterLogin = {
+                        navController.navigate(NavRoutes.SPLASH) {
+                            popUpTo(NavRoutes.INTRO) { inclusive = true }
+                        }
+                    },
                     onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes ->
                         authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole, phoneNumber, profilePhotoUrl, photoBytes))
                     },
@@ -134,21 +139,17 @@ fun App() {
                     registrationProgress = registrationProgress,
                     registrationStep = registrationStep
                 )
-                // React to auth state
+                // React to auth state (registration and suspension only — login navigation
+                // is handled inside AuthScreen after the progress bar completes)
                 LaunchedEffect(authState) {
                     when (val state = authState) {
                         is AuthState.Registered -> {
-                            // Account created — go back to login tab with credentials pre-filled
+                            // Account created – go back to login tab with credentials pre-filled
                             authViewModel.clearRegistered()
                             navController.navigate(
                                 NavRoutes.authWithPrefill(state.email, state.password)
                             ) {
                                 popUpTo(NavRoutes.AUTH) { inclusive = true }
-                            }
-                        }
-                        is AuthState.Success -> {
-                            navController.navigate(NavRoutes.SPLASH) {
-                                popUpTo(NavRoutes.INTRO) { inclusive = true }
                             }
                         }
                         is AuthState.Suspended -> {

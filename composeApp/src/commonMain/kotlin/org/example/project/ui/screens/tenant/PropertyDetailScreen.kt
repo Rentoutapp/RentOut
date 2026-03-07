@@ -2,6 +2,7 @@ package org.example.project.ui.screens.tenant
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -527,6 +528,10 @@ private fun TenantDetailTabBar(
     selected: TenantDetailTab,
     onSelect: (TenantDetailTab) -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+    // Use primary color in dark mode (visible on dark bg), DetailNavy in light mode
+    val activeColor = if (isDark) MaterialTheme.colorScheme.primary else DetailNavy
+
     val tabs = listOf(
         TenantDetailTab.OVERVIEW  to "Overview",
         TenantDetailTab.AMENITIES to "Amenities",
@@ -535,6 +540,12 @@ private fun TenantDetailTabBar(
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
         tabs.forEach { (tab, label) ->
             val isSelected = selected == tab
+            val tabTextColor by animateColorAsState(
+                targetValue = if (isSelected) activeColor
+                              else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                animationSpec = tween(200),
+                label = "tab_color_$label"
+            )
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -549,16 +560,19 @@ private fun TenantDetailTabBar(
                     label,
                     fontSize = 14.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) DetailNavy
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = tabTextColor,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
                 )
                 Spacer(Modifier.height(6.dp))
                 AnimatedVisibility(visible = isSelected) {
                     Box(
                         modifier = Modifier
-                            .width(32.dp).height(3.dp)
+                            .width(32.dp)
+                            .height(3.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(DetailNavy)
+                            .background(activeColor)
                     )
                 }
             }
@@ -637,36 +651,118 @@ private fun TenantAmenitiesContent(property: Property) {
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(Modifier.height(12.dp))
-                Text("No amenities listed", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontSize = 14.sp)
+                Text(
+                    "No amenities listed",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    fontSize = 14.sp
+                )
             }
         }
     } else {
         val chunked = property.amenities.chunked(2)
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             chunked.forEach { row ->
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     row.forEach { amenity ->
-                        Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(DetailNavy.copy(alpha = 0.08f))
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(Icons.Default.CheckCircle, null, tint = DetailNavy, modifier = Modifier.size(16.dp))
-                            Text(
-                                amenity, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                        AmenityChip(amenity = amenity, modifier = Modifier.weight(1f))
                     }
                     if (row.size == 1) Spacer(Modifier.weight(1f))
                 }
             }
         }
+    }
+}
+
+private fun amenityIcon(amenity: String): ImageVector {
+    return when {
+        amenity.contains("parking", ignoreCase = true) -> Icons.Default.DirectionsCar
+        amenity.contains("pool", ignoreCase = true) -> Icons.Default.Pool
+        amenity.contains("gym", ignoreCase = true) || amenity.contains("fitness", ignoreCase = true) -> Icons.Default.FitnessCenter
+        amenity.contains("wifi", ignoreCase = true) || amenity.contains("internet", ignoreCase = true) -> Icons.Default.Wifi
+        amenity.contains("security", ignoreCase = true) || amenity.contains("guard", ignoreCase = true) -> Icons.Default.Security
+        amenity.contains("garden", ignoreCase = true) || amenity.contains("yard", ignoreCase = true) -> Icons.Default.Park
+        amenity.contains("pet", ignoreCase = true) -> Icons.Default.Pets
+        amenity.contains("borehole", ignoreCase = true) || amenity.contains("water", ignoreCase = true) -> Icons.Default.WaterDrop
+        amenity.contains("power", ignoreCase = true) || amenity.contains("solar", ignoreCase = true) || amenity.contains("backup", ignoreCase = true) -> Icons.Default.ElectricBolt
+        amenity.contains("laundry", ignoreCase = true) || amenity.contains("wash", ignoreCase = true) -> Icons.Default.LocalLaundryService
+        amenity.contains("balcony", ignoreCase = true) -> Icons.Default.Balcony
+        amenity.contains("air", ignoreCase = true) || amenity.contains("ac", ignoreCase = true) -> Icons.Default.AcUnit
+        amenity.contains("kitchen", ignoreCase = true) -> Icons.Default.Kitchen
+        amenity.contains("furnished", ignoreCase = true) -> Icons.Default.Chair
+        amenity.contains("elevator", ignoreCase = true) || amenity.contains("lift", ignoreCase = true) -> Icons.Default.Elevator
+        else -> Icons.Default.CheckCircle
+    }
+}
+
+private fun amenityColor(amenity: String): Color {
+    return when {
+        amenity.contains("parking", ignoreCase = true) -> Color(0xFF4A90E2)
+        amenity.contains("pool", ignoreCase = true) -> Color(0xFF00BCD4)
+        amenity.contains("gym", ignoreCase = true) || amenity.contains("fitness", ignoreCase = true) -> Color(0xFFE91E63)
+        amenity.contains("wifi", ignoreCase = true) || amenity.contains("internet", ignoreCase = true) -> Color(0xFF9C27B0)
+        amenity.contains("security", ignoreCase = true) -> Color(0xFF4CAF50)
+        amenity.contains("garden", ignoreCase = true) || amenity.contains("yard", ignoreCase = true) -> Color(0xFF8BC34A)
+        amenity.contains("pet", ignoreCase = true) -> Color(0xFFFF9800)
+        amenity.contains("borehole", ignoreCase = true) || amenity.contains("water", ignoreCase = true) -> Color(0xFF03A9F4)
+        amenity.contains("power", ignoreCase = true) || amenity.contains("solar", ignoreCase = true) || amenity.contains("backup", ignoreCase = true) -> Color(0xFFFFC107)
+        amenity.contains("laundry", ignoreCase = true) -> Color(0xFF00BCD4)
+        amenity.contains("balcony", ignoreCase = true) -> Color(0xFF009688)
+        amenity.contains("air", ignoreCase = true) || amenity.contains("ac", ignoreCase = true) -> Color(0xFF29B6F6)
+        amenity.contains("kitchen", ignoreCase = true) -> Color(0xFFFF7043)
+        amenity.contains("furnished", ignoreCase = true) -> Color(0xFF795548)
+        amenity.contains("elevator", ignoreCase = true) -> Color(0xFF607D8B)
+        else -> Color(0xFF4CAF50)
+    }
+}
+
+@Composable
+private fun AmenityChip(amenity: String, modifier: Modifier = Modifier) {
+    val isDark = isSystemInDarkTheme()
+    val icon = amenityIcon(amenity)
+    val color = amenityColor(amenity)
+
+    val displayName = amenity
+        .replace("_", " ")
+        .split(" ")
+        .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                if (isDark) color.copy(alpha = 0.20f)
+                else color.copy(alpha = 0.10f)
+            )
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = if (isDark) 0.35f else 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Text(
+            text = displayName,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+        )
     }
 }
 

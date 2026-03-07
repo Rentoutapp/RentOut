@@ -4,6 +4,7 @@ package org.example.project.ui.screens.tenant
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -44,6 +45,8 @@ import org.example.project.presentation.PropertyListState
 import org.example.project.presentation.SortOption
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.theme.RentOutBackgrounds
+import org.example.project.ui.theme.RentOutTextColors
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -137,8 +140,10 @@ fun TenantHomeScreen(
         )
     }
 
+    val isDark = isSystemInDarkTheme()
+    
     Scaffold(
-        containerColor = TenantCream,
+        containerColor = if (isDark) MaterialTheme.colorScheme.background else TenantCream,
         floatingActionButton = {
             AnimatedVisibility(
                 visible = isFabVisible,
@@ -167,7 +172,13 @@ fun TenantHomeScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .background(TenantCream),
+                .then(
+                    if (isDark) {
+                        Modifier.background(MaterialTheme.colorScheme.background)
+                    } else {
+                        Modifier.background(TenantCream)
+                    }
+                ),
             contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 100.dp)
         ) {
             // ── Hero header ────────────────────────────────────────────────────

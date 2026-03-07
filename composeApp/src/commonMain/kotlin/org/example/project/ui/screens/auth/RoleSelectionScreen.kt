@@ -2,6 +2,9 @@ package org.example.project.ui.screens.auth
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +12,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -26,8 +30,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.graphicsLayer
 import org.example.project.ui.components.RentOutPrimaryButton
+import org.example.project.ui.components.ProgressButton
+import org.example.project.ui.components.ProgressVariant
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.util.rememberPulseAnimation
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun RoleSelectionScreen(
@@ -35,6 +47,22 @@ fun RoleSelectionScreen(
 ) {
     var selectedRole by remember { mutableStateOf("") }
     val isDark = isSystemInDarkTheme()
+    
+    // Animation states - staggered entrance
+    var headerVisible by remember { mutableStateOf(false) }
+    var landlordCardVisible by remember { mutableStateOf(false) }
+    var tenantCardVisible by remember { mutableStateOf(false) }
+    var buttonVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        headerVisible = true
+        kotlinx.coroutines.delay(150)
+        landlordCardVisible = true
+        kotlinx.coroutines.delay(100)
+        tenantCardVisible = true
+        kotlinx.coroutines.delay(100)
+        buttonVisible = true
+    }
 
     Box(
         modifier = Modifier
@@ -80,82 +108,121 @@ fun RoleSelectionScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Header section with rich typography
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 16.dp)
+            // Header section with rich typography and animations
+            AnimatedVisibility(
+                visible = headerVisible,
+                enter = fadeIn(animationSpec = tween(600, easing = FastOutSlowInEasing)) + 
+                        slideInVertically(
+                            animationSpec = tween(600, easing = FastOutSlowInEasing),
+                            initialOffsetY = { -40 }
+                        )
             ) {
-                Text(
-                    text = "Who are you?",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Black,
-                    color = if (isDark) {
-                        MaterialTheme.colorScheme.onBackground
-                    } else {
-                        Color(0xFF1A1F36)
-                    },
-                    textAlign = TextAlign.Center,
-                    letterSpacing = (-0.5).sp, // Tighter spacing for impact
-                    lineHeight = 40.sp,
-                    style = MaterialTheme.typography.displaySmall.copy(
-                        fontWeight = FontWeight.Black
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                ) {
+                    Text(
+                        text = "Who are you?",
+                        color = if (isDark) {
+                            MaterialTheme.colorScheme.onBackground
+                        } else {
+                            Color(0xFF1A1F36)
+                        },
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.displaySmall
                     )
-                )
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = "Choose how you'll use RentOut",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (isDark) {
-                        MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-                    } else {
-                        Color(0xFF5B6B8C)
-                    },
-                    textAlign = TextAlign.Center,
-                    letterSpacing = 0.15.sp, // Slightly open for readability
-                    lineHeight = 24.sp,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.Medium
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "Choose how you'll use RentOut",
+                        color = if (isDark) {
+                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                        } else {
+                            Color(0xFF5B6B8C)
+                        },
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyLarge
                     )
-                )
+                }
             }
 
             Spacer(Modifier.height(40.dp))
 
-            // Landlord card
-            RoleCard(
-                icon = Icons.Default.Home,
-                iconTint = RentOutColors.IconBlue,
-                title = "Landlord",
-                subtitle = "List your properties &\nearn from tenants",
-                emoji = "🏠",
-                isSelected = selectedRole == "landlord",
-                selectedBorderColor = MaterialTheme.colorScheme.primary,
-                onClick = { selectedRole = "landlord" }
-            )
+            // Landlord card with animation
+            AnimatedVisibility(
+                visible = landlordCardVisible,
+                enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing)) + 
+                        slideInVertically(
+                            animationSpec = tween(500, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it / 2 }
+                        )
+            ) {
+                RoleCard(
+                    icon = Icons.Default.Home,
+                    iconTint = RentOutColors.IconBlue,
+                    title = "Landlord",
+                    subtitle = "List your properties &\nearn from tenants",
+                    emoji = "🏠",
+                    isSelected = selectedRole == "landlord",
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    onClick = { selectedRole = "landlord" }
+                )
+            }
 
             Spacer(Modifier.height(20.dp))
 
-            // Tenant card
-            RoleCard(
-                icon = Icons.Default.Key,
-                iconTint = RentOutColors.IconAmber,
-                title = "Tenant",
-                subtitle = "Find rentals & pay \$10\nto unlock landlord contacts",
-                emoji = "🔑",
-                isSelected = selectedRole == "tenant",
-                selectedBorderColor = MaterialTheme.colorScheme.secondary,
-                onClick = { selectedRole = "tenant" }
-            )
+            // Tenant card with animation
+            AnimatedVisibility(
+                visible = tenantCardVisible,
+                enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing)) + 
+                        slideInVertically(
+                            animationSpec = tween(500, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it / 2 }
+                        )
+            ) {
+                RoleCard(
+                    icon = Icons.Default.Key,
+                    iconTint = RentOutColors.IconAmber,
+                    title = "Tenant",
+                    subtitle = "Find rentals & pay a small fee to unlock landlord details",
+                    emoji = "🔑",
+                    isSelected = selectedRole == "tenant",
+                    selectedBorderColor = MaterialTheme.colorScheme.secondary,
+                    onClick = { selectedRole = "tenant" }
+                )
+            }
 
             Spacer(Modifier.height(32.dp))
 
-            RentOutPrimaryButton(
-                text = "Continue →",
-                onClick = { if (selectedRole.isNotEmpty()) onRoleSelected(selectedRole) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = selectedRole.isNotEmpty()
-            )
+            // Button with animation - Linear Progression Button
+            AnimatedVisibility(
+                visible = buttonVisible,
+                enter = fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) + 
+                        slideInVertically(
+                            animationSpec = tween(400, easing = FastOutSlowInEasing),
+                            initialOffsetY = { 20 }
+                        )
+            ) {
+                var isLoading by remember { mutableStateOf(false) }
+                val coroutineScope = rememberCoroutineScope()
+                
+                ProgressButton(
+                    itemCount = if (selectedRole.isNotEmpty()) 1 else 0,
+                    isLoading = isLoading,
+                    onClick = {
+                        isLoading = true
+                        // 2.5-second delay synced to the 0→100% linear animation
+                        coroutineScope.launch {
+                            delay(2500)
+                            onRoleSelected(selectedRole)
+                        }
+                    },
+                    buttonText = "Continue →",
+                    loadingText = "Loading",
+                    successText = "Let's go!",
+                    variant = ProgressVariant.LINEAR,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -175,90 +242,104 @@ private fun RoleCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     
+    // Micro-interaction: subtle pulse when selected
+    val pulseScale = if (isSelected) rememberPulseAnimation(0.98f, 1.02f, 2000) else 1f
+    
     val scale by animateFloatAsState(
         targetValue = when {
             isPressed  -> 0.96f
-            isSelected -> 1.02f
             else       -> 1f
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "role_card_scale"
     )
+    
     val elevation by animateDpAsState(
         targetValue = if (isSelected) {
             12.dp
         } else {
-            if (isDark) 6.dp else 8.dp // More elevation in light mode for better visibility
+            if (isDark) 6.dp else 8.dp
         },
         label = "role_card_elevation"
     )
-
-    // Theme-adaptive card background
-    val cardBackground = if (isDark) {
-        // Dark mode: elevated surface with subtle gradient
-        Brush.verticalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-            )
-        )
-    } else {
-        // Light mode: solid white with subtle depth for better visibility
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White,
-                Color(0xFFFAFBFC)
-            )
-        )
-    }
-
-    // Border color - more prominent when selected
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) {
-            selectedBorderColor
-        } else {
-            if (isDark) {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-            } else {
-                // Light mode: more visible border for better card definition
-                Color(0xFFE0E5ED)
-            }
-        },
-        label = "border_color"
+    
+    // Micro-interaction: emoji rotation on selection
+    val emojiRotation by animateFloatAsState(
+        targetValue = if (isSelected) 15f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "emoji_rotation"
+    )
+    
+    val emojiScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.1f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "emoji_scale"
     )
 
-    val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.5.dp else 1.5.dp,
-        label = "border_width"
+    // Card always stays white (light) or surface (dark) - no color change inside
+    val cardBackgroundColor = if (isDark) MaterialTheme.colorScheme.surface else Color.White
+
+    // Icon box - always use subtle icon tint, no color change
+    val iconBoxColor = if (isDark) iconTint.copy(alpha = 0.25f) else iconTint.copy(alpha = 0.12f)
+
+    // Animated checkmark scale
+    val checkScale by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
+        label = "check_scale"
+    )
+
+    // Halo glow width - only outside the card
+    val haloWidth by animateDpAsState(
+        targetValue = if (isSelected) 3.dp else 1.dp,
+        animationSpec = tween(300),
+        label = "halo_width"
+    )
+
+    val haloColor by animateColorAsState(
+        targetValue = if (isSelected) selectedBorderColor else {
+            if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f) else Color(0xFFE0E5ED)
+        },
+        animationSpec = tween(300),
+        label = "halo_color"
     )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
-            .shadow(elevation, RoundedCornerShape(24.dp))
+            .graphicsLayer {
+                scaleX = scale * pulseScale
+                scaleY = scale * pulseScale
+                shadowElevation = if (isSelected) 20f else 8f
+                shape = RoundedCornerShape(24.dp)
+                clip = false // Don't clip - let halo show outside
+            }
+            .border(haloWidth, haloColor, RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
-            .background(cardBackground)
-            .border(borderWidth, borderColor, RoundedCornerShape(24.dp))
+            .background(cardBackgroundColor)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Icon box with theme-adaptive background
             Box(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(
-                        if (isDark) {
-                            iconTint.copy(alpha = 0.25f)
-                        } else {
-                            iconTint.copy(alpha = 0.12f)
-                        }
-                    ),
+                    .background(iconBoxColor),
                 contentAlignment = Alignment.Center
             ) {
-                Text(emoji, fontSize = 32.sp)
+                Text(
+                    text = emoji,
+                    fontSize = 32.sp,
+                    modifier = Modifier.graphicsLayer {
+                        rotationZ = emojiRotation
+                        scaleX = emojiScale
+                        scaleY = emojiScale
+                    }
+                )
             }
 
             Spacer(Modifier.width(20.dp))
@@ -266,11 +347,7 @@ private fun RoleCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    letterSpacing = (-0.3).sp, // Tight for bold headlines
-                    lineHeight = 26.sp,
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold
                     )
@@ -278,16 +355,10 @@ private fun RoleCard(
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
                         alpha = if (isDark) 0.85f else 0.7f
                     ),
-                    letterSpacing = 0.1.sp, // Slightly open for body text
-                    lineHeight = 20.sp,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Normal
-                    )
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
 
@@ -296,7 +367,9 @@ private fun RoleCard(
                     Icons.Default.CheckCircle,
                     contentDescription = "Selected",
                     tint = selectedBorderColor,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier
+                        .size(28.dp)
+                        .scale(checkScale)
                 )
             }
         }
