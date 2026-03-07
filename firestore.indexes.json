@@ -59,6 +59,14 @@
       ]
     },
     {
+      "collectionGroup": "unlocks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId",    "order": "ASCENDING" },
+        { "fieldPath": "propertyId",  "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [

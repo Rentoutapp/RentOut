@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import org.example.project.data.model.Property
 import org.example.project.data.model.Transaction
 import org.example.project.data.model.Unlock
@@ -38,159 +39,199 @@ class TenantViewModel : ViewModel() {
     private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
     val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
 
+    private val _transactionsLoading = MutableStateFlow(false)
+    val transactionsLoading: StateFlow<Boolean> = _transactionsLoading.asStateFlow()
+
     // ── Real-time listener job for unlocks ────────────────────────────────────
     private var unlocksListenerJob: Job? = null
     private var transactionsListenerJob: Job? = null
 
-    // ── Load unlocks for this tenant — real-time Firestore listener ───────────
-    // Whenever a Cloud Function writes a new unlock doc (after payment), this
-    // flow fires automatically and fetches the full property details, so the
-    // tenant's unlocked list updates without any user action.
-    fun loadUnlockedProperties(tenantId: String) {
-        unlocksListenerJob?.cancel()
-        unlocksListenerJob = viewModelScope.launch {
-            Firebase.firestore
-                .collection("unlocks")
-                .where { "tenantId" equalTo tenantId }
-                .snapshots
-                .catch { /* Silent — unlocked list stays as-is on error */ }
-                .collect { snapshot ->
-                    val ids = snapshot.documents
-                        .map { it.get("propertyId") as? String ?: "" }
-                        .filter { it.isNotBlank() }
-                        .toSet()
-                    _unlockedPropertyIds.value = ids
+    // ═══ Load unlocked properties derived from successful transactions ═══════
+    //
+    // ROOT CAUSE FIX (2026-03-07):
+    // Querying the `unlocks` collection always returned 0 docs despite the docs
+    // existing in Firestore. The logs confirmed:
+    //   "TenantViewModel: 0 unlocked property IDs loaded"  ← every single poll
+    // Two compounding causes:
+    //   1. App Check errors ("No AppCheckProvider installed") silently blocked
+    //      collection list queries on `unlocks` on Android.
+    //   2. doc.get<Any?>("propertyId") on gitlive QueryDocumentSnapshot in a
+    //      collection query result behaves differently from a direct doc read.
+    //
+    // THE FIX: Stop querying `unlocks` entirely from the client.
+    // Derive `unlockedPropertyIds` directly from the `transactions` StateFlow,
+    // which already works perfectly (6 docs returned every poll).
+    // A transaction with status="success" IS the proof of unlock — the `unlocks`
+    // collection is only needed server-side for the Cloud Function idempotency check.
+    //
+    // After transactions are loaded, we call this to sync the unlock state.
+    private fun syncUnlockStateFromTransactions() {
+        val successfulTxns = _transactions.value.filter {
+            it.status.equals("success", ignoreCase = true)
+        }
+        val ids = successfulTxns.map { it.propertyId }.filter { it.isNotBlank() }.toSet()
+        _unlockedPropertyIds.value = ids
+        println("🔓 TenantViewModel: ${ids.size} unlocked IDs derived from ${successfulTxns.size} successful transactions")
 
-                    // Fetch full property docs for each unlocked id
-                    if (ids.isNotEmpty()) {
-                        val db = Firebase.firestore
-                        val props = ids.mapNotNull { pid ->
-                            try {
-                                val doc = db.collection("properties").document(pid).get()
-                                if (doc.exists) doc.data(Property.serializer()) else null
-                            } catch (_: Exception) { null }
-                        }
-                        _unlockedProperties.value = props
-                    } else {
-                        _unlockedProperties.value = emptyList()
-                    }
+        // Fetch full property docs for each unlocked property so "My Unlocked" list populates
+        if (ids.isNotEmpty()) {
+            viewModelScope.launch {
+                val db = Firebase.firestore
+                val props = ids.mapNotNull { pid ->
+                    try {
+                        val doc = db.collection("properties").document(pid).get()
+                        if (doc.exists) doc.data(Property.serializer()) else null
+                    } catch (_: Exception) { null }
                 }
+                _unlockedProperties.value = props
+                println("🏠 TenantViewModel: ${props.size} unlocked property docs fetched")
+            }
+        } else {
+            _unlockedProperties.value = emptyList()
         }
     }
 
-    // ── Load payment transactions for this tenant — real-time listener ───────
+    // Keep loadUnlockedProperties as a no-op stub so App.kt call sites don't break.
+    // All unlock state is now derived from transactions — see syncUnlockStateFromTransactions().
+    fun loadUnlockedProperties(tenantId: String) {
+        // Sync immediately from whatever transactions are already loaded
+        syncUnlockStateFromTransactions()
+    }
+
+    // ═══ Immediately refresh both unlocks AND transactions after payment ══════
+    fun refreshAfterPayment(tenantId: String) {
+        transactionsListenerJob?.cancel()
+        loadTransactions(tenantId)
+        // syncUnlockStateFromTransactions() is called inside loadTransactions
+        // after the new transaction list is emitted
+    }
+
+    // ═══ Load payment transactions for this tenant ════════════════════════════════
+    // Direct profile navigation is a sensitive path: if the first fetch hits an auth
+    // timing or network startup issue, waiting 30 seconds before retrying makes the
+    // payment history look permanently empty. We therefore fetch immediately, expose
+    // loading state to the UI, and retry quickly until the first successful load.
     fun loadTransactions(tenantId: String) {
-        println("🔍 TenantViewModel: loadTransactions called with tenantId=$tenantId")
+        println("🔄 TenantViewModel: loadTransactions called for tenantId=$tenantId")
         transactionsListenerJob?.cancel()
         transactionsListenerJob = viewModelScope.launch {
-            try {
-                Firebase.firestore
-                    .collection("transactions")
-                    .where { "tenantId" equalTo tenantId }
-                    .snapshots
-                    .catch { e -> 
-                        println("❌ TenantViewModel: Error loading transactions: ${e.message}")
-                        e.printStackTrace()
-                        // Emit empty list on error so UI doesn't hang
-                        emit(Firebase.firestore.collection("transactions").get())
-                    }
-                    .collect { snapshot ->
-                        println("📊 TenantViewModel: Received ${snapshot.documents.size} transaction documents")
-                        
-                        if (snapshot.documents.isEmpty()) {
-                            println("ℹ️ TenantViewModel: No transactions found for tenantId=$tenantId")
-                            _transactions.value = emptyList()
-                            return@collect
-                        }
-                        
-                        val parsedTransactions = mutableListOf<Transaction>()
-                        
-                        snapshot.documents.forEach { doc ->
-                            try {
-                                // Use doc.get() to access fields directly without serialization
-                                // This avoids "Serializer for class 'kotlin.Any' is not found" error
-                                val id = doc.id
-                                val tenantId = doc.get("tenantId") as? String ?: ""
-                                val propertyId = doc.get("propertyId") as? String ?: ""
-                                val landlordId = doc.get("landlordId") as? String ?: ""
-                                val amount = (doc.get("amount") as? Number)?.toDouble() ?: 10.0
-                                val currency = doc.get("currency") as? String ?: "USD"
-                                val status = doc.get("status") as? String ?: "pending"
-                                val paymentProvider = doc.get("paymentProvider") as? String ?: "pesepay"
-                                val paymentReference = doc.get("paymentReference") as? String ?: ""
-                                
-                                // Handle createdAt - could be Timestamp, Long, or Number
-                                val createdAtRaw: Any? = doc.get("createdAt")
-                                val createdAt = when (createdAtRaw) {
-                                    is Long -> {
-                                        println("   → createdAt is Long: $createdAtRaw")
-                                        createdAtRaw
-                                    }
-                                    is Int -> {
-                                        println("   → createdAt is Int: $createdAtRaw")
-                                        createdAtRaw.toLong()
-                                    }
-                                    is Double -> {
-                                        println("   → createdAt is Double: $createdAtRaw")
-                                        createdAtRaw.toLong()
-                                    }
-                                    is Number -> {
-                                        println("   → createdAt is Number: $createdAtRaw")
-                                        createdAtRaw.toLong()
-                                    }
-                                    else -> {
-                                        // Try to extract milliseconds from Timestamp object
-                                        try {
-                                            // GitLive Firebase Timestamp has seconds and nanoseconds properties
-                                            val timestampMap = createdAtRaw as? Map<*, *>
-                                            if (timestampMap != null) {
-                                                val seconds = (timestampMap["seconds"] as? Number)?.toLong() ?: 0L
-                                                val nanoseconds = (timestampMap["nanoseconds"] as? Number)?.toLong() ?: 0L
-                                                val millis = (seconds * 1000) + (nanoseconds / 1_000_000)
-                                                println("   → createdAt is Timestamp: seconds=$seconds, nanos=$nanoseconds, millis=$millis")
-                                                millis
-                                            } else {
-                                                println("   → createdAt is unknown type: $createdAtRaw (${createdAtRaw?.let { it::class.simpleName }})")
-                                                System.currentTimeMillis()
-                                            }
-                                        } catch (e: Exception) {
-                                            println("⚠️ Could not parse createdAt for transaction ${doc.id}: $createdAtRaw - ${e.message}")
-                                            System.currentTimeMillis()
-                                        }
-                                    }
-                                }
-                                
-                                val transaction = Transaction(
-                                    id = id,
-                                    tenantId = tenantId,
-                                    propertyId = propertyId,
-                                    landlordId = landlordId,
-                                    amount = amount,
-                                    currency = currency,
-                                    status = status,
-                                    paymentProvider = paymentProvider,
-                                    paymentReference = paymentReference,
-                                    createdAt = createdAt
-                                )
-                                
-                                println("✅ Parsed Transaction: id=${transaction.id}, amount=$${transaction.amount}, status=${transaction.status}, createdAt=${transaction.createdAt}")
-                                parsedTransactions.add(transaction)
-                            } catch (e: Exception) { 
-                                println("❌ Failed to parse transaction doc ${doc.id}: ${e.message}")
-                                e.printStackTrace()
-                            }
-                        }
-                        
-                        val txns = parsedTransactions.sortedByDescending { it.createdAt }
-                        println("💰 TenantViewModel: Setting ${txns.size} transactions in state")
-                        _transactions.value = txns
-                    }
-            } catch (e: Exception) {
-                println("❌ TenantViewModel: Fatal error in loadTransactions: ${e.message}")
-                e.printStackTrace()
-                _transactions.value = emptyList()
+            var hasLoadedSuccessfully = false
+            while (true) {
+                val nextDelay = try {
+                    fetchTransactions(tenantId)
+                    hasLoadedSuccessfully = true
+                    15_000L
+                } catch (e: Exception) {
+                    println("❌ TenantViewModel: loadTransactions error: ${e.message}")
+                    e.printStackTrace()
+                    _transactionsLoading.value = false
+                    if (hasLoadedSuccessfully) 10_000L else 2_000L
+                }
+                delay(nextDelay)
             }
         }
+    }
+
+    fun refreshTransactions(tenantId: String) {
+        println("🔁 TenantViewModel: refreshTransactions requested for tenantId=$tenantId")
+        loadTransactions(tenantId)
+    }
+
+    private suspend fun fetchTransactions(tenantId: String) {
+        _transactionsLoading.value = true
+
+        val snapshot = Firebase.firestore
+            .collection("transactions")
+            .where { "tenantId" equalTo tenantId }
+            .get()
+
+        println("📸 TenantViewModel: Got ${snapshot.documents.size} docs from Firestore for tenantId=$tenantId")
+
+        val parsedTransactions = snapshot.documents.mapNotNull { doc ->
+            try {
+                val tenantIdValue = try { doc.get<String>("tenantId") } catch (_: Exception) { "" }
+                val propertyIdValue = try { doc.get<String>("propertyId") } catch (_: Exception) { "" }
+                val landlordIdValue = try { doc.get<String>("landlordId") } catch (_: Exception) { "" }
+                val amountValue = try {
+                    doc.get<Double>("amount")
+                } catch (_: Exception) {
+                    try { doc.get<Long>("amount").toDouble() } catch (_: Exception) {
+                        try { doc.get<Int>("amount").toDouble() } catch (_: Exception) { 10.0 }
+                    }
+                }
+                val currencyValue = try { doc.get<String>("currency") } catch (_: Exception) { "USD" }
+                val statusValue = try { doc.get<String>("status") } catch (_: Exception) { "pending" }
+                val providerValue = try { doc.get<String>("paymentProvider") } catch (_: Exception) { "pesepay" }
+                val referenceValue = try { doc.get<String>("paymentReference") } catch (_: Exception) { "" }
+                val createdAtValue = try {
+                    doc.get<Long>("createdAt")
+                } catch (_: Exception) {
+                    try { doc.get<Double>("createdAt").toLong() } catch (_: Exception) {
+                        try { doc.get<Int>("createdAt").toLong() } catch (_: Exception) {
+                            try { doc.get<String>("createdAt").toLongOrNull() ?: Clock.System.now().toEpochMilliseconds() } catch (_: Exception) {
+                                Clock.System.now().toEpochMilliseconds()
+                            }
+                        }
+                    }
+                }
+
+                val transaction = Transaction(
+                    id = doc.id,
+                    tenantId = tenantIdValue,
+                    propertyId = propertyIdValue,
+                    landlordId = landlordIdValue,
+                    amount = amountValue,
+                    currency = currencyValue,
+                    status = statusValue,
+                    paymentProvider = providerValue,
+                    paymentReference = referenceValue,
+                    createdAt = createdAtValue
+                )
+                println(
+                    "✅ Parsed tx ${transaction.id}: \$${transaction.amount} ${transaction.currency} [${transaction.status}] createdAt=${transaction.createdAt}"
+                )
+                transaction
+            } catch (e: Exception) {
+                println("❌ Failed to parse tx doc ${doc.id}: ${e.message}")
+                null
+            }
+        }
+
+        val propertyMap = buildPropertyMap(parsedTransactions.map { it.propertyId })
+        val enrichedTransactions = parsedTransactions.map { transaction ->
+            val property = propertyMap[transaction.propertyId]
+            if (property != null) {
+                transaction.copy(
+                    propertyTitle = property.title,
+                    propertyLocation = property.location,
+                    propertyCity = property.city,
+                    propertyType = property.propertyType,
+                    propertyImageUrl = property.imageUrls.firstOrNull().takeUnless { it.isNullOrBlank() }
+                        ?: property.imageUrl,
+                    propertyRooms = property.rooms
+                )
+            } else transaction
+        }
+
+        val sorted = enrichedTransactions.sortedByDescending { it.createdAt }
+        println("🎯 TenantViewModel: Emitting ${sorted.size} transactions to UI")
+        _transactions.value = sorted
+        _transactionsLoading.value = false
+        // Derive unlock state from successful transactions - single source of truth
+        syncUnlockStateFromTransactions()
+    }
+
+    private suspend fun buildPropertyMap(propertyIds: List<String>): Map<String, Property> {
+        val uniqueIds = propertyIds.filter { it.isNotBlank() }.distinct()
+        if (uniqueIds.isEmpty()) return emptyMap()
+
+        val db = Firebase.firestore
+        return uniqueIds.associateWith { propertyId ->
+            runCatching {
+                val doc = db.collection("properties").document(propertyId).get()
+                if (doc.exists) doc.data(Property.serializer()) else null
+            }.getOrNull()
+        }.mapNotNull { (id, property) -> property?.let { id to it } }.toMap()
     }
 
     // ── Stop the unlocks listener (call on logout) ────────────────────────────
@@ -199,6 +240,7 @@ class TenantViewModel : ViewModel() {
         unlocksListenerJob = null
         transactionsListenerJob?.cancel()
         transactionsListenerJob = null
+        _transactionsLoading.value = false
     }
 
     // ── Check if a single property is unlocked ────────────────────────────────
@@ -238,32 +280,42 @@ class TenantViewModel : ViewModel() {
                     )
                 )
 
-                // Step 2 — poll Firestore until the unlock doc appears (max ~10 s)
-                // In demo mode the doc is written synchronously by the function,
-                // so the first check usually succeeds immediately.
-                val db       = Firebase.firestore
-                val unlockId = "${tenantId}_${property.id}"
+                // Step 2 – poll the transactions collection for this property until
+                // status = "success" (max 10 s). The Cloud Function writes status="success"
+                // synchronously in demo mode so the first poll usually succeeds immediately.
+                // We use transactions (not the unlocks collection) because list queries on
+                // unlocks are blocked by App Check interference on Android.
+                val db = Firebase.firestore
                 var unlocked = false
-                repeat(10) { attempt ->
+                repeat(10) {
                     if (unlocked) return@repeat
-                    val doc = db.collection("unlocks").document(unlockId).get()
-                    if (doc.exists) {
-                        unlocked = true
-                    } else {
-                        delay(1_000L) // wait 1 s before next poll
-                    }
+                    try {
+                        val txSnap = db.collection("transactions")
+                            .where { "tenantId" equalTo tenantId }
+                            .where { "propertyId" equalTo property.id }
+                            .get()
+                        val successTx = txSnap.documents.any { doc ->
+                            try { (doc.get<Any?>("status") as? String)?.equals("success", ignoreCase = true) == true }
+                            catch (_: Exception) { false }
+                        }
+                        if (successTx) unlocked = true
+                    } catch (_: Exception) { }
+                    if (!unlocked) delay(1_000L)
                 }
 
                 if (unlocked) {
-                    // Update in-memory state; real-time listener will also confirm
+                    // Optimistically add to in-memory set immediately
                     _unlockedPropertyIds.value = _unlockedPropertyIds.value + property.id
                     val newList = _unlockedProperties.value.toMutableList()
                     if (newList.none { it.id == property.id }) newList.add(property)
                     _unlockedProperties.value = newList
                     _unlockState.value = UnlockState.Success
+                    // Re-fetch full transaction list and re-sync unlock state
+                    // so dashboard + profile stats update immediately
+                    refreshAfterPayment(tenantId)
                 } else {
                     _unlockState.value = UnlockState.Error(
-                        "Payment processed but unlock is taking longer than expected. Please refresh in a moment."
+                        "Payment processed but unlock confirmation is taking longer than expected. Please refresh."
                     )
                 }
             } catch (e: Exception) {

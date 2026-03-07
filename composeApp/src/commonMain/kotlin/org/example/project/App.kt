@@ -48,6 +48,7 @@ fun App() {
         val unlockedProps by tenantViewModel.unlockedProperties.collectAsState()
         val unlockState by tenantViewModel.unlockState.collectAsState()
         val transactions by tenantViewModel.transactions.collectAsState()
+        val transactionsLoading by tenantViewModel.transactionsLoading.collectAsState()
         val propertyDraft by propertyViewModel.draft.collectAsState()
         val propertyFilter by propertyViewModel.propertyFilter.collectAsState()
 
@@ -489,6 +490,7 @@ fun App() {
                     searchQuery = searchQuery,
                     selectedCity = selectedCity,
                     unlockedPropertyIds = unlockedIds,
+                    transactions = transactions,
                     activeFilter = propertyFilter,
                     onSearchQueryChange = { propertyViewModel.setSearchQuery(it) },
                     onCityChange = { propertyViewModel.setSelectedCity(it) },
@@ -516,7 +518,9 @@ fun App() {
             composable(NavRoutes.PROPERTY_DETAIL) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
-                    val isUnlocked = tenantViewModel.isPropertyUnlocked(property.id)
+                    // Collect as state so PropertyDetailScreen recomposes when
+                    // syncUnlockStateFromTransactions() updates _unlockedPropertyIds
+                    val isUnlocked = unlockedIds.contains(property.id)
                     PropertyDetailScreen(
                         property = property,
                         isUnlocked = isUnlocked,
@@ -541,6 +545,11 @@ fun App() {
                         onBack = { navController.popBackStack() },
                         onSuccess = {
                             tenantViewModel.resetUnlockState()
+                            // Force-refresh unlocks + transactions immediately after
+                            // successful payment so dashboard + profile stats update
+                            currentUser?.uid?.let { uid ->
+                                tenantViewModel.refreshAfterPayment(uid)
+                            }
                             navController.navigate(NavRoutes.propertyDetail(property.id)) {
                                 popUpTo(NavRoutes.TENANT_HOME)
                             }
@@ -563,17 +572,26 @@ fun App() {
 
             // -- TENANT PROFILE ------------------------------------------------
             composable(NavRoutes.TENANT_PROFILE) {
-                // Ensure transactions are loaded when navigating to profile screen
+                // Ensure both transactions AND unlocks are loaded when navigating
+                // to the profile screen — covers cold-start and back-navigation
                 LaunchedEffect(currentUser?.uid) {
                     currentUser?.uid?.let { uid ->
-                        println("🔄 TENANT_PROFILE: Starting transaction listener for uid=$uid")
+                        println("📋 TENANT_PROFILE: Loading transactions + unlocks for uid=$uid")
                         tenantViewModel.loadTransactions(uid)
+                        tenantViewModel.loadUnlockedProperties(uid)
                     }
                 }
                 TenantProfileScreen(
                     user = currentUser ?: User(),
                     unlockedCount = unlockedProps.size,
                     transactions = transactions,
+                    transactionsLoading = transactionsLoading,
+                    onRefreshTransactions = {
+                        currentUser?.uid?.let { uid -> tenantViewModel.refreshTransactions(uid) }
+                    },
+                    onPaymentHistoryClick = {
+                        navController.navigate(NavRoutes.PAYMENT_HISTORY)
+                    },
                     onUnlockedClick = { navController.navigate(NavRoutes.UNLOCKED_PROPERTIES) },
                     onBack = { navController.popBackStack() },
                     onLogout = {
@@ -593,6 +611,25 @@ fun App() {
                                 println("❌ Delete account error: $error")
                             }
                         )
+                    }
+                )
+            }
+
+            // -- PAYMENT HISTORY ----------------------------------------------
+            composable(NavRoutes.PAYMENT_HISTORY) {
+                PaymentHistoryScreen(
+                    transactions = transactions,
+                    isLoading = transactionsLoading,
+                    onRefresh = {
+                        currentUser?.uid?.let { uid -> tenantViewModel.refreshTransactions(uid) }
+                    },
+                    onBack = { navController.popBackStack() },
+                    onPropertyImageClick = { transaction ->
+                        propertyViewModel.loadPropertyById(transaction.propertyId) { loaded ->
+                            if (loaded) {
+                                navController.navigate(NavRoutes.propertyDetail(transaction.propertyId))
+                            }
+                        }
                     }
                 )
             }

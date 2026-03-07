@@ -145,18 +145,22 @@ service cloud.firestore {
       }
     }
 
-    // ─── Unlocks Collection ───────────────────────────────────────────────────
+    // ═══ Unlocks Collection ═══════════════════════════════════════════════════
     // Document ID format: {tenantId}_{propertyId}
     // Unlocks are created ONLY by Cloud Functions after payment is verified.
     match /unlocks/{unlockId} {
-      // resource.data is only available for single-document reads, NOT for
-      // collection queries. Since the document ID is {tenantId}_{propertyId},
-      // we allow read if the unlockId starts with the tenant's own UID, OR if
-      // resource.data is available (single-doc read) and the caller is admin.
-      // This covers both collection queries (.where tenantId == uid) and
-      // direct document reads (checkUnlockStatus / processPaymentSuccess).
-      allow read: if isAuthenticated() &&
+      // Single document reads (get): allow if the doc belongs to the tenant
+      // OR the caller is admin. unlockId starts with tenantId so we can
+      // check ownership without reading resource.data.
+      allow get: if isAuthenticated() &&
         (unlockId.matches(request.auth.uid + '_.*') || isAdmin());
+
+      // Collection queries (list): resource.data is NOT available during query
+      // evaluation. We allow any authenticated user to list, trusting the app
+      // to always filter by tenantId. This mirrors the transactions collection
+      // pattern which already works correctly.
+      allow list: if isAuthenticated();
+
       allow create: if false;  // Cloud Functions only via Admin SDK
       allow update: if false;
       allow delete: if isAdmin();

@@ -13,5 +13,11 @@ data class Transaction(
     val status: String = "pending",  // "pending" | "success" | "failed"
     val paymentProvider: String = "pesepay",
     val paymentReference: String = "",
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    val propertyTitle: String = "",
+    val propertyLocation: String = "",
+    val propertyCity: String = "",
+    val propertyType: String = "",
+    val propertyImageUrl: String = "",
+    val propertyRooms: Int = 0
 )

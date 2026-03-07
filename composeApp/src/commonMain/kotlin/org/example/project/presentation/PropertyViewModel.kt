@@ -214,6 +214,31 @@ class PropertyViewModel : ViewModel() {
     fun clearSelectedProperty() { _selectedProperty.value = null }
     fun resetFormState() { _formState.value = PropertyFormState.Idle }
 
+    fun loadPropertyById(propertyId: String, onLoaded: (Boolean) -> Unit = {}) {
+        if (propertyId.isBlank()) {
+            onLoaded(false)
+            return
+        }
+        viewModelScope.launch {
+            val result = runCatching {
+                val doc = Firebase.firestore.collection("properties").document(propertyId).get()
+                if (doc.exists) {
+                    val property = doc.data(Property.serializer())
+                    if (property.imageUrls.isEmpty() && property.imageUrl.isNotBlank()) {
+                        property.copy(imageUrls = listOf(property.imageUrl))
+                    } else property
+                } else null
+            }.getOrNull()
+
+            if (result != null) {
+                _selectedProperty.value = result
+                onLoaded(true)
+            } else {
+                onLoaded(false)
+            }
+        }
+    }
+
     // ── Stop all active real-time listeners (call on logout) ──────────────────
     fun stopAllListeners() {
         landlordListenerJob?.cancel()

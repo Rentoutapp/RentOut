@@ -24,6 +24,7 @@ object NavRoutes {
     const val PAYMENT            = "payment/{propertyId}"
     const val UNLOCKED_PROPERTIES= "unlocked_properties"
     const val TENANT_PROFILE     = "tenant_profile"
+    const val PAYMENT_HISTORY    = "payment_history"
 
     // Helpers
     fun landlordPropertyDetail(propertyId: String) = "landlord_property_detail/$propertyId"

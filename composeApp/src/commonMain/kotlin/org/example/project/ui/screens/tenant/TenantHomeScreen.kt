@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import org.example.project.data.model.Property
+import org.example.project.data.model.Transaction
 import org.example.project.data.model.User
 import org.example.project.data.model.ZIMBABWE_TOWNS
 import org.example.project.data.model.suburbsForTown
@@ -76,6 +77,7 @@ fun TenantHomeScreen(
     searchQuery: String,
     selectedCity: String,
     unlockedPropertyIds: Set<String> = emptySet(),
+    transactions: List<Transaction> = emptyList(),
     activeFilter: PropertyFilter = PropertyFilter(),
     onSearchQueryChange: (String) -> Unit,
     onCityChange: (String) -> Unit,
@@ -307,7 +309,11 @@ fun TenantHomeScreen(
                         ) {
                             val total = properties.size
                             val available = properties.count { it.isAvailable }
-                            val unlocked = unlockedPropertyIds.size
+                            // Derive unlocked count from successful transactions so
+                            // the stat always tallies with payment history
+                            val unlocked = transactions.count {
+                                it.status.equals("success", ignoreCase = true)
+                            }
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()

@@ -7,6 +7,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,6 +41,7 @@ import coil3.compose.AsyncImage
 import org.example.project.data.model.Transaction
 import org.example.project.data.model.User
 import org.example.project.ui.components.RentOutPrimaryButton
+import org.example.project.ui.components.RentOutLoadingSpinner
 import org.example.project.ui.theme.RentOutColors
 import org.example.project.ui.components.DeleteAccountConfirmationDialog
 import kotlinx.datetime.Instant
@@ -60,11 +63,19 @@ fun TenantProfileScreen(
     user: User,
     unlockedCount: Int,
     transactions: List<Transaction> = emptyList(),
+    transactionsLoading: Boolean = false,
+    onRefreshTransactions: () -> Unit = {},
+    onPaymentHistoryClick: () -> Unit = {},
     onUnlockedClick: () -> Unit,
     onBack: () -> Unit,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit = {}
 ) {
+    // Derive unlocked count from successful transactions — single source of truth
+    // that keeps the stat card, action row subtitle, and payment history in sync
+    val successfulUnlockCount = transactions.count { it.status.equals("success", ignoreCase = true) }
+    val displayUnlockedCount = if (successfulUnlockCount > 0) successfulUnlockCount else unlockedCount
+
     var headerVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { headerVisible = true }
 
@@ -73,17 +84,7 @@ fun TenantProfileScreen(
     val backRot   by animateFloatAsState(if (backPressed) -45f else 0f,  tween(180), label = "br")
 
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showPaymentHistory by remember { mutableStateOf(false) }
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
-
-    // Payment History Dialog
-    if (showPaymentHistory) {
-        println("🔔 TenantProfileScreen: Opening PaymentHistoryDialog with ${transactions.size} transactions")
-        PaymentHistoryDialog(
-            transactions = transactions,
-            onDismiss = { showPaymentHistory = false }
-        )
-    }
 
     // Logout confirmation
     if (showLogoutDialog) {
@@ -285,7 +286,7 @@ fun TenantProfileScreen(
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ProfileStatTile(Icons.Default.Key, "$unlockedCount", "Unlocked", ProfileAmber)
+                ProfileStatTile(Icons.Default.Key, "$displayUnlockedCount", "Unlocked", ProfileAmber)
                 Box(modifier = Modifier.width(1.dp).height(44.dp).background(ProfileCream))
                 ProfileStatTile(Icons.Default.CheckCircle, "Active", "Status", ProfileMint)
                 Box(modifier = Modifier.width(1.dp).height(44.dp).background(ProfileCream))
@@ -332,8 +333,15 @@ fun TenantProfileScreen(
             Text("Quick Actions", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ProfileSlate, modifier = Modifier.padding(bottom = 10.dp))
 
             // Actions
-            ProfileActionItem(Icons.Default.Key, ProfileAmber, "My Unlocked Properties", "$unlockedCount properties with visible contacts", onUnlockedClick)
-            ProfileActionItem(Icons.Default.History, ProfileNavy, "Payment History", "${transactions.size} transactions • View all payments", { showPaymentHistory = true })
+            ProfileActionItem(Icons.Default.Key, ProfileAmber, "My Unlocked Properties", "$displayUnlockedCount properties with visible contacts", onUnlockedClick)
+            ProfileActionItem(
+                Icons.Default.History,
+                ProfileNavy,
+                "Payment History",
+                if (transactionsLoading && transactions.isEmpty()) "Loading payments…"
+                else "${transactions.size} transactions • View all payments",
+                onPaymentHistoryClick
+            )
             ProfileActionItem(Icons.Default.Notifications, RentOutColors.IconPurple, "Notifications", "Manage your notification preferences", {})
             ProfileActionItem(Icons.Default.Help, ProfileMint, "Help & Support", "Get help or report an issue", {})
 
@@ -459,130 +467,233 @@ private fun ProfileActionItem(icon: ImageVector, iconColor: Color, title: String
         }
     }
 }
-
-// -- Payment History Dialog ----------------------------------------------------
+// -- Payment History Screen ----------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PaymentHistoryDialog(
+fun PaymentHistoryScreen(
     transactions: List<Transaction>,
-    onDismiss: () -> Unit
+    isLoading: Boolean,
+    onRefresh: () -> Unit,
+    onBack: () -> Unit,
+    onPropertyImageClick: (Transaction) -> Unit = {}
 ) {
-    println("💳 PaymentHistoryDialog: Rendering with ${transactions.size} transactions")
-    transactions.forEach { 
-        println("   → Transaction: ${it.id} - $${it.amount} ${it.currency} - ${it.status} - ${it.createdAt}")
-    }
+    println("💳 PaymentHistoryScreen: Rendering with ${transactions.size} transactions (loading=$isLoading)")
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
+    val successfulTransactions = transactions.filter { it.status.equals("success", ignoreCase = true) }
+    val totalExpenditure = successfulTransactions.sumOf { it.amount }
+    val successfulCount = successfulTransactions.size
+    val refundCount = transactions.count {
+        it.status.equals("failed", ignoreCase = true) ||
+            it.status.equals("refund", ignoreCase = true) ||
+            it.status.equals("refunded", ignoreCase = true)
+    }
+    val failedCount = transactions.count { it.status.equals("failed", ignoreCase = true) }
+    val primaryCurrency = successfulTransactions.firstOrNull()?.currency?.uppercase()
+        ?: transactions.firstOrNull()?.currency?.uppercase()
+        ?: "USD"
+    val expenditureAccent = currencyAccent(primaryCurrency)
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+    val scrollState = rememberScrollState()
+    var pullDistance by remember { mutableStateOf(0f) }
+    val pullProgress = (pullDistance / 180f).coerceIn(0f, 1f)
+    val indicatorHeight = (pullProgress * 72f).dp
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ProfileCream)
     ) {
-        Card(
+        Box(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.85f),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(16.dp)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(ProfileNavy, ProfileNavyLight, Color(0xFF25548E))
+                    )
+                )
+                .statusBarsPadding()
+                .padding(horizontal = 18.dp, vertical = 12.dp)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // -- Header with gradient --------------------------------------
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Brush.horizontalGradient(listOf(ProfileNavy, ProfileNavyLight)))
-                        .padding(horizontal = 20.dp, vertical = 20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    FilledTonalIconButton(
+                        onClick = onBack,
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.16f),
+                            contentColor = Color.White
+                        )
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.White.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.History,
-                                    null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            Column {
-                                Text(
-                                    "Payment History",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White
-                                )
-                                Text(
-                                    "${transactions.size} ${if (transactions.size == 1) "transaction" else "transactions"}",
-                                    fontSize = 13.sp,
-                                    color = Color.White.copy(0.85f)
-                                )
-                            }
+                            Icon(Icons.Default.Wallet, null, tint = Color.White, modifier = Modifier.size(22.dp))
                         }
-                        IconButton(onClick = onDismiss) {
-                            Icon(
-                                Icons.Default.Close,
-                                "Close",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
+                        Text(
+                            "Payment History",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        Text(
+                            "${transactions.size} ${if (transactions.size == 1) "transaction" else "transactions"}",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.82f)
+                        )
                     }
                 }
 
-                // -- Transaction List ------------------------------------------
-                if (transactions.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    PaymentSummaryCard(
+                        modifier = Modifier.weight(1.2f),
+                        title = "Total expenditure",
+                        value = formatMoney(totalExpenditure, primaryCurrency),
+                        subtitle = "$primaryCurrency • successful payments",
+                        accent = expenditureAccent,
+                        icon = Icons.Default.Payments
+                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        PaymentMiniSummaryCard("Successful", successfulCount.toString(), ProfileMint)
+                        PaymentMiniSummaryCard("Refunds", refundCount.toString(), ProfileAmber)
+                        PaymentMiniSummaryCard("Failed", failedCount.toString(), ProfileCoral)
+                    }
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 18.dp, vertical = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(isLoading, scrollState.value) {
+                        detectVerticalDragGestures(
+                            onVerticalDrag = { change, dragAmount ->
+                                if (scrollState.value == 0 && dragAmount > 0f && !isLoading) {
+                                    pullDistance = (pullDistance + dragAmount).coerceIn(0f, 220f)
+                                    change.consume()
+                                } else if (pullDistance > 0f && dragAmount < 0f) {
+                                    pullDistance = (pullDistance + dragAmount).coerceAtLeast(0f)
+                                    change.consume()
+                                }
+                            },
+                            onDragEnd = {
+                                if (pullDistance >= 140f && !isLoading) onRefresh()
+                                pullDistance = 0f
+                            },
+                            onDragCancel = { pullDistance = 0f }
+                        )
+                    }
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (pullDistance > 0f) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(indicatorHeight),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.South,
+                            null,
+                            tint = ProfileNavyLight.copy(alpha = 0.6f + (pullProgress * 0.4f)),
+                            modifier = Modifier
+                                .size(26.dp)
+                                .graphicsLayer { translationY = (1f - pullProgress) * -12f }
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            if (pullDistance >= 140f) "Release to refresh" else "Pull down to refresh",
+                            fontSize = 12.sp,
+                            color = ProfileSlateLight,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                when {
+                    isLoading && transactions.isEmpty() -> {
                         Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 80.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Icon(
-                                Icons.Default.Receipt,
-                                null,
-                                tint = ProfileSlateLight.copy(0.4f),
-                                modifier = Modifier.size(64.dp)
-                            )
+                            RentOutLoadingSpinner(color = ProfileNavy)
+                            Text("Loading payment history…", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ProfileSlate)
                             Text(
-                                "No Transactions Yet",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = ProfileSlate
-                            )
-                            Text(
-                                "Your payment history will appear here",
+                                "Fetching your transactions from Firestore",
                                 fontSize = 14.sp,
                                 color = ProfileSlateLight,
                                 textAlign = TextAlign.Center
                             )
                         }
                     }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        transactions.forEach { transaction ->
+
+                    transactions.isEmpty() -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 80.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(88.dp)
+                                    .clip(CircleShape)
+                                    .background(ProfileNavy.copy(alpha = 0.08f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Receipt, null, tint = ProfileNavyLight, modifier = Modifier.size(42.dp))
+                            }
+                            Text("No Transactions Yet", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = ProfileSlate)
+                            Text(
+                                "Once you unlock a property, its payment will appear here with the property details and payment status.",
+                                fontSize = 14.sp,
+                                color = ProfileSlateLight,
+                                textAlign = TextAlign.Center
+                            )
+                            OutlinedButton(onClick = onRefresh, shape = RoundedCornerShape(14.dp)) {
+                                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Refresh history")
+                            }
+                        }
+                    }
+
+                    else -> {
+                        transactions.forEachIndexed { index, transaction ->
                             PaymentHistoryItem(
                                 transaction = transaction,
-                                onClick = { selectedTransaction = transaction }
+                                index = index,
+                                onClick = { selectedTransaction = transaction },
+                                onPropertyImageClick = onPropertyImageClick
                             )
                         }
                         Spacer(Modifier.height(8.dp))
@@ -593,119 +704,323 @@ private fun PaymentHistoryDialog(
     }
 
     selectedTransaction?.let { txn ->
-        TransactionDetailDialog(
-            transaction = txn,
-            onDismiss = { selectedTransaction = null }
-        )
+        TransactionDetailDialog(transaction = txn, onDismiss = { selectedTransaction = null })
     }
 }
 
 @Composable
 private fun PaymentHistoryItem(
     transaction: Transaction,
-    onClick: () -> Unit
+    index: Int,
+    onClick: () -> Unit,
+    onPropertyImageClick: (Transaction) -> Unit = {}
 ) {
-    val statusColor = when (transaction.status) {
-        "success" -> ProfileMint
-        "failed" -> ProfileCoral
-        else -> ProfileAmber
-    }
-
-    val statusIcon = when (transaction.status) {
+    val statusColor = statusAccent(transaction.status)
+    val statusIcon = when (transaction.status.lowercase()) {
         "success" -> Icons.Default.CheckCircle
         "failed" -> Icons.Default.Cancel
         else -> Icons.Default.Schedule
     }
+    val accentGradient = Brush.verticalGradient(colors = listOf(statusColor, statusColor.copy(alpha = 0.72f)))
 
     var isPressed by remember { mutableStateOf(false) }
+    var visible by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        if (isPressed) 0.97f else 1f,
+        if (isPressed) 0.982f else 1f,
         spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "item_scale"
     )
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                isPressed = true
-                onClick()
-            },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ProfileCream.copy(0.5f)),
-        elevation = CardDefaults.cardElevation(2.dp)
+    LaunchedEffect(index) {
+        kotlinx.coroutines.delay((index * 60).toLong())
+        visible = true
+    }
+
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(320)) + slideInVertically(animationSpec = tween(320)) { it / 6 }
     ) {
-        Row(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .scale(scale)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    isPressed = true
+                    onClick()
+                },
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 5.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(statusColor.copy(0.15f)),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    statusIcon,
-                    null,
-                    tint = statusColor,
-                    modifier = Modifier.size(26.dp)
+                Box(
+                    modifier = Modifier
+                        .width(8.dp)
+                        .height(152.dp)
+                        .background(accentGradient)
                 )
-            }
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "$${transaction.amount.toInt()} ${transaction.currency}",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = ProfileSlate
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    formatDate(transaction.createdAt),
-                    fontSize = 13.sp,
-                    color = ProfileSlateLight
-                )
-                if (transaction.paymentReference.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        "Ref: ${transaction.paymentReference.take(12)}...",
-                        fontSize = 11.sp,
-                        color = ProfileSlateLight.copy(0.7f)
-                    )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (transaction.propertyImageUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = transaction.propertyImageUrl,
+                                    contentDescription = transaction.propertyTitle.ifBlank { "Property image" },
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .clickable { onPropertyImageClick(transaction) }
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(RoundedCornerShape(18.dp))
+                                        .background(statusColor.copy(alpha = 0.12f))
+                                        .clickable(enabled = transaction.propertyId.isNotBlank()) { onPropertyImageClick(transaction) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(statusIcon, null, tint = statusColor, modifier = Modifier.size(28.dp))
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(
+                                    transaction.propertyTitle.ifBlank { "Unlocked property" },
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = ProfileSlate,
+                                    maxLines = 2
+                                )
+                                Text(
+                                    transaction.propertyCity.takeIf { it.isNotBlank() }?.let { city ->
+                                        listOf(transaction.propertyLocation.takeIf { it.isNotBlank() }, city)
+                                            .filterNotNull()
+                                            .joinToString(", ")
+                                    } ?: transaction.propertyLocation.ifBlank { "Property details available in transaction" },
+                                    fontSize = 12.sp,
+                                    color = ProfileSlateLight,
+                                    maxLines = 2
+                                )
+                                Text(
+                                    formatMoney(transaction.amount, transaction.currency),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = currencyAccent(transaction.currency)
+                                )
+                            }
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Surface(shape = RoundedCornerShape(14.dp), color = statusColor.copy(alpha = 0.12f)) {
+                                Text(
+                                    transaction.status.replaceFirstChar { it.uppercase() },
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = statusColor
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "#${index + 1}",
+                                fontSize = 11.sp,
+                                color = ProfileSlateLight,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PaymentMetaChip(Icons.Default.CalendarToday, formatDate(transaction.createdAt), Modifier.weight(1f))
+                        PaymentMetaChip(Icons.Default.AccountBalanceWallet, transaction.paymentProvider.replaceFirstChar { it.uppercase() }, Modifier.weight(1f))
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PaymentMetaChip(
+                            icon = Icons.Default.Home,
+                            text = transaction.propertyType.replaceFirstChar { it.uppercase() }.ifBlank { "Property" },
+                            modifier = Modifier.weight(1f)
+                        )
+                        PaymentMetaChip(
+                            icon = Icons.Default.Bed,
+                            text = if (transaction.propertyRooms > 0) "${transaction.propertyRooms} rooms" else "Property unlocked",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    if (transaction.paymentReference.isNotBlank()) {
+                        Surface(
+                            color = ProfileCream.copy(alpha = 0.65f),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Reference", fontSize = 11.sp, color = ProfileSlateLight, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        transaction.paymentReference,
+                                        fontSize = 13.sp,
+                                        color = ProfileSlate,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
+                                }
+                                Icon(Icons.Default.ArrowOutward, null, tint = ProfileSlateLight.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
                 }
-            }
-
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(statusColor.copy(0.12f))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    transaction.status.replaceFirstChar { it.uppercase() },
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = statusColor
-                )
             }
         }
     }
 
     LaunchedEffect(isPressed) {
         if (isPressed) {
-            kotlinx.coroutines.delay(100)
+            kotlinx.coroutines.delay(110)
             isPressed = false
         }
     }
+}
+
+@Composable
+private fun PaymentSummaryCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    subtitle: String,
+    accent: Color,
+    icon: ImageVector
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.14f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(accent.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
+            Text(title, fontSize = 12.sp, color = Color.White.copy(alpha = 0.8f))
+            Text(value, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            Text(subtitle, fontSize = 11.sp, color = Color.White.copy(alpha = 0.72f))
+        }
+    }
+}
+
+@Composable
+private fun PaymentMiniSummaryCard(
+    title: String,
+    value: String,
+    accent: Color
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.14f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(title, fontSize = 11.sp, color = Color.White.copy(alpha = 0.78f))
+                Text(value, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            }
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(accent)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PaymentMetaChip(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(ProfileCream.copy(alpha = 0.7f))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(icon, null, tint = ProfileNavyLight, modifier = Modifier.size(14.dp))
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            color = ProfileSlate,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1
+        )
+    }
+}
+
+private fun formatMoney(amount: Double, currency: String = "USD"): String {
+    val whole = if (amount % 1.0 == 0.0) amount.toInt().toString() else String.format(java.util.Locale.US, "%.2f", amount)
+    return "$${whole} ${currency.uppercase()}"
+}
+
+private fun currencyAccent(currency: String): Color = when (currency.uppercase()) {
+    "USD" -> Color(0xFF4F46E5)
+    "ZWG", "ZWL" -> Color(0xFF0E9F6E)
+    "RAND", "ZAR" -> Color(0xFFF59E0B)
+    else -> ProfileAmber
+}
+
+private fun statusAccent(status: String): Color = when (status.lowercase()) {
+    "success" -> ProfileMint
+    "failed" -> ProfileCoral
+    else -> ProfileAmber
 }
 
 @Composable
@@ -713,11 +1028,7 @@ private fun TransactionDetailDialog(
     transaction: Transaction,
     onDismiss: () -> Unit
 ) {
-    val statusColor = when (transaction.status) {
-        "success" -> ProfileMint
-        "failed" -> ProfileCoral
-        else -> ProfileAmber
-    }
+    val statusColor = statusAccent(transaction.status)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -726,45 +1037,48 @@ private fun TransactionDetailDialog(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(statusColor.copy(0.15f)),
+                    .background(statusColor.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Receipt,
-                    null,
-                    tint = statusColor,
-                    modifier = Modifier.size(28.dp)
-                )
+                Icon(Icons.Default.Receipt, null, tint = statusColor, modifier = Modifier.size(28.dp))
             }
         },
         title = {
             Text(
-                "Transaction Details",
+                text = transaction.propertyTitle.ifBlank { "Payment details" },
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 20.sp
+                color = ProfileSlate
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TransactionDetailRow("Amount", "$${transaction.amount} ${transaction.currency}")
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                TransactionDetailRow("Amount", formatMoney(transaction.amount, transaction.currency))
                 TransactionDetailRow("Status", transaction.status.replaceFirstChar { it.uppercase() })
-                TransactionDetailRow("Date", formatDate(transaction.createdAt))
+                TransactionDetailRow("Paid on", formatDate(transaction.createdAt))
                 TransactionDetailRow("Provider", transaction.paymentProvider.replaceFirstChar { it.uppercase() })
+                if (transaction.propertyLocation.isNotBlank() || transaction.propertyCity.isNotBlank()) {
+                    TransactionDetailRow(
+                        "Property",
+                        listOf(
+                            transaction.propertyLocation.takeIf { it.isNotBlank() },
+                            transaction.propertyCity.takeIf { it.isNotBlank() }
+                        ).filterNotNull().joinToString(", ")
+                    )
+                }
                 if (transaction.paymentReference.isNotBlank()) {
                     TransactionDetailRow("Reference", transaction.paymentReference)
                 }
-                TransactionDetailRow("Transaction ID", transaction.id.take(16) + "...")
             }
         },
         confirmButton = {
             Button(
                 onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = ProfileNavy)
+                colors = ButtonDefaults.buttonColors(containerColor = statusColor)
             ) {
-                Text("Close", fontWeight = FontWeight.Bold)
+                Text("Close", color = Color.White)
             }
         },
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(22.dp)
     )
 }
 
@@ -775,19 +1089,15 @@ private fun TransactionDetailRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        Text(
-            label,
-            fontSize = 13.sp,
-            color = ProfileSlateLight,
-            modifier = Modifier.weight(0.4f)
-        )
+        Text(label, fontSize = 12.sp, color = ProfileSlateLight, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.width(12.dp))
         Text(
             value,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
             color = ProfileSlate,
-            modifier = Modifier.weight(0.6f),
-            textAlign = TextAlign.End
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f)
         )
     }
 }
@@ -805,7 +1115,7 @@ private fun formatDate(timestamp: Long): String {
             }
             "${dateTime.dayOfMonth.toString().padStart(2, '0')} $month ${dateTime.year}, " +
                     "${dateTime.hour.toString().padStart(2, '0')}:${dateTime.minute.toString().padStart(2, '0')}"
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Invalid date"
         }
     } else {
