@@ -409,4 +409,103 @@ class AuthViewModel(
             _authState.value = AuthState.Idle
         }
     }
+
+    /**
+     * Deletes the current user's account permanently.
+     * This will:
+     * 1. Delete the user's Firestore document
+     * 2. Delete all properties owned by the user
+     * 3. Delete all transactions related to the user
+     * 4. Delete the Firebase Auth account
+     * 5. Clear local storage
+     */
+    fun deleteAccount(onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val currentUser = auth.currentUser
+                if (currentUser == null) {
+                    onError("No user is currently signed in")
+                    return@launch
+                }
+                
+                val uid = currentUser.uid
+                println("🗑️ [AuthViewModel] Starting account deletion for user: $uid")
+                
+                _authState.value = AuthState.Loading
+                
+                // 1. Delete user's properties
+                println("   Deleting user properties...")
+                val propertiesSnapshot = firestore
+                    .collection("properties")
+                    .where { "landlordId" equalTo uid }
+                    .get()
+                
+                propertiesSnapshot.documents.forEach { doc ->
+                    println("   Deleting property: ${doc.id}")
+                    firestore.collection("properties").document(doc.id).delete()
+                }
+                
+                // 2. Delete user's transactions (as tenant)
+                println("   Deleting user transactions (tenant)...")
+                val tenantTransactionsSnapshot = firestore
+                    .collection("transactions")
+                    .where { "tenantId" equalTo uid }
+                    .get()
+                
+                tenantTransactionsSnapshot.documents.forEach { doc ->
+                    println("   Deleting transaction: ${doc.id}")
+                    firestore.collection("transactions").document(doc.id).delete()
+                }
+                
+                // 3. Delete user's transactions (as landlord)
+                println("   Deleting user transactions (landlord)...")
+                val landlordTransactionsSnapshot = firestore
+                    .collection("transactions")
+                    .where { "landlordId" equalTo uid }
+                    .get()
+                
+                landlordTransactionsSnapshot.documents.forEach { doc ->
+                    println("   Deleting transaction: ${doc.id}")
+                    firestore.collection("transactions").document(doc.id).delete()
+                }
+                
+                // 4. Delete user's unlocked properties
+                println("   Deleting unlocked properties...")
+                val unlocksSnapshot = firestore
+                    .collection("unlocks")
+                    .where { "tenantId" equalTo uid }
+                    .get()
+                
+                unlocksSnapshot.documents.forEach { doc ->
+                    println("   Deleting unlock: ${doc.id}")
+                    firestore.collection("unlocks").document(doc.id).delete()
+                }
+                
+                // 5. Delete user's Firestore document
+                println("   Deleting user document...")
+                firestore.collection("users").document(uid).delete()
+                
+                // 6. Clear local storage
+                println("   Clearing local storage...")
+                localSettings.clearRememberMe()
+                
+                // 7. Delete Firebase Auth account
+                println("   Deleting Firebase Auth account...")
+                currentUser.delete()
+                
+                // 8. Reset state
+                _rememberMeActive.value = false
+                _authState.value = AuthState.Idle
+                
+                println("✅ [AuthViewModel] Account deletion completed successfully")
+                onSuccess()
+                
+            } catch (e: Exception) {
+                println("❌ [AuthViewModel] Account deletion failed: ${e.message}")
+                e.printStackTrace()
+                _authState.value = AuthState.Error(e.message ?: "Failed to delete account")
+                onError(e.message ?: "Failed to delete account")
+            }
+        }
+    }
 }

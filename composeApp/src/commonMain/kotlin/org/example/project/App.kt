@@ -303,6 +303,17 @@ fun App() {
                         propertyViewModel.stopAllListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                    },
+                    onDeleteAccount = {
+                        authViewModel.deleteAccount(
+                            onSuccess = {
+                                propertyViewModel.stopAllListeners()
+                                navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                            },
+                            onError = { error ->
+                                println("❌ Delete account error: $error")
+                            }
+                        )
                     }
                 )
             }
@@ -567,6 +578,18 @@ fun App() {
                         tenantViewModel.stopListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                    },
+                    onDeleteAccount = {
+                        authViewModel.deleteAccount(
+                            onSuccess = {
+                                propertyViewModel.stopAllListeners()
+                                tenantViewModel.stopListeners()
+                                navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                            },
+                            onError = { error ->
+                                println("❌ Delete account error: $error")
+                            }
+                        )
                     }
                 )
             }

@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,14 +29,17 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import org.example.project.data.model.User
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.components.DeleteAccountConfirmationDialog
 
 @Composable
 fun LandlordProfileScreen(
     user: User,
     onBack: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     // Animate content in on first composition
     var visible by remember { mutableStateOf(false) }
@@ -321,6 +325,35 @@ fun LandlordProfileScreen(
                     Text("Log Out", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
 
+                Spacer(Modifier.height(12.dp))
+
+                // ── Delete Account button ─────────────────────────────────────
+                val deleteInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                val isDeletePressed by deleteInteraction.collectIsPressedAsState()
+                val deleteScale by animateFloatAsState(
+                    targetValue = if (isDeletePressed) 0.96f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "delete_scale"
+                )
+
+                OutlinedButton(
+                    onClick = { showDeleteAccountDialog = true },
+                    interactionSource = deleteInteraction,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .scale(deleteScale),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = RentOutColors.IconRose
+                    ),
+                    border = BorderStroke(1.5.dp, RentOutColors.IconRose)
+                ) {
+                    Icon(Icons.Default.PersonRemove, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Delete Account", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                }
+
                 Spacer(Modifier.height(40.dp))
             }
         }
@@ -343,6 +376,20 @@ fun LandlordProfileScreen(
                 TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
             },
             shape = RoundedCornerShape(20.dp)
+        )
+    }
+    
+    // ── Delete Account confirmation dialog ────────────────────────────────────
+    if (showDeleteAccountDialog) {
+        DeleteAccountConfirmationDialog(
+            userEmail = user.email,
+            onConfirm = {
+                showDeleteAccountDialog = false
+                onDeleteAccount()
+            },
+            onDismiss = {
+                showDeleteAccountDialog = false
+            }
         )
     }
 }

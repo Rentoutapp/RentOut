@@ -107,42 +107,42 @@ class TenantViewModel : ViewModel() {
                         
                         snapshot.documents.forEach { doc ->
                             try {
-                                // Use the data method to get raw data
-                                val rawData = doc.data<Map<String, Any?>>()
-                                
+                                // Use doc.get() to access fields directly without serialization
+                                // This avoids "Serializer for class 'kotlin.Any' is not found" error
                                 val id = doc.id
-                                val tenantId = rawData["tenantId"] as? String ?: ""
-                                val propertyId = rawData["propertyId"] as? String ?: ""
-                                val landlordId = rawData["landlordId"] as? String ?: ""
-                                val amount = (rawData["amount"] as? Number)?.toDouble() ?: 10.0
-                                val currency = rawData["currency"] as? String ?: "USD"
-                                val status = rawData["status"] as? String ?: "pending"
-                                val paymentProvider = rawData["paymentProvider"] as? String ?: "pesepay"
-                                val paymentReference = rawData["paymentReference"] as? String ?: ""
+                                val tenantId = doc.get("tenantId") as? String ?: ""
+                                val propertyId = doc.get("propertyId") as? String ?: ""
+                                val landlordId = doc.get("landlordId") as? String ?: ""
+                                val amount = (doc.get("amount") as? Number)?.toDouble() ?: 10.0
+                                val currency = doc.get("currency") as? String ?: "USD"
+                                val status = doc.get("status") as? String ?: "pending"
+                                val paymentProvider = doc.get("paymentProvider") as? String ?: "pesepay"
+                                val paymentReference = doc.get("paymentReference") as? String ?: ""
                                 
                                 // Handle createdAt - could be Timestamp, Long, or Number
-                                val createdAt = when (val timestamp = rawData["createdAt"]) {
+                                val createdAtRaw: Any? = doc.get("createdAt")
+                                val createdAt = when (createdAtRaw) {
                                     is Long -> {
-                                        println("   → createdAt is Long: $timestamp")
-                                        timestamp
+                                        println("   → createdAt is Long: $createdAtRaw")
+                                        createdAtRaw
                                     }
                                     is Int -> {
-                                        println("   → createdAt is Int: $timestamp")
-                                        timestamp.toLong()
+                                        println("   → createdAt is Int: $createdAtRaw")
+                                        createdAtRaw.toLong()
                                     }
                                     is Double -> {
-                                        println("   → createdAt is Double: $timestamp")
-                                        timestamp.toLong()
+                                        println("   → createdAt is Double: $createdAtRaw")
+                                        createdAtRaw.toLong()
                                     }
                                     is Number -> {
-                                        println("   → createdAt is Number: $timestamp")
-                                        timestamp.toLong()
+                                        println("   → createdAt is Number: $createdAtRaw")
+                                        createdAtRaw.toLong()
                                     }
                                     else -> {
                                         // Try to extract milliseconds from Timestamp object
                                         try {
                                             // GitLive Firebase Timestamp has seconds and nanoseconds properties
-                                            val timestampMap = timestamp as? Map<*, *>
+                                            val timestampMap = createdAtRaw as? Map<*, *>
                                             if (timestampMap != null) {
                                                 val seconds = (timestampMap["seconds"] as? Number)?.toLong() ?: 0L
                                                 val nanoseconds = (timestampMap["nanoseconds"] as? Number)?.toLong() ?: 0L
@@ -150,11 +150,11 @@ class TenantViewModel : ViewModel() {
                                                 println("   → createdAt is Timestamp: seconds=$seconds, nanos=$nanoseconds, millis=$millis")
                                                 millis
                                             } else {
-                                                println("   → createdAt is unknown type: $timestamp (${timestamp?.let { it::class.simpleName }})")
+                                                println("   → createdAt is unknown type: $createdAtRaw (${createdAtRaw?.let { it::class.simpleName }})")
                                                 System.currentTimeMillis()
                                             }
                                         } catch (e: Exception) {
-                                            println("⚠️ Could not parse createdAt for transaction ${doc.id}: $timestamp - ${e.message}")
+                                            println("⚠️ Could not parse createdAt for transaction ${doc.id}: $createdAtRaw - ${e.message}")
                                             System.currentTimeMillis()
                                         }
                                     }

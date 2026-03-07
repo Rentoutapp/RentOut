@@ -43,6 +43,7 @@ import org.example.project.ui.util.ImagePickerLauncher
 import org.example.project.ui.util.ImagePickerSource
 import org.example.project.ui.util.PickedImage
 import org.example.project.ui.util.rememberImagePickerLauncher
+import org.example.project.ui.components.RemoveImageConfirmationDialog
 
 @Composable
 fun PropertyImagesScreen(
@@ -56,6 +57,8 @@ fun PropertyImagesScreen(
     val draft by viewModel.draft.collectAsState()
     var pickedImages by remember { mutableStateOf<List<PickedImage>>(draft.pickedImages) }
     var showSourceDialog by remember { mutableStateOf(false) }
+    var showRemoveDialog by remember { mutableStateOf(false) }
+    var imageToRemoveIndex by remember { mutableStateOf<Int?>(null) }
     val isLoading = formState is PropertyFormState.Uploading
 
     // Back button animation
@@ -213,7 +216,8 @@ fun PropertyImagesScreen(
                                     image    = image,
                                     index    = index,
                                     onRemove = {
-                                        pickedImages = pickedImages.toMutableList().also { it.removeAt(index) }
+                                        imageToRemoveIndex = index
+                                        showRemoveDialog = true
                                     }
                                 )
                             }
@@ -261,6 +265,22 @@ fun PropertyImagesScreen(
                 imagePicker.launch(ImagePickerSource.CAMERA)
             },
             onDismiss = { showSourceDialog = false }
+        )
+    }
+    
+    // ── Remove image confirmation dialog ──────────────────────────────────────
+    if (showRemoveDialog && imageToRemoveIndex != null) {
+        RemoveImageConfirmationDialog(
+            imageType = "photo",
+            onConfirm = {
+                pickedImages = pickedImages.toMutableList().also { it.removeAt(imageToRemoveIndex!!) }
+                showRemoveDialog = false
+                imageToRemoveIndex = null
+            },
+            onDismiss = {
+                showRemoveDialog = false
+                imageToRemoveIndex = null
+            }
         )
     }
 }

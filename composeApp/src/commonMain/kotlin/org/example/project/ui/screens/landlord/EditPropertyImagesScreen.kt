@@ -41,6 +41,7 @@ import org.example.project.ui.util.ImagePickerLauncher
 import org.example.project.ui.util.ImagePickerSource
 import org.example.project.ui.util.PickedImage
 import org.example.project.ui.util.rememberImagePickerLauncher
+import org.example.project.ui.components.RemoveImageConfirmationDialog
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EditPropertyImagesScreen
@@ -82,6 +83,8 @@ fun EditPropertyImagesScreen(
     // Newly picked local images
     var newImages by remember { mutableStateOf<List<PickedImage>>(emptyList()) }
     var showSourceDialog by remember { mutableStateOf(false) }
+    var showRemoveDialog by remember { mutableStateOf(false) }
+    var imageToRemove by remember { mutableStateOf<Pair<Boolean, Int>?>(null) } // (isRemote, index)
     val isLoading = formState is PropertyFormState.Uploading
 
     // Back button animation
@@ -244,8 +247,8 @@ fun EditPropertyImagesScreen(
                                     index    = index,
                                     isCover  = index == 0,
                                     onRemove = {
-                                        keptRemoteUrls = keptRemoteUrls.toMutableList()
-                                            .also { it.removeAt(index) }
+                                        imageToRemove = Pair(true, index)
+                                        showRemoveDialog = true
                                     }
                                 )
                             }
@@ -256,8 +259,8 @@ fun EditPropertyImagesScreen(
                                     image    = image,
                                     index    = keptRemoteUrls.size + index,
                                     onRemove = {
-                                        newImages = newImages.toMutableList()
-                                            .also { it.removeAt(index) }
+                                        imageToRemove = Pair(false, index)
+                                        showRemoveDialog = true
                                     }
                                 )
                             }
@@ -303,6 +306,27 @@ fun EditPropertyImagesScreen(
             onGallery = { showSourceDialog = false; imagePicker.launch(ImagePickerSource.GALLERY) },
             onCamera  = { showSourceDialog = false; imagePicker.launch(ImagePickerSource.CAMERA) },
             onDismiss = { showSourceDialog = false }
+        )
+    }
+    
+    // ── Remove image confirmation dialog ──────────────────────────────────────
+    if (showRemoveDialog && imageToRemove != null) {
+        RemoveImageConfirmationDialog(
+            imageType = if (imageToRemove!!.first) "existing photo" else "new photo",
+            onConfirm = {
+                val (isRemote, index) = imageToRemove!!
+                if (isRemote) {
+                    keptRemoteUrls = keptRemoteUrls.toMutableList().also { it.removeAt(index) }
+                } else {
+                    newImages = newImages.toMutableList().also { it.removeAt(index) }
+                }
+                showRemoveDialog = false
+                imageToRemove = null
+            },
+            onDismiss = {
+                showRemoveDialog = false
+                imageToRemove = null
+            }
         )
     }
 }

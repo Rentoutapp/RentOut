@@ -40,6 +40,7 @@ import org.example.project.data.model.Transaction
 import org.example.project.data.model.User
 import org.example.project.ui.components.RentOutPrimaryButton
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.components.DeleteAccountConfirmationDialog
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -61,7 +62,8 @@ fun TenantProfileScreen(
     transactions: List<Transaction> = emptyList(),
     onUnlockedClick: () -> Unit,
     onBack: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit = {}
 ) {
     var headerVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { headerVisible = true }
@@ -72,6 +74,7 @@ fun TenantProfileScreen(
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showPaymentHistory by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
 
     // Payment History Dialog
     if (showPaymentHistory) {
@@ -99,6 +102,20 @@ fun TenantProfileScreen(
                 OutlinedButton(onClick = { showLogoutDialog = false }) { Text("Cancel") }
             },
             shape = RoundedCornerShape(20.dp)
+        )
+    }
+    
+    // Delete Account confirmation
+    if (showDeleteAccountDialog) {
+        DeleteAccountConfirmationDialog(
+            userEmail = user.email,
+            onConfirm = {
+                showDeleteAccountDialog = false
+                onDeleteAccount()
+            },
+            onDismiss = {
+                showDeleteAccountDialog = false
+            }
         )
     }
 
@@ -343,6 +360,33 @@ fun TenantProfileScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Icon(Icons.Default.Logout, null, tint = Color.White, modifier = Modifier.size(20.dp))
                     Text("Sign Out", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // ── Delete Account button ─────────────────────────────────────
+            val deleteInteraction = remember { MutableInteractionSource() }
+            val isDeletePressed by deleteInteraction.collectIsPressedAsState()
+            val deleteScale by animateFloatAsState(
+                if (isDeletePressed) 0.95f else 1f,
+                spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "delete_scale"
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .scale(deleteScale)
+                    .shadow(4.dp, RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White)
+                    .border(2.dp, RentOutColors.IconRose, RoundedCornerShape(16.dp))
+                    .clickable(interactionSource = deleteInteraction, indication = null) { showDeleteAccountDialog = true }
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Default.PersonRemove, null, tint = RentOutColors.IconRose, modifier = Modifier.size(20.dp))
+                    Text("Delete Account", color = RentOutColors.IconRose, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
 
