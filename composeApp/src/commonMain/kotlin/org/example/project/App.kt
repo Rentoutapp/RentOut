@@ -16,6 +16,7 @@ import org.example.project.presentation.*
 import org.example.project.ui.navigation.NavRoutes
 import org.example.project.ui.screens.auth.*
 import org.example.project.ui.screens.landlord.*
+import org.example.project.ui.screens.landlord.ButtonAnimationDemoScreen
 import org.example.project.ui.screens.tenant.*
 import org.example.project.ui.theme.RentOutTheme
 
@@ -232,7 +233,8 @@ fun App() {
                         propertyViewModel.stopAllListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
-                    }
+                    },
+                    onAnimationDemo = { navController.navigate(NavRoutes.BUTTON_ANIMATION_DEMO) }
                 )
             }
 
@@ -591,6 +593,13 @@ fun App() {
                             }
                         )
                     }
+                )
+            }
+
+            // -- BUTTON ANIMATION DEMO -----------------------------------------
+            composable(NavRoutes.BUTTON_ANIMATION_DEMO) {
+                ButtonAnimationDemoScreen(
+                    onBack = { navController.popBackStack() }
                 )
             }
         }

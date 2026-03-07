@@ -16,6 +16,7 @@ object NavRoutes {
     const val LANDLORD_PROFILE          = "landlord_profile"
     const val LANDLORD_PROPERTY_DETAIL  = "landlord_property_detail/{propertyId}"
     const val EDIT_PROPERTY_IMAGES      = "edit_property_images/{propertyId}"
+    const val BUTTON_ANIMATION_DEMO     = "button_animation_demo"
 
     // Tenant flow
     const val TENANT_HOME        = "tenant_home"
