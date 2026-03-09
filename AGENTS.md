@@ -21,6 +21,7 @@ This document contains everything you need to work on the RentOut project:
 - ✅ Common mistakes to avoid
 - ✅ Success criteria checklist
 - ✅ Workflow summary
+- ✅ Keyboard overlap prevention (IME padding) — see `## ⌨️ Keyboard Overlap Prevention (IME Padding)`
 
 ---
 

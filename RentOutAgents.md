@@ -452,6 +452,107 @@ Open `iosApp/iosApp.xcodeproj` in Xcode and run, or use the IDE run configuratio
 
 ---
 
+## ⌨️ Keyboard Overlap Prevention (IME Padding)
+
+### Problem
+On Android (and iOS via Compose Multiplatform), when the software keyboard (IME — Input Method Editor) appears, it slides up from the bottom of the screen. Without proper handling, it covers/overlaps text fields that are near the bottom of the screen, making it impossible for the user to see what they are typing.
+
+### The Fix — Two Required Modifiers
+
+Every screen that contains **one or more text input fields** MUST apply both of the following:
+
+#### 1. `imePadding()` on the root container
+Add `.imePadding()` to the outermost layout container (usually a `Box`). This pushes the entire screen content up by exactly the height of the keyboard when it appears.
+
+#### 2. `verticalScroll()` on the content column
+Wrap the inner content `Column` in `Modifier.verticalScroll(rememberScrollState())`. This makes the content scrollable so the user can reach any field even when the keyboard is open.
+
+### Canonical Pattern
+
+```kotlin
+// ✅ CORRECT — root Box gets imePadding()
+Box(
+    modifier = Modifier
+        .fillMaxSize()
+        .imePadding()                          // ← pushes content above keyboard
+        .background(MaterialTheme.colorScheme.background)
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())  // ← content becomes scrollable
+            .padding(horizontal = 24.dp)
+    ) {
+        // Text fields go here
+        OutlinedTextField(...)
+        OutlinedTextField(...)
+    }
+}
+```
+
+### Required Import
+`imePadding()` and all layout modifiers come from:
+```kotlin
+import androidx.compose.foundation.layout.*
+```
+This wildcard import already covers `imePadding()`, `fillMaxSize()`, `padding()`, etc. — no extra import needed if the wildcard is present.
+
+### Step-by-Step Implementation Checklist
+
+When building or editing any screen that has text fields:
+
+```
+□ 1. Identify the root container of the screen (usually a Box).
+□ 2. Add .imePadding() to that root container's Modifier chain.
+□ 3. Identify the inner Column that holds the text fields.
+□ 4. Add .verticalScroll(rememberScrollState()) to that Column's Modifier chain.
+□ 5. Confirm androidx.compose.foundation.layout.* is imported (covers imePadding()).
+□ 6. Test: tap each text field — the keyboard must NOT cover the focused field.
+```
+
+### Screens Where This Is Applied in RentOut
+
+| Screen | File | Status |
+|--------|------|--------|
+| Auth (Login / Register) | `ui/screens/auth/AuthScreen.kt` | ✅ Applied |
+| Add Property | `ui/screens/landlord/AddPropertyScreen.kt` | ✅ Applied |
+| Payment | `ui/screens/tenant/PaymentScreen.kt` | ✅ Applied |
+
+> ⚠️ Any **new screen** added to the project that contains text input fields MUST follow this pattern immediately. Do not add text fields to a screen without also applying `imePadding()` and `verticalScroll()`.
+
+### What NOT to Do
+
+```kotlin
+// ❌ WRONG — no imePadding, keyboard will overlap bottom fields
+Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        OutlinedTextField(...)
+    }
+}
+
+// ❌ WRONG — imePadding on the Column instead of the root Box
+Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().imePadding()) { // wrong placement
+        OutlinedTextField(...)
+    }
+}
+
+// ❌ WRONG — imePadding present but no verticalScroll, fields still unreachable
+Box(modifier = Modifier.fillMaxSize().imePadding()) {
+    Column(modifier = Modifier.fillMaxSize()) { // not scrollable
+        OutlinedTextField(...)
+    }
+}
+```
+
+### Why `imePadding()` Must Be on the Root `Box`, Not the `Column`
+`imePadding()` works by reserving space equal to the keyboard height at the bottom of the composable it is applied to. If it is placed on an inner `Column`, the `Box` behind it still has no awareness of the keyboard, so the layout does not shift correctly. Placing it on the outermost container ensures the entire screen layout reacts to the keyboard appearing and disappearing.
+
+### Android Manifest Requirement
+For `imePadding()` to work correctly, the `MainActivity` must use `enableEdgeToEdge()` (already set in this project). The `AndroidManifest.xml` window soft input mode should be left as default (`adjustResize` or unset) — do **not** set `windowSoftInputMode="adjustNothing"` as that will prevent `imePadding()` from functioning.
+
+---
+
 ## 🚫 Common Mistakes to Avoid
 
 1. ❌ Hardcoding colors — always use `MaterialTheme.colorScheme` tokens.
@@ -469,6 +570,7 @@ Open `iosApp/iosApp.xcodeproj` in Xcode and run, or use the IDE run configuratio
 13. ❌ Making web app changes without deploying hosting (`npx firebase deploy --only hosting`).
 14. ❌ Changing `firestore.rules` without deploying rules.
 15. ❌ Changing `firestore.indexes.json` without deploying indexes.
+16. ❌ Adding text input fields to a screen without `.imePadding()` on the root container and `.verticalScroll()` on the content column — the keyboard will overlap the fields.
 
 ---
 
@@ -489,6 +591,7 @@ Your implementation is successful when:
 - ✓ No `tmp_rovodev_*` files left in the project.
 - ✓ Existing utilities and patterns are reused.
 - ✓ Firebase deployed — hosting, rules, and/or indexes as required by the changes made.
+- ✓ Every screen with text input fields uses `.imePadding()` on the root `Box` and `.verticalScroll(rememberScrollState())` on the content `Column`.
 
 ---
 
