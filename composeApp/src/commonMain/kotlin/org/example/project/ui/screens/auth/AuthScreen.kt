@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package org.example.project.ui.screens.auth
 
 import androidx.compose.animation.*
@@ -28,13 +30,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.example.project.presentation.AuthEvent
 import org.example.project.presentation.AuthState
@@ -44,6 +47,95 @@ import org.example.project.ui.theme.RentOutColors
 import org.example.project.ui.util.ImagePickerSource
 import org.example.project.ui.util.PickedImage
 import org.example.project.ui.util.rememberImagePickerLauncher
+
+// ─── National ID auto-formatter ───────────────────────────────────────────────
+/**
+ * Formats raw input into Zimbabwe National ID format: ##-######[#] [A-Z]##
+ *
+ * Segment rules:
+ *  1. Segment 1 — exactly 2 digits, followed by a hyphen '-'
+ *  2. Segment 2 — 6 or 7 digits.
+ *       • A letter typed after 6 digits signals "segment 2 is done" → space is inserted.
+ *       • A 7th digit is still accepted (7-digit IDs exist).
+ *       • A letter typed after 7 digits also signals "segment 2 is done" → space is inserted.
+ *       • Any extra digits beyond 7 are ignored while we wait for the letter.
+ *  3. Segment 3 — 1 uppercase letter followed by exactly 2 digits.
+ *
+ * The formatter works by stripping all non-alphanumeric characters from the raw
+ * input and rebuilding the canonical form, so hyphens and spaces are always
+ * inserted automatically — the user never needs to type them.
+ */
+private fun formatNationalId(raw: String): String {
+    // Strip everything except digits and letters; force uppercase
+    val clean = raw.filter { it.isDigit() || it.isLetter() }.uppercase()
+    if (clean.isEmpty()) return ""
+
+    val result = StringBuilder()
+    var i = 0
+
+    // ── Segment 1: exactly 2 digits ──────────────────────────────────────────
+    var seg1 = 0
+    while (i < clean.length && seg1 < 2) {
+        val ch = clean[i]
+        if (ch.isDigit()) { result.append(ch); seg1++; i++ }
+        else break // non-digit before seg1 is complete → stop entirely
+    }
+    // Need both digits before we can continue
+    if (seg1 < 2 || i >= clean.length) return result.toString()
+    result.append('-')
+
+    // ── Segment 2: 6 or 7 digits ─────────────────────────────────────────────
+    // Strategy: collect digits one at a time.
+    //   • After each digit, peek at the next character:
+    //       – If we have ≥6 digits and the next char is a letter → done, break.
+    //       – If we have 7 digits → stop regardless (max reached), wait for letter.
+    //   • Letters appearing before 6 digits are silently skipped.
+    var seg2 = 0
+    seg2Loop@ while (i < clean.length) {
+        val ch = clean[i]
+        when {
+            ch.isDigit() && seg2 < 7 -> {
+                result.append(ch); seg2++; i++
+                // After collecting this digit, peek ahead: if the next char is a letter
+                // and we already have ≥6 digits, segment 2 is complete — exit the loop
+                // so that the letter can be processed by segment 3.
+                val next = clean.getOrNull(i)
+                if (next != null && next.isLetter() && seg2 >= 6) break@seg2Loop
+            }
+            ch.isDigit() && seg2 == 7 -> {
+                // Already at maximum 7 digits — ignore any further digits and wait for a letter
+                i++
+            }
+            ch.isLetter() && seg2 >= 6 -> {
+                // Letter encountered directly (without a digit peek) after ≥6 digits — done
+                break@seg2Loop
+            }
+            ch.isLetter() && seg2 < 6 -> {
+                // Letter too early (fewer than 6 middle digits) — skip it silently
+                i++
+            }
+            else -> i++
+        }
+    }
+
+    // Only continue to segment 3 if: we have ≥6 seg2 digits AND the next char is a letter
+    if (seg2 < 6 || i >= clean.length || !clean[i].isLetter()) return result.toString()
+    result.append(' ')
+
+    // ── Segment 3: 1 letter + up to 2 digits ─────────────────────────────────
+    var seg3Letter = false
+    var seg3Digits = 0
+    while (i < clean.length) {
+        val ch = clean[i]
+        when {
+            ch.isLetter() && !seg3Letter -> { result.append(ch); seg3Letter = true; i++ }
+            ch.isDigit() && seg3Letter && seg3Digits < 2 -> { result.append(ch); seg3Digits++; i++ }
+            else -> i++ // skip extra characters
+        }
+    }
+
+    return result.toString()
+}
 
 // ─── Country code data ────────────────────────────────────────────────────────
 private data class CountryCode(val flag: String, val name: String, val code: String, val hint: String)
@@ -64,7 +156,7 @@ fun AuthScreen(
     authState: AuthState,
     onLogin: (String, String, Boolean) -> Unit,
     onNavigateAfterLogin: () -> Unit,
-    onRegister: (String, String, String, String, String, ByteArray?) -> Unit,
+    onRegister: (String, String, String, String, String, ByteArray?, String, String) -> Unit,
     onBack: () -> Unit,
     onClearError: () -> Unit,
     prefillEmail: String = "",
@@ -92,13 +184,26 @@ fun AuthScreen(
     var showPhotoDialog    by remember { mutableStateOf(false) }
     var showCountryPicker  by remember { mutableStateOf(false) }
 
+    // Gender dropdown
+    val genderOptions = listOf("Male", "Female", "Transgender", "Prefer not to say")
+    var regGender          by remember { mutableStateOf("") }
+    var showGenderDropdown by remember { mutableStateOf(false) }
+
+    // National ID with auto-formatting (Zimbabwe format: ##-###### X##)
+    // TextFieldValue is used instead of String so we can explicitly control
+    // cursor position after each auto-format operation (e.g. placing cursor
+    // after the auto-inserted hyphen, not before).
+    var regNationalId by remember { mutableStateOf(TextFieldValue("")) }
+
     // Validation errors — declared BEFORE imagePicker so the lambda can reference them
-    var nameError     by remember { mutableStateOf("") }
-    var emailError    by remember { mutableStateOf("") }
-    var phoneError    by remember { mutableStateOf("") }
-    var photoError    by remember { mutableStateOf("") }
-    var passwordError by remember { mutableStateOf("") }
-    var confirmError  by remember { mutableStateOf("") }
+    var nameError      by remember { mutableStateOf("") }
+    var emailError     by remember { mutableStateOf("") }
+    var phoneError     by remember { mutableStateOf("") }
+    var photoError     by remember { mutableStateOf("") }
+    var passwordError  by remember { mutableStateOf("") }
+    var confirmError   by remember { mutableStateOf("") }
+    var genderError    by remember { mutableStateOf("") }
+    var nationalIdError by remember { mutableStateOf("") }
 
     // Real platform image picker
     val imagePicker = rememberImagePickerLauncher { picked: PickedImage? ->
@@ -109,7 +214,6 @@ fun AuthScreen(
         }
     }
 
-    val isLoading  = authState is AuthState.Loading
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
@@ -446,7 +550,371 @@ fun AuthScreen(
                         }
                         Spacer(Modifier.height(14.dp))
 
-                        // ── 4. Profile Photo ──────────────────────────────────
+                        // ── 4. Gender ─────────────────────────────────────────
+                        // Custom Dialog-based gender picker with radio buttons,
+                        // emoji icons, animated selection, and centered layout.
+                        val genderMeta = remember {
+                            listOf(
+                                Triple("Male",            "👨",  Color(0xFF1565C0)),
+                                Triple("Female",          "👩",  Color(0xFFAD1457)),
+                                Triple("Transgender",     "🏳️\u200D⚧️", Color(0xFF6A1B9A)),
+                                Triple("Prefer not to say","🤝", Color(0xFF37474F))
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Gender",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (genderError.isNotEmpty()) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 4.dp, bottom = 6.dp).fillMaxWidth()
+                            )
+
+                            // ── Trigger pill ──────────────────────────────────
+                            val triggerInteraction = remember { MutableInteractionSource() }
+                            val isTriggerPressed by triggerInteraction.collectIsPressedAsState()
+                            val triggerScale by animateFloatAsState(
+                                targetValue = if (isTriggerPressed) 0.97f else 1f,
+                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                label = "gender_trigger_scale"
+                            )
+                            val arrowRotation by animateFloatAsState(
+                                targetValue = if (showGenderDropdown) 180f else 0f,
+                                animationSpec = tween(250, easing = EaseInOutSine),
+                                label = "gender_arrow_rot"
+                            )
+                            val selectedMeta = genderMeta.firstOrNull { it.first == regGender }
+                            val triggerBorderColor by animateColorAsState(
+                                targetValue = when {
+                                    genderError.isNotEmpty() -> MaterialTheme.colorScheme.error
+                                    regGender.isNotEmpty()   -> (selectedMeta?.third ?: RentOutColors.Primary).copy(alpha = 0.7f)
+                                    else                     -> MaterialTheme.colorScheme.outline
+                                },
+                                animationSpec = tween(300),
+                                label = "gender_border"
+                            )
+
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .scale(triggerScale)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(
+                                        width = if (regGender.isNotEmpty() || genderError.isNotEmpty()) 1.5.dp else 1.dp,
+                                        color = triggerBorderColor,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable(
+                                        interactionSource = triggerInteraction,
+                                        indication = null
+                                    ) { showGenderDropdown = true },
+                                color = MaterialTheme.colorScheme.surface,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Leading: emoji if selected, else generic icon
+                                    AnimatedContent(
+                                        targetState = selectedMeta,
+                                        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(150)) },
+                                        label = "gender_lead_icon"
+                                    ) { meta ->
+                                        if (meta != null) {
+                                            Text(meta.second, fontSize = 20.sp)
+                                        } else {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = RentOutColors.IconTeal,
+                                                modifier = Modifier.size(22.dp)
+                                            )
+                                        }
+                                    }
+                                    // Label / selected value
+                                    AnimatedContent(
+                                        targetState = regGender,
+                                        transitionSpec = {
+                                            slideInVertically { -it / 2 } + fadeIn() togetherWith
+                                            slideOutVertically { it / 2 } + fadeOut()
+                                        },
+                                        label = "gender_label_anim",
+                                        modifier = Modifier.weight(1f)
+                                    ) { current ->
+                                        Text(
+                                            text = if (current.isEmpty()) "Select gender" else current,
+                                            fontSize = 15.sp,
+                                            fontWeight = if (current.isEmpty()) FontWeight.Normal else FontWeight.SemiBold,
+                                            color = if (current.isEmpty())
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            else
+                                                selectedMeta?.third ?: MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    // Animated dot indicator when selected
+                                    AnimatedVisibility(
+                                        visible = regGender.isNotEmpty(),
+                                        enter = scaleIn(spring(Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                                        exit  = scaleOut() + fadeOut()
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(selectedMeta?.third ?: RentOutColors.Primary)
+                                        )
+                                    }
+                                    Icon(
+                                        Icons.Default.ArrowDropDown,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .graphicsLayer { rotationZ = arrowRotation },
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            AnimatedVisibility(visible = genderError.isNotEmpty()) {
+                                Text(
+                                    genderError,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(start = 4.dp, top = 4.dp).fillMaxWidth()
+                                )
+                            }
+                        }
+
+                        // ── Gender picker Dialog ───────────────────────────────
+                        if (showGenderDropdown) {
+                            Dialog(
+                                onDismissRequest = { showGenderDropdown = false },
+                                properties = DialogProperties(usePlatformDefaultWidth = false)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 32.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Card(
+                                        shape = RoundedCornerShape(24.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column {
+                                            // ── Gradient header ───────────────
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(
+                                                        Brush.horizontalGradient(
+                                                            listOf(RentOutColors.Primary, RentOutColors.Secondary)
+                                                        ),
+                                                        RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                                                    )
+                                                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                    Text(
+                                                        "Select Gender",
+                                                        fontSize = 18.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.White
+                                                    )
+                                                    Text(
+                                                        "Choose the option that best describes you",
+                                                        fontSize = 11.sp,
+                                                        color = Color.White.copy(alpha = 0.75f),
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+
+                                            // ── Options ───────────────────────
+                                            Column(
+                                                modifier = Modifier.padding(
+                                                    start = 16.dp, end = 16.dp,
+                                                    top = 12.dp, bottom = 16.dp
+                                                ),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                genderMeta.forEach { (option, emoji, accentColor) ->
+                                                    val isSelected = regGender == option
+                                                    val optInteraction = remember { MutableInteractionSource() }
+                                                    val isOptPressed by optInteraction.collectIsPressedAsState()
+                                                    val optScale by animateFloatAsState(
+                                                        targetValue = if (isOptPressed) 0.96f else 1f,
+                                                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                                        label = "gender_opt_scale_$option"
+                                                    )
+                                                    val cardBg by animateColorAsState(
+                                                        targetValue = if (isSelected)
+                                                            accentColor.copy(alpha = 0.10f)
+                                                        else
+                                                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                        animationSpec = tween(250),
+                                                        label = "gender_card_bg_$option"
+                                                    )
+                                                    val cardBorder by animateColorAsState(
+                                                        targetValue = if (isSelected)
+                                                            accentColor.copy(alpha = 0.6f)
+                                                        else
+                                                            Color.Transparent,
+                                                        animationSpec = tween(250),
+                                                        label = "gender_card_border_$option"
+                                                    )
+                                                    // Animated radio fill
+                                                    val radioFill by animateFloatAsState(
+                                                        targetValue = if (isSelected) 1f else 0f,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                            stiffness = Spring.StiffnessMedium
+                                                        ),
+                                                        label = "radio_fill_$option"
+                                                    )
+
+                                                    Surface(
+                                                        modifier = Modifier
+                                                            .fillMaxWidth()
+                                                            .scale(optScale)
+                                                            .clip(RoundedCornerShape(14.dp))
+                                                            .border(1.dp, cardBorder, RoundedCornerShape(14.dp))
+                                                            .clickable(
+                                                                interactionSource = optInteraction,
+                                                                indication = null
+                                                            ) {
+                                                                regGender = option
+                                                                genderError = ""
+                                                                showGenderDropdown = false
+                                                            },
+                                                        color = cardBg,
+                                                        shape = RoundedCornerShape(14.dp)
+                                                    ) {
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                        ) {
+                                                            // Emoji in a tinted circle
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(40.dp)
+                                                                    .clip(CircleShape)
+                                                                    .background(accentColor.copy(alpha = 0.12f)),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Text(emoji, fontSize = 20.sp)
+                                                            }
+                                                            // Label
+                                                            Column(modifier = Modifier.weight(1f)) {
+                                                                Text(
+                                                                    option,
+                                                                    fontSize = 15.sp,
+                                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                                    color = if (isSelected) accentColor
+                                                                            else MaterialTheme.colorScheme.onSurface
+                                                                )
+                                                            }
+                                                            // Animated custom radio button
+                                                            Box(
+                                                                modifier = Modifier
+                                                                    .size(22.dp)
+                                                                    .clip(CircleShape)
+                                                                    .border(
+                                                                        width = 2.dp,
+                                                                        color = if (isSelected) accentColor
+                                                                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                                        shape = CircleShape
+                                                                    ),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                // Inner filled dot that scales in/out
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .size((12 * radioFill).dp)
+                                                                        .clip(CircleShape)
+                                                                        .background(accentColor)
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // ── Dismiss button ────────────────
+                                            TextButton(
+                                                onClick = { showGenderDropdown = false },
+                                                modifier = Modifier
+                                                    .align(Alignment.CenterHorizontally)
+                                                    .padding(bottom = 8.dp)
+                                            ) {
+                                                Text(
+                                                    "Cancel",
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    fontSize = 13.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+
+                        // ── 5. National ID ────────────────────────────────────
+                        // Uses OutlinedTextField + TextFieldValue directly so we can
+                        // pin the cursor to the end of the formatted string after each
+                        // auto-format operation (hyphen/space insertion).
+                        Column {
+                            OutlinedTextField(
+                                value = regNationalId,
+                                onValueChange = { incoming ->
+                                    val formatted = formatNationalId(incoming.text)
+                                    // Always place cursor at end of the formatted result
+                                    regNationalId = TextFieldValue(
+                                        text = formatted,
+                                        selection = TextRange(formatted.length)
+                                    )
+                                    nationalIdError = ""
+                                },
+                                label = { Text("National ID  (##-###### X##)", fontSize = 13.sp) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Badge,
+                                        contentDescription = null,
+                                        tint = RentOutColors.IconBlue
+                                    )
+                                },
+                                isError = nationalIdError.isNotEmpty(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (nationalIdError.isNotEmpty()) {
+                                Text(
+                                    text = nationalIdError,
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+
+                        // ── 6. Profile Photo ──────────────────────────────────
                         val photoShape = RoundedCornerShape(20.dp)
                         val photoWidth  = 120.dp
                         val photoHeight = 150.dp
@@ -640,7 +1108,7 @@ fun AuthScreen(
                         }
                         Spacer(Modifier.height(14.dp))
 
-                        // ── 5. Password ───────────────────────────────────────
+                        // ── 7. Password ───────────────────────────────────────
                         RentOutTextField(
                             value = regPassword,
                             onValueChange = { regPassword = it; passwordError = "" },
@@ -654,7 +1122,7 @@ fun AuthScreen(
                         )
                         Spacer(Modifier.height(14.dp))
 
-                        // ── 6. Confirm Password ───────────────────────────────
+                        // ── 8. Confirm Password ───────────────────────────────
                         RentOutTextField(
                             value = regConfirm,
                             onValueChange = { regConfirm = it; confirmError = "" },
@@ -670,6 +1138,23 @@ fun AuthScreen(
 
                         // ── Create Account button with intelligent validation ──
                         var createAccountLoading by remember { mutableStateOf(false) }
+                        var createAccountBarDone by remember { mutableStateOf(false) }
+
+                        // Firebase registration runs in parallel with the 8s progress bar.
+                        // Navigate (via AuthState.Registered) when BOTH the bar is done AND
+                        // Firebase has succeeded. If Firebase errors at any point → reset immediately.
+                        LaunchedEffect(authState, createAccountBarDone) {
+                            when {
+                                createAccountLoading && createAccountBarDone && authState is AuthState.Registered -> {
+                                    createAccountLoading = false
+                                }
+                                createAccountLoading && authState is AuthState.Error -> {
+                                    createAccountLoading = false
+                                    createAccountBarDone = false
+                                }
+                            }
+                        }
+
                         ProgressButton(
                             itemCount = 1,
                             isLoading = createAccountLoading,
@@ -677,6 +1162,7 @@ fun AuthScreen(
                                 // Reset all errors
                                 nameError = ""; emailError = ""; phoneError = ""
                                 photoError = ""; passwordError = ""; confirmError = ""
+                                genderError = ""; nationalIdError = ""
 
                                 // Validate all fields in order; track first error for scroll
                                 data class FieldError(val setter: (String) -> Unit, val msg: String, val scrollY: Int)
@@ -692,12 +1178,33 @@ fun AuthScreen(
                                     errors += FieldError({ phoneError = it }, "Phone number is required", 180)
                                 else if (regPhone.replace(" ", "").length < 7)
                                     errors += FieldError({ phoneError = it }, "Enter a valid phone number", 180)
+                                if (regGender.isBlank())
+                                    errors += FieldError({ genderError = it }, "Please select a gender", 280)
+                                // National ID: validate format has all 3 segments complete
+                                // Valid complete format examples: "63-123456 A78" or "63-1234567 A78"
+                                val nationalIdValid = run {
+                                    val parts = regNationalId.text.split("-")
+                                    if (parts.size < 2) return@run false
+                                    val seg1 = parts[0]
+                                    val rest = parts[1] // e.g. "123456 A78"
+                                    val seg2And3 = rest.split(" ")
+                                    if (seg2And3.size < 2) return@run false
+                                    val seg2 = seg2And3[0]
+                                    val seg3 = seg2And3[1]
+                                    seg1.length == 2 && seg1.all { it.isDigit() } &&
+                                    seg2.length in 6..7 && seg2.all { it.isDigit() } &&
+                                    seg3.length == 3 && seg3[0].isLetter() && seg3[1].isDigit() && seg3[2].isDigit()
+                                }
+                                if (regNationalId.text.isBlank())
+                                    errors += FieldError({ nationalIdError = it }, "National ID is required", 350)
+                                else if (!nationalIdValid)
+                                    errors += FieldError({ nationalIdError = it }, "Enter a valid ID (e.g. 63-123456 A78)", 350)
                                 if (regPhotoUri.isEmpty())
-                                    errors += FieldError({ photoError = it }, "A profile photo is required", 300)
+                                    errors += FieldError({ photoError = it }, "A profile photo is required", 480)
                                 if (regPassword.length < 6)
-                                    errors += FieldError({ passwordError = it }, "Password must be at least 6 characters", 420)
+                                    errors += FieldError({ passwordError = it }, "Password must be at least 6 characters", 620)
                                 if (regPassword != regConfirm)
-                                    errors += FieldError({ confirmError = it }, "Passwords do not match", 500)
+                                    errors += FieldError({ confirmError = it }, "Passwords do not match", 700)
 
                                 if (errors.isNotEmpty()) {
                                     // Apply all errors so user sees every issue at once
@@ -707,21 +1214,19 @@ fun AuthScreen(
                                         scrollState.animateScrollTo(errors.first().scrollY)
                                     }
                                 } else {
+                                    createAccountBarDone = false
                                     createAccountLoading = true
-                                    // 3.5s synced animation (slightly longer for account creation)
-                                    coroutineScope.launch {
-                                        delay(3500)
-                                        createAccountLoading = false
-                                        val fullPhone = "${regCountry.code} ${regPhone.trim()}"
-                                        onRegister(regName.trim(), regEmail.trim(), regPassword, fullPhone, regPhotoUri, regPhotoBytes)
-                                    }
+                                    // Fire Firebase registration instantly, in parallel with the 8s bar
+                                    val fullPhone = "${regCountry.code} ${regPhone.trim()}"
+                                    onRegister(regName.trim(), regEmail.trim(), regPassword, fullPhone, regPhotoUri, regPhotoBytes, regGender, regNationalId.text.trim())
                                 }
                             },
-                            buttonText = "Create Account →",
+                            buttonText = "Create Account 🎉",
                             loadingText = "Creating account",
                             successText = "Account created!",
+                            onComplete = { createAccountBarDone = true },
                             variant = ProgressVariant.LINEAR,
-                            animationDurationMs = 3500,
+                            animationDurationMs = 8000,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -775,155 +1280,7 @@ fun AuthScreen(
         )
     }
 
-    // ── Registration loading overlay ──────────────────────────────────────────
-    val isRegistering = authState is AuthState.Loading && registrationProgress > 0f
-    AnimatedVisibility(
-        visible = isRegistering,
-        enter = fadeIn(tween(300)),
-        exit = fadeOut(tween(400))
-    ) {
-        Dialog(
-            onDismissRequest = {},
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false,
-                usePlatformDefaultWidth = false
-            )
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.72f)),
-                contentAlignment = Alignment.Center
-            ) {
-                // Animated progress card
-                val animatedProgress by animateFloatAsState(
-                    targetValue = registrationProgress,
-                    animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
-                    label = "reg_progress"
-                )
-
-                // Pulsing glow ring behind card
-                val pulse = rememberInfiniteTransition(label = "pulse")
-                val pulseScale by pulse.animateFloat(
-                    initialValue = 0.95f, targetValue = 1.05f,
-                    animationSpec = infiniteRepeatable(
-                        tween(900, easing = EaseInOutSine),
-                        RepeatMode.Reverse
-                    ),
-                    label = "pulse_scale"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .size(260.dp)
-                        .scale(pulseScale)
-                        .background(
-                            Brush.radialGradient(
-                                listOf(
-                                    RentOutColors.Primary.copy(alpha = 0.25f),
-                                    Color.Transparent
-                                )
-                            ),
-                            shape = CircleShape
-                        )
-                )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .wrapContentHeight(),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 24.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(20.dp)
-                    ) {
-                        // Spinning arc indicator
-                        val rotation by pulse.animateFloat(
-                            initialValue = 0f, targetValue = 360f,
-                            animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
-                            label = "spinner_rot"
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(64.dp)
-                                .graphicsLayer { rotationZ = rotation },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(64.dp),
-                                color = RentOutColors.Primary,
-                                strokeWidth = 5.dp
-                            )
-                            Icon(
-                                Icons.Default.Person,
-                                null,
-                                tint = RentOutColors.Primary,
-                                modifier = Modifier.size(28.dp)
-                                    .graphicsLayer { rotationZ = -rotation } // counter-rotate so icon stays upright
-                            )
-                        }
-
-                        // Step label — animated crossfade between steps
-                        AnimatedContent(
-                            targetState = registrationStep,
-                            transitionSpec = {
-                                fadeIn(tween(300)) + slideInVertically { it / 2 } togetherWith
-                                fadeOut(tween(200))
-                            },
-                            label = "step_label"
-                        ) { step ->
-                            Text(
-                                text = step.ifBlank { "Setting things up…" },
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-
-                        // Progress bar
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            LinearProgressIndicator(
-                                progress = animatedProgress,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(8.dp)
-                                    .clip(RoundedCornerShape(50)),
-                                color = RentOutColors.Primary,
-                                trackColor = RentOutColors.Primary.copy(alpha = 0.15f)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    "Progress",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    "${(animatedProgress * 100).toInt()}%",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = RentOutColors.Primary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Loading is handled entirely by the ProgressButton linear animation.
 
     // ── Country code picker dialog ────────────────────────────────────────────
     if (showCountryPicker) {

@@ -316,6 +316,35 @@ fun TenantProfileScreen(
                     ProfileDetailRow(Icons.Default.Phone, "Phone Number",
                         user.phoneNumber.ifBlank { "Not provided" }, ProfileMint)
                     ProfileDetailDivider()
+                    // Gender — shown with accent colour matching the selected gender
+                    val genderColor = when (user.gender) {
+                        "Male"             -> Color(0xFF1565C0)
+                        "Female"           -> Color(0xFFAD1457)
+                        "Transgender"      -> Color(0xFF6A1B9A)
+                        "Prefer not to say"-> Color(0xFF37474F)
+                        else               -> ProfileSlateLight
+                    }
+                    val genderEmoji = when (user.gender) {
+                        "Male"             -> "👨 "
+                        "Female"           -> "👩 "
+                        "Transgender"      -> "🏳️\u200D⚧️ "
+                        "Prefer not to say"-> "🤝 "
+                        else               -> ""
+                    }
+                    ProfileDetailRow(
+                        icon = Icons.Default.Person,
+                        label = "Gender",
+                        value = if (user.gender.isNotBlank()) "$genderEmoji${user.gender}" else "Not provided",
+                        iconColor = genderColor
+                    )
+                    ProfileDetailDivider()
+                    ProfileDetailRow(
+                        icon = Icons.Default.Badge,
+                        label = "National ID",
+                        value = user.nationalId.ifBlank { "Not provided" },
+                        iconColor = ProfileNavy
+                    )
+                    ProfileDetailDivider()
                     ProfileDetailRow(Icons.Default.VerifiedUser, "Account Status",
                         user.status.replaceFirstChar { it.uppercase() }, if (user.status == "active") ProfileMint else ProfileCoral)
                     ProfileDetailDivider()

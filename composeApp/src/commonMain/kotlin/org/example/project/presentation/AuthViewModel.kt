@@ -35,7 +35,9 @@ sealed class AuthEvent {
         val role: String,
         val phoneNumber: String = "",
         val profilePhotoUrl: String = "",
-        val photoBytes: ByteArray? = null
+        val photoBytes: ByteArray? = null,
+        val gender: String = "",
+        val nationalId: String = ""
     ) : AuthEvent()
     object Logout : AuthEvent()
 }
@@ -129,7 +131,9 @@ class AuthViewModel(
                             status          = doc.get("status")          as? String ?: "active",
                             phoneNumber     = doc.get("phoneNumber")     as? String ?: "",
                             profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: "",
-                            createdAt       = doc.get("createdAt")       as? Long   ?: 0L
+                            createdAt       = doc.get("createdAt")       as? Long   ?: 0L,
+                            gender          = doc.get("gender")          as? String ?: "",
+                            nationalId      = doc.get("nationalId")      as? String ?: ""
                         )
                         _rememberMeActive.value = true
                         _authState.value = if (role == "suspended") AuthState.Suspended else AuthState.Success(user)
@@ -153,7 +157,8 @@ class AuthViewModel(
             is AuthEvent.Login    -> login(event.email, event.password, event.rememberMe)
             is AuthEvent.Register -> register(
                 event.name, event.email, event.password, event.role,
-                event.phoneNumber, event.profilePhotoUrl, event.photoBytes
+                event.phoneNumber, event.profilePhotoUrl, event.photoBytes,
+                event.gender, event.nationalId
             )
             is AuthEvent.Logout   -> logout()
         }
@@ -232,7 +237,9 @@ class AuthViewModel(
                     status          = doc.get("status")          as? String ?: "active",
                     phoneNumber     = doc.get("phoneNumber")     as? String ?: "",
                     profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: "",
-                    createdAt       = doc.get("createdAt")       as? Long   ?: 0L
+                    createdAt       = doc.get("createdAt")       as? Long   ?: 0L,
+                    gender          = doc.get("gender")          as? String ?: "",
+                    nationalId      = doc.get("nationalId")      as? String ?: ""
                 )
 
                 // 1. Save rememberMe to LOCAL device storage — device-specific,
@@ -273,7 +280,9 @@ class AuthViewModel(
         role: String,
         phoneNumber: String = "",
         profilePhotoUrl: String = "",
-        photoBytes: ByteArray? = null
+        photoBytes: ByteArray? = null,
+        gender: String = "",
+        nationalId: String = ""
     ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
@@ -318,7 +327,9 @@ class AuthViewModel(
                     status          = "active",
                     phoneNumber     = phoneNumber,
                     profilePhotoUrl = finalPhotoUrl,
-                    createdAt       = createdAt
+                    createdAt       = createdAt,
+                    gender          = gender,
+                    nationalId      = nationalId
                 )
                 firestore.collection("users").document(firebaseUser.uid).set(
                     mapOf(
@@ -329,7 +340,9 @@ class AuthViewModel(
                         "status"          to user.status,
                         "phoneNumber"     to user.phoneNumber,
                         "profilePhotoUrl" to user.profilePhotoUrl,
-                        "createdAt"       to user.createdAt
+                        "createdAt"       to user.createdAt,
+                        "gender"          to user.gender,
+                        "nationalId"      to user.nationalId
                     )
                 )
                 _registrationProgress.value = 0.90f
@@ -386,7 +399,9 @@ class AuthViewModel(
                     status          = doc.get("status")      as? String ?: "active",
                     phoneNumber     = doc.get("phoneNumber") as? String ?: "",
                     profilePhotoUrl = profilePhotoUrl,
-                    createdAt       = doc.get("createdAt")   as? Long   ?: 0L
+                    createdAt       = doc.get("createdAt")   as? Long   ?: 0L,
+                    gender          = doc.get("gender")      as? String ?: "",
+                    nationalId      = doc.get("nationalId")  as? String ?: ""
                 )
                 println("[AuthViewModel] refreshUser — profilePhotoUrl=$profilePhotoUrl")
                 if (role != "suspended") {

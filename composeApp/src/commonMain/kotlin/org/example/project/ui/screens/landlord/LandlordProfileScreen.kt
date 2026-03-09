@@ -236,6 +236,42 @@ fun LandlordProfileScreen(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
+                    // Gender — always shown; "Not provided" when blank
+                    val genderTint = when (user.gender) {
+                        "Male"              -> Color(0xFF1565C0)
+                        "Female"            -> Color(0xFFAD1457)
+                        "Transgender"       -> Color(0xFF6A1B9A)
+                        "Prefer not to say" -> Color(0xFF37474F)
+                        else                -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    val genderEmoji = when (user.gender) {
+                        "Male"              -> "👨 "
+                        "Female"            -> "👩 "
+                        "Transgender"       -> "🏳️\u200D⚧️ "
+                        "Prefer not to say" -> "🤝 "
+                        else                -> ""
+                    }
+                    ProfileInfoRow(
+                        icon = Icons.Default.Person,
+                        label = "Gender",
+                        value = if (user.gender.isNotBlank()) "$genderEmoji${user.gender}" else "Not provided",
+                        iconTint = if (user.gender.isNotBlank()) genderTint else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Divider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    // National ID — always shown; "Not provided" when blank
+                    ProfileInfoRow(
+                        icon = Icons.Default.Badge,
+                        label = "National ID",
+                        value = user.nationalId.ifBlank { "Not provided" },
+                        iconTint = RentOutColors.IconPurple
+                    )
+                    Divider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
                     ProfileInfoRow(
                         icon = Icons.Default.Shield,
                         label = "Account Status",

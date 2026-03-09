@@ -62,10 +62,15 @@ service cloud.firestore {
       // All required fields must be present and values must be valid.
       // profilePhotoUrl is allowed to be an empty string (photo upload may fail).
       // role 'admin' cannot be self-assigned.
+      //
+      // gender and nationalId are required for tenants (collected during tenant
+      // registration). Landlords write empty strings for these fields, which is
+      // also permitted — the mobile app enforces landlord-specific validation.
       allow create: if isAuthenticated() && isOwner(userId)
         && request.resource.data.keys().hasAll([
             'uid', 'name', 'email', 'role', 'status',
-            'phoneNumber', 'profilePhotoUrl', 'createdAt'
+            'phoneNumber', 'profilePhotoUrl', 'createdAt',
+            'gender', 'nationalId'
            ])
         && request.resource.data.uid == userId
         && request.resource.data.status == 'active'
@@ -73,15 +78,40 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.email is string
-        && request.resource.data.email.size() > 0;
+        && request.resource.data.email.size() > 0
+        // gender must be one of the four allowed values for tenants;
+        // landlords write an empty string which is also accepted.
+        && request.resource.data.gender is string
+        && (request.resource.data.role == 'landlord'
+            ? request.resource.data.gender == ''
+            : request.resource.data.gender in [
+                'Male', 'Female', 'Transgender', 'Prefer not to say'
+              ])
+        // nationalId must be a string; tenants must supply a non-empty value,
+        // landlords write an empty string.
+        && request.resource.data.nationalId is string
+        && (request.resource.data.role == 'landlord'
+            ? request.resource.data.nationalId == ''
+            : request.resource.data.nationalId.size() > 0);
 
       // Users can update their own mutable profile fields only.
       // Immutable fields (role, status, uid, createdAt) are locked.
       // Admin can update any field including role and status.
+      // gender and nationalId are mutable (user can update their profile),
+      // but if changed they must remain valid typed values.
       allow update: if isAdmin()
         || (isAuthenticated() && isOwner(userId)
           && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['role', 'status', 'uid', 'createdAt']));
+              .hasAny(['role', 'status', 'uid', 'createdAt'])
+          // If gender is being changed, it must still be a valid value
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender'])
+              || (request.resource.data.gender is string
+                  && request.resource.data.gender in [
+                      '', 'Male', 'Female', 'Transgender', 'Prefer not to say'
+                    ]))
+          // If nationalId is being changed, it must remain a string
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['nationalId'])
+              || request.resource.data.nationalId is string));
 
       // Only admin can delete user documents.
       allow delete: if isAdmin();

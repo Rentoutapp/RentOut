@@ -129,8 +129,8 @@ fun App() {
                             popUpTo(NavRoutes.INTRO) { inclusive = true }
                         }
                     },
-                    onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes ->
-                        authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole, phoneNumber, profilePhotoUrl, photoBytes))
+                    onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes, gender, nationalId ->
+                        authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole, phoneNumber, profilePhotoUrl, photoBytes, gender, nationalId))
                     },
                     onBack = { navController.popBackStack() },
                     onClearError = { authViewModel.clearError() },
