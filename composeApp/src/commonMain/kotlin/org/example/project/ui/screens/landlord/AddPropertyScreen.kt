@@ -137,7 +137,7 @@ fun AddPropertyScreen(
         LaunchedEffect(formState) { onBack() }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier = Modifier.fillMaxSize().imePadding().background(MaterialTheme.colorScheme.background)) {
 
         // -- Header gradient --
         Box(
