@@ -429,6 +429,29 @@ Open `iosApp/iosApp.xcodeproj` in Xcode and run, or use the IDE run configuratio
 
 ---
 
+## 🚀 MANDATORY: Firebase Deployment Rules
+
+**These rules apply after EVERY task that touches Firebase-related files. A task is NOT complete until deployed.**
+
+| Changed File(s) | Required Deploy Command |
+|---|---|
+| Any file in `webApp/admin/` or `webApp/` | `npx firebase deploy --only hosting` |
+| `firestore.rules` | `npx firebase deploy --only firestore:rules` |
+| `firestore.indexes.json` | `npx firebase deploy --only firestore:indexes` |
+| Multiple of the above | `npx firebase deploy --only hosting,firestore:rules,firestore:indexes` |
+
+### Deployment Checklist (run after every Firebase-related task)
+```
+□ Web app files changed?       → deploy hosting
+□ firestore.rules changed?     → deploy firestore:rules
+□ firestore.indexes.json changed? → deploy firestore:indexes
+□ Confirm "Deploy complete!" in terminal output before marking task done
+```
+
+> ⚠️ **NEVER** consider a Firebase-related task complete without running the appropriate deploy command and confirming success.
+
+---
+
 ## 🚫 Common Mistakes to Avoid
 
 1. ❌ Hardcoding colors — always use `MaterialTheme.colorScheme` tokens.
@@ -443,6 +466,9 @@ Open `iosApp/iosApp.xcodeproj` in Xcode and run, or use the IDE run configuratio
 10. ❌ Making UI elements non-interactive (no press/hover feedback).
 11. ❌ Ignoring the back button animation pattern in Compose navigation.
 12. ❌ Static progress bars — all progress indicators must animate.
+13. ❌ Making web app changes without deploying hosting (`npx firebase deploy --only hosting`).
+14. ❌ Changing `firestore.rules` without deploying rules.
+15. ❌ Changing `firestore.indexes.json` without deploying indexes.
 
 ---
 
@@ -462,6 +488,7 @@ Your implementation is successful when:
 - ✓ Dependency versions managed via `libs.versions.toml`.
 - ✓ No `tmp_rovodev_*` files left in the project.
 - ✓ Existing utilities and patterns are reused.
+- ✓ Firebase deployed — hosting, rules, and/or indexes as required by the changes made.
 
 ---
 
@@ -480,11 +507,17 @@ Your implementation is successful when:
    ↓
 6. Apply required animations and UI feedback
    ↓
-7. Test your implementation
+7. Test your implementation (build for Android/iOS, verify web)
    ↓
 8. Clean up all tmp_rovodev_* temporary files
    ↓
 9. Verify all rules are followed
+   ↓
+10. Deploy to Firebase (MANDATORY if any Firebase files changed)
+    • Web app changes    → npx firebase deploy --only hosting
+    • firestore.rules    → npx firebase deploy --only firestore:rules
+    • firestore.indexes  → npx firebase deploy --only firestore:indexes
+    • Confirm "Deploy complete!" before marking task done
 ```
 
 ---

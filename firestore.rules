@@ -69,8 +69,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isOwner(userId)
         && request.resource.data.keys().hasAll([
             'uid', 'name', 'email', 'role', 'status',
-            'phoneNumber', 'profilePhotoUrl', 'createdAt',
-            'gender', 'nationalId'
+            'phoneNumber', 'profilePhotoUrl', 'createdAt'
            ])
         && request.resource.data.uid == userId
         && request.resource.data.status == 'active'
@@ -79,20 +78,22 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.email is string
         && request.resource.data.email.size() > 0
-        // gender must be one of the four allowed values for tenants;
-        // landlords write an empty string which is also accepted.
-        && request.resource.data.gender is string
-        && (request.resource.data.role == 'landlord'
-            ? request.resource.data.gender == ''
-            : request.resource.data.gender in [
-                'Male', 'Female', 'Transgender', 'Prefer not to say'
-              ])
-        // nationalId must be a string; tenants must supply a non-empty value,
-        // landlords write an empty string.
-        && request.resource.data.nationalId is string
-        && (request.resource.data.role == 'landlord'
-            ? request.resource.data.nationalId == ''
-            : request.resource.data.nationalId.size() > 0);
+        // gender: if present, must be a valid value for tenants or empty for landlords.
+        // Field is optional to maintain backward compatibility with older app versions.
+        && (!request.resource.data.keys().hasAll(['gender'])
+            || (request.resource.data.gender is string
+                && (request.resource.data.role == 'landlord'
+                    ? request.resource.data.gender == ''
+                    : request.resource.data.gender in [
+                        'Male', 'Female', 'Transgender', 'Prefer not to say'
+                      ])))
+        // nationalId: if present, must be non-empty string for tenants, empty for landlords.
+        // Field is optional to maintain backward compatibility with older app versions.
+        && (!request.resource.data.keys().hasAll(['nationalId'])
+            || (request.resource.data.nationalId is string
+                && (request.resource.data.role == 'landlord'
+                    ? request.resource.data.nationalId == ''
+                    : request.resource.data.nationalId.size() > 0)));
 
       // Users can update their own mutable profile fields only.
       // Immutable fields (role, status, uid, createdAt) are locked.

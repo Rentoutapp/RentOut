@@ -34,6 +34,7 @@
     .info-row:hover { background: rgba(108, 99, 255, 0.05); }
     .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
@@ -111,24 +112,46 @@
         </h2>
         <div class="space-y-1 bg-gray-50 rounded-xl p-1">
           <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
-            <span class="text-gray-600 font-medium">User ID</span>
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>🔑</span> User ID
+            </span>
             <span id="info-uid" class="text-gray-800 font-mono text-sm">—</span>
           </div>
           <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
-            <span class="text-gray-600 font-medium">Phone Number</span>
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>📞</span> Phone Number
+            </span>
             <span id="info-phone" class="text-gray-800">—</span>
           </div>
           <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
-            <span class="text-gray-600 font-medium">Role</span>
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>🏷️</span> Role
+            </span>
             <span id="info-role" class="text-gray-800 capitalize">—</span>
           </div>
           <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
-            <span class="text-gray-600 font-medium">Account Status</span>
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>🛡️</span> Account Status
+            </span>
             <span id="info-status" class="text-gray-800 capitalize">—</span>
           </div>
           <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
-            <span class="text-gray-600 font-medium">Member Since</span>
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>📅</span> Member Since
+            </span>
             <span id="info-created" class="text-gray-800">—</span>
+          </div>
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>⚧️</span> Gender
+            </span>
+            <span id="info-gender" class="text-gray-800">—</span>
+          </div>
+          <div class="info-row flex justify-between items-center px-6 py-4 rounded-lg">
+            <span class="text-gray-600 font-medium flex items-center gap-2">
+              <span>🪪</span> National ID
+            </span>
+            <span id="info-national-id" class="font-mono text-gray-800 tracking-wide">—</span>
           </div>
         </div>
       </div>
@@ -304,6 +327,44 @@
       document.getElementById('info-role').textContent = capitalizeFirst(u.role);
       document.getElementById('info-status').textContent = capitalizeFirst(u.status);
       document.getElementById('info-created').textContent = formatDate(u.createdAt);
+
+      // Gender — show with emoji and accent colour
+      // Handles: populated value, empty string (landlord), undefined (pre-existing account)
+      const genderEmojis = {
+        'Male': '👨', 'Female': '👩',
+        'Transgender': '🏳️‍⚧️', 'Prefer not to say': '🤝'
+      };
+      const genderColors = {
+        'Male': '#1565C0', 'Female': '#AD1457',
+        'Transgender': '#6A1B9A', 'Prefer not to say': '#37474F'
+      };
+      const genderEl = document.getElementById('info-gender');
+      if (genderEl) {
+        const genderVal = u.gender && u.gender.trim() !== '' ? u.gender : null;
+        if (genderVal && genderEmojis[genderVal]) {
+          const emoji = genderEmojis[genderVal];
+          const color = genderColors[genderVal];
+          genderEl.innerHTML = `<span style="color:${color};font-weight:600;">${emoji} ${genderVal}</span>`;
+        } else if (genderVal) {
+          // Has a value but not one of the 4 standard ones — show as plain text
+          genderEl.textContent = genderVal;
+        } else {
+          // Empty string (landlord) or undefined (old account) — show role-appropriate hint
+          genderEl.innerHTML = `<span style="color:#9CA3AF;font-style:italic;">${u.role === 'tenant' ? 'Not provided' : 'N/A — Landlord account'}</span>`;
+        }
+      }
+
+      // National ID — handles populated value, empty string, and undefined
+      const natIdEl = document.getElementById('info-national-id');
+      if (natIdEl) {
+        const natIdVal = u.nationalId && u.nationalId.trim() !== '' ? u.nationalId : null;
+        if (natIdVal) {
+          natIdEl.textContent = natIdVal;
+          natIdEl.style.letterSpacing = '0.05em';
+        } else {
+          natIdEl.innerHTML = `<span style="color:#9CA3AF;font-style:italic;">${u.role === 'tenant' ? 'Not provided' : 'N/A — Landlord account'}</span>`;
+        }
+      }
     }
 
     async function loadUserStats() {
@@ -312,8 +373,8 @@
 
       if (u.role === 'landlord') {
         const propsSnap = await getDocs(query(collection(db, 'properties'), where('landlordId', '==', userId)));
-        const totalUnlocks = propsSnap.docs.reduce((sum, doc) => sum + (doc.data().unlockCount || 0), 0);
-        const totalRevenue = propsSnap.docs.reduce((sum, doc) => sum + (doc.data().unlockCount || 0) * (doc.data().price || 0), 0);
+        const totalUnlocks = propsSnap.docs.reduce((sum, d) => sum + (d.data().unlockCount || 0), 0);
+        const totalRevenue = propsSnap.docs.reduce((sum, d) => sum + (d.data().unlockCount || 0) * (d.data().price || 0), 0);
         
         stats = [
           { label: 'Properties', value: propsSnap.size, icon: '🏠', color: 'blue' },
@@ -324,7 +385,7 @@
       } else if (u.role === 'tenant') {
         const unlocksSnap = await getDocs(query(collection(db, 'unlocks'), where('tenantId', '==', userId)));
         const txSnap = await getDocs(query(collection(db, 'transactions'), where('tenantId', '==', userId), where('status', '==', 'success')));
-        const totalSpent = txSnap.docs.reduce((sum, doc) => sum + (Number(doc.data().amount) || 0), 0);
+        const totalSpent = txSnap.docs.reduce((sum, d) => sum + (Number(d.data().amount) || 0), 0);
         
         stats = [
           { label: 'Unlocked', value: unlocksSnap.size, icon: '🔓', color: 'green' },
@@ -367,8 +428,8 @@
       if (propsSnap.empty) {
         list.innerHTML = '<p class="text-gray-400 text-center py-8">No properties found</p>';
       } else {
-        list.innerHTML = propsSnap.docs.map(doc => {
-          const p = doc.data();
+        list.innerHTML = propsSnap.docs.map(snap => {
+          const p = snap.data();
           return `
             <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all">
               <img src="${p.images?.[0] || 'https://via.placeholder.com/80'}" class="w-20 h-20 rounded-lg object-cover" />
@@ -377,7 +438,7 @@
                 <p class="text-sm text-gray-600">${p.location || '—'} • $${p.price || 0}</p>
                 <p class="text-xs text-gray-500 mt-1">${p.unlockCount || 0} unlocks • ${p.status || 'active'}</p>
               </div>
-              <a href="property-detail.html?id=${doc.id}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
+              <a href="property-detail.html?id=${snap.id}" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity">
                 View →
               </a>
             </div>
@@ -395,8 +456,8 @@
       if (unlocksSnap.empty) {
         list.innerHTML = '<p class="text-gray-400 text-center py-8">No unlocked properties</p>';
       } else {
-        const unlocks = await Promise.all(unlocksSnap.docs.map(async doc => {
-          const unlock = doc.data();
+        const unlocks = await Promise.all(unlocksSnap.docs.map(async snap => {
+          const unlock = snap.data();
           const propDoc = await getDoc(doc(db, 'properties', unlock.propertyId));
           return { ...unlock, property: propDoc.exists() ? propDoc.data() : null };
         }));
@@ -429,11 +490,11 @@
       if (txSnap.empty) {
         tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-400">No transactions found</td></tr>';
       } else {
-        tbody.innerHTML = txSnap.docs.map(doc => {
-          const t = doc.data();
+        tbody.innerHTML = txSnap.docs.map(snap => {
+          const t = snap.data();
           return `
             <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-              <td class="px-6 py-4 font-mono text-xs text-gray-500">${doc.id.substring(0, 12)}...</td>
+              <td class="px-6 py-4 font-mono text-xs text-gray-500">${snap.id.substring(0, 12)}...</td>
               <td class="px-6 py-4">
                 <div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '—'}</div>
                 <div class="text-xs text-gray-400">${t.propertyId?.substring(0, 10)}...</div>
