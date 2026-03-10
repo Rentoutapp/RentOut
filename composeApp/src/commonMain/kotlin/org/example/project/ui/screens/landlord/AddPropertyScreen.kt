@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+﻿@file:OptIn(ExperimentalMaterial3Api::class)
 
 package org.example.project.ui.screens.landlord
 
@@ -10,8 +10,6 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,7 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -34,16 +32,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import org.example.project.data.model.Property
 import org.example.project.presentation.PropertyDraft
 import org.example.project.presentation.PropertyFormState
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
-import org.example.project.ui.components.CountryPickerField
-import org.example.project.ui.components.TownPickerField
-import org.example.project.ui.components.SuburbPickerField
 
-// --- Data Models -----------------------------------------------------------
+// â”€â”€â”€ Data Models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 data class PropertyAddress(
     val houseAndStreet: String = "",
@@ -56,7 +52,72 @@ data class PropertyAddress(
                 townOrCity.isNotBlank() && country.isNotBlank()
 }
 
-// --- Main Screen ------------------------------------------------------------
+// â”€â”€â”€ Classification & Property Type Catalogue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+object PropertyClassification {
+
+    val primaryOptions = listOf(
+        "Residential", "Commercial", "Industrial", "Land", "Mixed-Use"
+    )
+
+    val secondaryTypes: Map<String, List<String>> = mapOf(
+        "Residential" to listOf(
+            "Bedsitter", "Full House", "Cottage", "Room",
+            "Full House + Cottage", "Full House Without Cottage",
+            "Apartment", "Shared-Apartment", "Garden Flat", "Cluster",
+            "Townhouse", "Condo", "Duplex", "Triplex", "Fourplex",
+            "Boarding/Student House"
+        ),
+        "Commercial" to listOf(
+            "Office", "Store", "Strip Center", "Shopping Mall",
+            "Restaurant", "Cafe", "Tuckshop", "Hotel", "Motel"
+        ),
+        "Industrial" to listOf(
+            "Warehouse", "Cold Storage", "Storage Room",
+            "Factory/Manufacturing Facility", "Laboratory", "Garage"
+        ),
+        "Land" to listOf(
+            "Agriculture/Farmland", "Greenfield", "Brownfield",
+            "Infill", "Sports Pitch/Field"
+        ),
+        "Mixed-Use" to listOf(
+            "Residential + Commercial + Retail"
+        )
+    )
+
+    val locationTypes = listOf(
+        "Low Density", "Medium Density", "High Density",
+        "Peri-Urban Residential", "Rural"
+    )
+
+    val proximityFacilities = listOf(
+        "CBD", "Near Town", "Near Hospital", "Near School",
+        "Near University/College", "Near Shopping Center",
+        "Near Public Transport", "Near Police Station",
+        "Near Main Road", "Near Park/Recreation",
+        "Near Airport", "Near Industrial Area", "Near Religious Centre"
+    )
+
+    // Legacy mapping: fine-grained propType â†’ amenity catalogue key
+    fun amenityKey(propType: String): String = when {
+        propType == "Room" || propType == "Bedsitter" || propType == "Boarding/Student House" -> "room"
+        propType == "Full House" || propType == "Full House + Cottage" ||
+        propType == "Full House Without Cottage" || propType == "Cottage" ||
+        propType == "Garden Flat" || propType == "Cluster" ||
+        propType == "Townhouse" || propType == "Duplex" ||
+        propType == "Triplex" || propType == "Fourplex" -> "house"
+        propType == "Office" || propType == "Store" || propType == "Strip Center" ||
+        propType == "Shopping Mall" || propType == "Restaurant" ||
+        propType == "Cafe" || propType == "Tuckshop" ||
+        propType == "Hotel" || propType == "Motel" -> "commercial"
+        propType == "Warehouse" || propType == "Cold Storage" ||
+        propType == "Storage Room" || propType == "Factory/Manufacturing Facility" ||
+        propType == "Laboratory" || propType == "Garage" -> "commercial"
+        else -> "apartment"
+    }
+}
+
+// â”€â”€â”€ Main Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 fun AddPropertyScreen(
@@ -64,21 +125,36 @@ fun AddPropertyScreen(
     onSubmit: (Property) -> Unit,
     onBack: () -> Unit,
     onNavigateToImages: (Property) -> Unit = {},
-    landlordPhoneNumber: String = "",   // auto-filled from landlord profile
+    landlordPhoneNumber: String = "",
     draft: PropertyDraft = PropertyDraft(),
     onSaveDraft: (PropertyDraft) -> Unit = {},
     isEditMode: Boolean = false,
-    existingImageUrls: List<String> = emptyList()  // pre-loaded images shown in edit mode
+    existingImageUrls: List<String> = emptyList()
 ) {
-    // -- Form state: seeded from saved draft so values survive navigation --
-    var title           by remember { mutableStateOf(draft.title) }
-    var price           by remember { mutableStateOf(draft.price) }
-    var securityDeposit by remember { mutableStateOf(draft.securityDeposit) }
-    var rooms           by remember { mutableStateOf(draft.rooms) }
-    var bathrooms       by remember { mutableStateOf(draft.bathrooms) }
-    var description     by remember { mutableStateOf(draft.description) }
-    var propType        by remember { mutableStateOf(draft.propType) }
-    var address         by remember {
+    // â”€â”€ Form state seeded from saved draft â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    var classification       by remember { mutableStateOf(draft.classification) }
+    var propType             by remember { mutableStateOf(draft.propType) }
+    var locationType         by remember { mutableStateOf(draft.locationType) }
+    var title                by remember { mutableStateOf(draft.title) }
+    var price                by remember { mutableStateOf(draft.price) }
+    var securityDeposit      by remember { mutableStateOf(draft.securityDeposit) }
+    var depositNotApplicable by remember { mutableStateOf(draft.depositNotApplicable) }
+    var rooms                by remember { mutableStateOf(draft.rooms) }
+    var bathrooms            by remember { mutableStateOf(draft.bathrooms) }
+    var bathroomType              by remember { mutableStateOf(draft.bathroomType) }
+    var customBathroomDetails     by remember { mutableStateOf(draft.customBathroomDetails) }
+    var hasSharedKitchen     by remember { mutableStateOf(draft.hasSharedKitchen) }
+    var kitchenCount         by remember { mutableStateOf(draft.kitchenCount) }
+    var roomQuantity         by remember { mutableStateOf(draft.roomQuantity) }
+    var billsInclusive       by remember { mutableStateOf<Set<String>>(draft.billsInclusive) }
+    var billsExclusive       by remember { mutableStateOf<Set<String>>(draft.billsExclusive) }
+    var proximityFacilities  by remember { mutableStateOf<Set<String>>(draft.proximityFacilities) }
+    var latitude             by remember { mutableStateOf(draft.latitude) }
+    var longitude            by remember { mutableStateOf(draft.longitude) }
+    var availabilityDate     by remember { mutableStateOf(draft.availabilityDate) }
+    var tenantRequirements   by remember { mutableStateOf<Set<String>>(draft.tenantRequirements) }
+    var description          by remember { mutableStateOf(draft.description) }
+    var address              by remember {
         mutableStateOf(
             PropertyAddress(
                 houseAndStreet = draft.houseAndStreet,
@@ -88,27 +164,32 @@ fun AddPropertyScreen(
             )
         )
     }
-
-    // -- Contact: prefer saved draft value, fall back to landlord profile number --
     var contact by remember {
         mutableStateOf(draft.contact.ifEmpty { landlordPhoneNumber })
     }
     val isContactAutoFilled = landlordPhoneNumber.isNotBlank()
 
-    // -- Amenity selection -- seeded from draft; only reset when property TYPE changes --
+    // â”€â”€ Amenity selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var selectedAmenityKeys by remember { mutableStateOf<Set<String>>(draft.amenityKeys) }
     var lastPropType        by remember { mutableStateOf(draft.propType) }
     LaunchedEffect(propType) {
-        // Only wipe amenities when the user actively changes the property type,
-        // not on initial composition (where propType == lastPropType from the draft).
         if (propType != lastPropType) {
             selectedAmenityKeys = emptySet()
             lastPropType = propType
         }
     }
-    val amenityDefs = remember(propType) { PropertyAmenities.forType(propType) }
+    val amenityKey   = remember(propType) { PropertyClassification.amenityKey(propType) }
+    val amenityDefs  = remember(amenityKey) { PropertyAmenities.forType(amenityKey) }
 
-    // -- Validation errors --
+    // When classification changes, reset propType to first in new list
+    LaunchedEffect(classification) {
+        val types = PropertyClassification.secondaryTypes[classification] ?: emptyList()
+        if (propType !in types) {
+            propType = types.firstOrNull() ?: ""
+        }
+    }
+
+    // â”€â”€ Validation errors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var titleErr   by remember { mutableStateOf("") }
     var priceErr   by remember { mutableStateOf("") }
     var roomsErr   by remember { mutableStateOf("") }
@@ -116,7 +197,7 @@ fun AddPropertyScreen(
     var descErr    by remember { mutableStateOf("") }
     var addressErr by remember { mutableStateOf("") }
 
-    // Derived: suburb suffix for title
+    // Derived: suburb suffix for title preview
     val titleWithSuburb = remember(title, address.suburb) {
         val base = title.trim()
         val sub  = address.suburb.trim()
@@ -125,10 +206,12 @@ fun AddPropertyScreen(
         else ""
     }
 
-    val isLoading   = formState is PropertyFormState.Uploading
-    val scrollState = rememberScrollState()
+    val isResidential = classification == "Residential"
+    val isRoomType    = propType == "Room"
+    val isLoading     = formState is PropertyFormState.Uploading
+    val scrollState   = rememberScrollState()
 
-    // -- Back button animation --
+    // â”€â”€ Back button animation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var backPressed  by remember { mutableStateOf(false) }
     val backScale    by animateFloatAsState(if (backPressed) 0.8f else 1f, tween(200), label = "bs")
     val backRotation by animateFloatAsState(if (backPressed) -45f else 0f, tween(200), label = "br")
@@ -137,9 +220,65 @@ fun AddPropertyScreen(
         LaunchedEffect(formState) { onBack() }
     }
 
+    // â”€â”€ Shared build & validate helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    fun buildAndValidate(onValid: (Property) -> Unit) {
+        var valid = true
+        if (title.isBlank())                                   { titleErr   = "Property title is required"; valid = false }
+        if (price.isBlank() || price.toDoubleOrNull() == null) { priceErr   = "Enter a valid price";        valid = false }
+        if (isResidential) {
+            when {
+                rooms.isBlank() -> { roomsErr = "Enter number of bedrooms"; valid = false }
+                rooms.toIntOrNull() == null || (rooms.toIntOrNull() ?: 0) < 1 -> { roomsErr = "Enter a valid bedroom count"; valid = false }
+            }
+        }
+        if (description.isBlank())                             { descErr    = "Description is required";    valid = false }
+        if (!address.isComplete)                               { addressErr = "Please complete all 4 address fields"; valid = false }
+        if (contact.isBlank())                                 { contactErr = "Contact number is required"; valid = false }
+        if (valid) {
+            val fullLocation = buildString {
+                if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
+                if (address.suburb.isNotBlank())         append(", ${address.suburb}")
+                if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
+                if (address.country.isNotBlank())        append(", ${address.country}")
+            }
+            onValid(
+                Property(
+                    title                = titleWithSuburb.ifEmpty { title.trim() },
+                    city                 = address.townOrCity.trim(),
+                    location             = fullLocation,
+                    price                = price.toDoubleOrNull() ?: 0.0,
+                    securityDeposit      = securityDeposit.toDoubleOrNull() ?: 0.0,
+                    depositNotApplicable = depositNotApplicable,
+                    rooms                = rooms.toIntOrNull() ?: 0,
+                    customBedroomDetails = "",
+                    bathrooms            = bathrooms.toIntOrNull() ?: 0,
+                    bathroomType         = bathroomType,
+                    customBathroomDetails = customBathroomDetails.trim(),
+                    hasSharedKitchen     = hasSharedKitchen,
+                    kitchenCount         = kitchenCount.toIntOrNull() ?: 0,
+                    description          = description.trim(),
+                    contactNumber        = contact.trim(),
+                    classification       = classification,
+                    propertyType         = propType,
+                    locationType         = locationType,
+                    billsInclusive       = billsInclusive.toList(),
+                    billsExclusive       = billsExclusive.toList(),
+                    roomQuantity         = roomQuantity,
+                    proximityFacilities  = proximityFacilities.toList(),
+                    latitude             = latitude.toDoubleOrNull() ?: 0.0,
+                    longitude            = longitude.toDoubleOrNull() ?: 0.0,
+                    availabilityDate     = availabilityDate,
+                    tenantRequirements   = tenantRequirements.toList(),
+                    amenities            = selectedAmenityKeys.toList(),
+                    status               = "pending"
+                )
+            )
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().imePadding().background(MaterialTheme.colorScheme.background)) {
 
-        // -- Header gradient --
+        // Header gradient
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -159,7 +298,7 @@ fun AddPropertyScreen(
         ) {
             Spacer(Modifier.height(52.dp))
 
-            // -- Top bar --
+            // Top bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -186,7 +325,7 @@ fun AddPropertyScreen(
 
             Spacer(Modifier.height(28.dp))
 
-            // -- Form card --
+            // Form card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
@@ -195,26 +334,70 @@ fun AddPropertyScreen(
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
 
-                    // -- Section: Listing Information (centered) --
+                    // â”€â”€ Section: Listing Information â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     AddPropertySectionLabel(
                         icon = Icons.Default.Assignment,
                         text = "Listing Information",
                         centered = true
                     )
+                    Spacer(Modifier.height(20.dp))
+
+                    // â”€â”€ 1. Property Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AddPropertySectionLabel(Icons.Default.Category, "Property Classification")
+                    Spacer(Modifier.height(12.dp))
+                    ClassificationDropdown(
+                        selected = classification,
+                        onSelect = { classification = it }
+                    )
                     Spacer(Modifier.height(16.dp))
 
-                    // -- Property Title --
-                    RentOutTextField(
-                        value = title,
-                        onValueChange = { title = it; titleErr = "" },
-                        label = "Property Title",
-                        leadingIcon = Icons.Default.Apartment,
-                        leadingIconTint = RentOutColors.IconBlue,
-                        isError = titleErr.isNotEmpty(),
-                        errorMessage = titleErr,
-                        labelFontSize = 12.sp
+                    // â”€â”€ 2. Secondary Property Type (dynamic) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AnimatedVisibility(
+                        visible = classification.isNotEmpty(),
+                        enter = fadeIn() + expandVertically(),
+                        exit  = fadeOut() + shrinkVertically()
+                    ) {
+                        Column {
+                            AddPropertySectionLabel(Icons.Default.HomeWork, "Property Type")
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Select the specific type within ${classification}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            PropertyTypeGrid(
+                                types    = PropertyClassification.secondaryTypes[classification] ?: emptyList(),
+                                selected = propType,
+                                onSelect = { propType = it }
+                            )
+                            Spacer(Modifier.height(20.dp))
+                        }
+                    }
+
+                    // â”€â”€ 3. Property Location Type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AddPropertySectionLabel(Icons.Default.LocationCity, "Location Type")
+                    Spacer(Modifier.height(12.dp))
+                    LocationTypeDropdown(
+                        selected = locationType,
+                        onSelect = { locationType = it }
                     )
-                    // Title preview with suburb suffix
+                    Spacer(Modifier.height(20.dp))
+
+                    // â”€â”€ 4. Property Title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AddPropertySectionLabel(Icons.Default.Title, "Property Title")
+                    Spacer(Modifier.height(12.dp))
+                    RentOutTextField(
+                        value         = title,
+                        onValueChange = { title = it; titleErr = "" },
+                        label         = "e.g., Beautiful Modern Apartment, Cozy Bedsitter, Spacious Family Home",
+                        leadingIcon   = Icons.Default.Apartment,
+                        leadingIconTint = RentOutColors.IconBlue,
+                        isError       = titleErr.isNotEmpty(),
+                        errorMessage  = titleErr,
+                        labelFontSize = 11.sp
+                    )
+                    // Title preview
                     AnimatedVisibility(
                         visible = titleWithSuburb.isNotEmpty(),
                         enter = fadeIn() + expandVertically(),
@@ -241,74 +424,191 @@ fun AddPropertyScreen(
                             )
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(20.dp))
 
-                    // -- Property Type --
-                    Text(
-                        text = "Property Type",
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    )
+                    // â”€â”€ 5. Map / Coordinates Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AddPropertySectionLabel(Icons.Default.Map, "Property Location & Coordinates")
                     Spacer(Modifier.height(8.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(end = 4.dp)
+                    Text(
+                        text = "Pin your property on the map or enter coordinates manually. Auto-detects your current GPS position.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    MapPlaceholderSection(
+                        latitude  = latitude,
+                        longitude = longitude,
+                        onLatChange = { latitude = it },
+                        onLonChange = { longitude = it }
+                    )
+                    Spacer(Modifier.height(20.dp))
+
+                    // â”€â”€ 6. Proximity Facilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AddPropertySectionLabel(Icons.Default.Place, "Proximity Facilities")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Select all nearby facilities to help tenants find this property",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    ProximityFacilitiesSection(
+                        selected = proximityFacilities,
+                        onToggle = { facility, on ->
+                            proximityFacilities = if (on) proximityFacilities + facility
+                                                  else proximityFacilities - facility
+                        }
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    // â”€â”€ 7. Residential-only fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    AnimatedVisibility(
+                        visible = isResidential,
+                        enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+                        exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
                     ) {
-                        items(
-                            listOf(
-                                Triple("apartment", Icons.Default.Apartment,   "Apartment"),
-                                Triple("house",     Icons.Default.House,       "House"),
-                                Triple("room",      Icons.Default.MeetingRoom, "Room"),
-                                Triple("commercial",Icons.Default.Store,       "Commercial")
+                        Column {
+                            AddPropertySectionLabel(Icons.Default.House, "Property Details")
+                            Spacer(Modifier.height(12.dp))
+
+                            // Kitchen
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                RentOutTextField(
+                                    value         = kitchenCount,
+                                    onValueChange = { kitchenCount = it },
+                                    label         = "Kitchens",
+                                    leadingIcon   = Icons.Default.Kitchen,
+                                    leadingIconTint = RentOutColors.IconOrange,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier      = Modifier.weight(1f),
+                                    labelFontSize = 12.sp
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Shared Kitchen",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Checkbox(
+                                        checked = hasSharedKitchen,
+                                        onCheckedChange = { hasSharedKitchen = it },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = RentOutColors.Primary
+                                        )
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+
+                            // Bedrooms & Bathrooms row
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                RentOutTextField(
+                                    value           = rooms,
+                                    onValueChange   = {
+                                        // Only allow numeric input
+                                        if (it.all { c -> c.isDigit() }) {
+                                            rooms = it
+                                            roomsErr = ""
+                                        }
+                                    },
+                                    label           = "Bedrooms",
+                                    leadingIcon     = Icons.Default.Bed,
+                                    leadingIconTint = RentOutColors.IconBlue,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    isError         = roomsErr.isNotEmpty(),
+                                    errorMessage    = roomsErr,
+                                    modifier        = Modifier.weight(1f),
+                                    labelFontSize   = 12.sp
+                                )
+                                RentOutTextField(
+                                    value           = bathrooms,
+                                    onValueChange   = { bathrooms = it },
+                                    label           = "Bathrooms",
+                                    leadingIcon     = Icons.Default.Bathtub,
+                                    leadingIconTint = RentOutColors.IconTeal,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier        = Modifier.weight(1f),
+                                    labelFontSize   = 12.sp
+                                )
+                            }
+                            Spacer(Modifier.height(12.dp))
+
+                            // Bathroom Type dropdown
+                            Text(
+                                text = "Bathroom Type",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        ) { (type, icon, label) ->
-                            PropertyTypeChip(
-                                icon     = icon,
-                                label    = label,
-                                selected = propType == type,
-                                onClick  = { propType = type }
+                            Spacer(Modifier.height(6.dp))
+                            BathroomTypeDropdown(
+                                selected = bathroomType,
+                                onSelect = {
+                                    bathroomType = it
+                                    if (it != "Other") customBathroomDetails = ""
+                                },
+                                customDetails = customBathroomDetails,
+                                onCustomDetailsChange = { customBathroomDetails = it }
                             )
+                            Spacer(Modifier.height(20.dp))
                         }
                     }
-                    Spacer(Modifier.height(20.dp))
 
-                    // -- Price & Security Deposit --
-                    PricingSection(
-                        price              = price,
-                        onPriceChange      = { price = it; priceErr = "" },
-                        priceError         = priceErr,
-                        securityDeposit    = securityDeposit,
-                        onDepositChange    = { securityDeposit = it }
+                    // â”€â”€ 8. Room quantity (only when "Room" type selected) â”€â”€â”€â”€
+                    AnimatedVisibility(
+                        visible = isRoomType,
+                        enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+                        exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
+                    ) {
+                        Column {
+                            AddPropertySectionLabel(Icons.Default.MeetingRoom, "Room Quantity")
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "How many rooms are available?",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            RoomQuantitySelector(
+                                selected = roomQuantity,
+                                onSelect = { roomQuantity = it }
+                            )
+                            Spacer(Modifier.height(20.dp))
+                        }
+                    }
+
+                    // â”€â”€ 9. Rental & Deposit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    EnhancedPricingSection(
+                        price                = price,
+                        onPriceChange        = { price = it; priceErr = "" },
+                        priceError           = priceErr,
+                        securityDeposit      = securityDeposit,
+                        onDepositChange      = { securityDeposit = it },
+                        depositNotApplicable = depositNotApplicable,
+                        onDepositNAChange    = { depositNotApplicable = it },
+                        billsInclusive       = billsInclusive,
+                        onBillsInclusiveToggle = { bill, on ->
+                            billsInclusive = if (on) billsInclusive + bill else billsInclusive - bill
+                            // Remove from exclusive if now inclusive
+                            if (on) billsExclusive = billsExclusive - bill
+                        },
+                        billsExclusive       = billsExclusive,
+                        onBillsExclusiveToggle = { bill, on ->
+                            billsExclusive = if (on) billsExclusive + bill else billsExclusive - bill
+                            // Remove from inclusive if now exclusive
+                            if (on) billsInclusive = billsInclusive - bill
+                        }
                     )
                     Spacer(Modifier.height(20.dp))
 
-                    // -- Property Details --
-                    AddPropertySectionLabel(Icons.Default.House, "Property Details")
-                    Spacer(Modifier.height(12.dp))
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        RentOutTextField(
-                            value = rooms, onValueChange = { rooms = it; roomsErr = "" },
-                            label = "Bedrooms",
-                            leadingIcon = Icons.Default.Bed, leadingIconTint = RentOutColors.IconBlue,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            isError = roomsErr.isNotEmpty(), errorMessage = roomsErr,
-                            modifier = Modifier.weight(1f),
-                            labelFontSize = 12.sp
-                        )
-                        RentOutTextField(
-                            value = bathrooms, onValueChange = { bathrooms = it },
-                            label = "Bathrooms",
-                            leadingIcon = Icons.Default.Bathtub, leadingIconTint = RentOutColors.IconTeal,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f),
-                            labelFontSize = 12.sp
-                        )
-                    }
-                    Spacer(Modifier.height(14.dp))
-
-                    // -- Amenities (property-type specific) --
+                    // â”€â”€ 10. Amenities (property-type specific) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     AmenitiesSection(
                         propType     = propType,
                         amenityDefs  = amenityDefs,
@@ -319,34 +619,65 @@ fun AddPropertyScreen(
                         }
                     )
                     Spacer(Modifier.height(20.dp))
-
-                    // -- Description --
-                    AddPropertySectionLabel(Icons.Default.Description, "Description")
-                    Spacer(Modifier.height(12.dp))
-                    RentOutTextField(
-                        value = description, onValueChange = { description = it; descErr = "" },
-                        label = "Describe the property...",
-                        leadingIcon = Icons.Default.Article, leadingIconTint = RentOutColors.IconSlate,
-                        singleLine = false, maxLines = 5,
-                        isError = descErr.isNotEmpty(), errorMessage = descErr,
-                        labelFontSize = 12.sp
+                    // ── 11. Availability Period ─────────────────────────────
+                    AvailabilitySection(
+                        availabilityDate = availabilityDate,
+                        onDateChange     = { availabilityDate = it }
                     )
                     Spacer(Modifier.height(20.dp))
 
-                    // -- Property Address --
+                    // ── 11b. Tenant Requirements ─────────────────────────────
+                    TenantRequirementsSection(
+                        selected = tenantRequirements,
+                        onToggle = { req, on ->
+                            tenantRequirements = if (on) tenantRequirements + req
+                                                else tenantRequirements - req
+                        }
+                    )
+                    Spacer(Modifier.height(20.dp))
+
+                    // ── 12. Property Description ────────────────────────────
+                    AddPropertySectionLabel(Icons.Default.Description, "Property Description")
+                    Spacer(Modifier.height(12.dp))
+                    DescriptionFieldWithHint(
+                        description = description,
+                        onChange    = { description = it; descErr = "" },
+                        isError     = descErr.isNotEmpty(),
+                        errorMessage = descErr
+                    )
+                    Spacer(Modifier.height(20.dp))
+
+                    // â”€â”€ Property Address â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     AddPropertySectionLabel(Icons.Default.Place, "Property Address")
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Fill in all fields � section collapses after 5 seconds so you can review",
+                        text = "Fill in all fields â€” section collapses after 5 seconds so you can review",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                     Spacer(Modifier.height(12.dp))
-                    AnimatedVisibility(visible = addressErr.isNotEmpty(), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
-                            Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                    AnimatedVisibility(
+                        visible = addressErr.isNotEmpty(),
+                        enter = fadeIn() + expandVertically(),
+                        exit  = fadeOut() + shrinkVertically()
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(14.dp)
+                            )
                             Spacer(Modifier.width(6.dp))
-                            Text(text = addressErr, fontSize = 12.sp, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+                            Text(
+                                text = addressErr,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                     PropertyAddressSection(
@@ -355,7 +686,7 @@ fun AddPropertyScreen(
                     )
                     Spacer(Modifier.height(20.dp))
 
-                    // -- Contact Details --
+                    // â”€â”€ Contact Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     AddPropertySectionLabel(Icons.Default.Phone, "Contact Details")
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -365,93 +696,39 @@ fun AddPropertyScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     ContactDetailsSection(
-                        contact    = contact,
-                        onContact  = { contact = it; contactErr = "" },
-                        contactErr = contactErr,
+                        contact      = contact,
+                        onContact    = { contact = it; contactErr = "" },
+                        contactErr   = contactErr,
                         isAutoFilled = isContactAutoFilled
                     )
                     Spacer(Modifier.height(24.dp))
 
-                    // -- Form completeness indicator --
+                    // â”€â”€ Form completeness indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     FormCompletenessIndicator(
                         hasTitle       = title.isNotBlank(),
                         hasPrice       = price.isNotBlank() && price.toDoubleOrNull() != null,
-                        hasRooms       = rooms.isNotBlank() && rooms.toIntOrNull() != null,
+                        hasRooms       = !isResidential || (rooms.isNotBlank() && (rooms.toIntOrNull() ?: 0) >= 1),
                         hasDescription = description.isNotBlank(),
                         hasAddress     = address.isComplete,
                         hasContact     = contact.isNotBlank()
                     )
 
-                    // -- Edit mode: image gallery with preview + manage button --
+                    // â”€â”€ Edit mode: image gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     if (isEditMode) {
                         Spacer(Modifier.height(20.dp))
                         ExistingImagesGallery(
                             imageUrls = existingImageUrls,
                             onManagePhotos = {
-                                onNavigateToImages(
-                                    Property(
-                                        title           = title.trim(),
-                                        city            = address.townOrCity.trim(),
-                                        location        = buildString {
-                                            if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
-                                            if (address.suburb.isNotBlank())         append(", ${address.suburb}")
-                                            if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
-                                            if (address.country.isNotBlank())        append(", ${address.country}")
-                                        },
-                                        price           = price.toDoubleOrNull() ?: 0.0,
-                                        securityDeposit = securityDeposit.toDoubleOrNull() ?: 0.0,
-                                        rooms           = rooms.toIntOrNull() ?: 1,
-                                        bathrooms       = bathrooms.toIntOrNull() ?: 1,
-                                        description     = description.trim(),
-                                        contactNumber   = contact.trim(),
-                                        propertyType    = propType,
-                                        amenities       = selectedAmenityKeys.toList(),
-                                        status          = "pending"
-                                    )
-                                )
+                                buildAndValidate { builtProperty ->
+                                    onNavigateToImages(builtProperty)
+                                }
                             }
                         )
                     }
 
                     Spacer(Modifier.height(16.dp))
 
-                    // -- Shared validation helper --
-                    fun buildAndValidate(onValid: (Property) -> Unit) {
-                        var valid = true
-                        if (title.isBlank())                                   { titleErr   = "Property title is required"; valid = false }
-                        if (price.isBlank() || price.toDoubleOrNull() == null) { priceErr   = "Enter a valid price";        valid = false }
-                        if (rooms.isBlank() || rooms.toIntOrNull() == null)    { roomsErr   = "Enter valid bedroom count";  valid = false }
-                        if (description.isBlank())                             { descErr    = "Description is required";    valid = false }
-                        if (!address.isComplete)                               { addressErr = "Please complete all 4 address fields"; valid = false }
-                        if (contact.isBlank())                                 { contactErr = "Contact number is required"; valid = false }
-                        if (valid) {
-                            val amenities    = selectedAmenityKeys.toList()
-                            val fullLocation = buildString {
-                                if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
-                                if (address.suburb.isNotBlank())         append(", ${address.suburb}")
-                                if (address.townOrCity.isNotBlank())     append(", ${address.townOrCity}")
-                                if (address.country.isNotBlank())        append(", ${address.country}")
-                            }
-                            onValid(
-                                Property(
-                                    title           = titleWithSuburb.ifEmpty { title.trim() },
-                                    city            = address.townOrCity.trim(),
-                                    location        = fullLocation,
-                                    price           = price.toDoubleOrNull() ?: 0.0,
-                                    securityDeposit = securityDeposit.toDoubleOrNull() ?: 0.0,
-                                    rooms           = rooms.toIntOrNull() ?: 1,
-                                    bathrooms       = bathrooms.toIntOrNull() ?: 1,
-                                    description     = description.trim(),
-                                    contactNumber   = contact.trim(),
-                                    propertyType    = propType,
-                                    amenities       = amenities,
-                                    status          = "pending"
-                                )
-                            )
-                        }
-                    }
-
-                    // -- Submit / Save button --
+                    // â”€â”€ Submit / Save & continue button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     AddImagesButton(
                         isLoading  = isLoading,
                         isEditMode = isEditMode,
@@ -462,19 +739,34 @@ fun AddPropertyScreen(
                                 buildAndValidate { builtProperty ->
                                     onSaveDraft(
                                         PropertyDraft(
-                                            title           = title,
-                                            price           = price,
-                                            securityDeposit = securityDeposit,
-                                            rooms           = rooms,
-                                            bathrooms       = bathrooms,
-                                            description     = description,
-                                            propType        = propType,
-                                            houseAndStreet  = address.houseAndStreet,
-                                            townOrCity      = address.townOrCity,
-                                            suburb          = address.suburb,
-                                            country         = address.country,
-                                            contact         = contact,
-                                            amenityKeys     = selectedAmenityKeys
+                                            title                = title,
+                                            price                = price,
+                                            securityDeposit      = securityDeposit,
+                                            depositNotApplicable = depositNotApplicable,
+                                            rooms                = rooms,
+                                            bathrooms            = bathrooms,
+                                            bathroomType         = bathroomType,
+                                            customBathroomDetails = customBathroomDetails,
+                                            hasSharedKitchen     = hasSharedKitchen,
+                                            kitchenCount         = kitchenCount,
+                                            description          = description,
+                                            classification       = classification,
+                                            propType             = propType,
+                                            locationType         = locationType,
+                                            billsInclusive       = billsInclusive,
+                                            billsExclusive       = billsExclusive,
+                                            roomQuantity         = roomQuantity,
+                                            proximityFacilities  = proximityFacilities,
+                                            latitude             = latitude,
+                                            longitude            = longitude,
+                                            availabilityDate     = availabilityDate,
+                                            tenantRequirements   = tenantRequirements,
+                                            houseAndStreet       = address.houseAndStreet,
+                                            townOrCity           = address.townOrCity,
+                                            suburb               = address.suburb,
+                                            country              = address.country,
+                                            contact              = contact,
+                                            amenityKeys          = selectedAmenityKeys
                                         )
                                     )
                                     onNavigateToImages(builtProperty)
@@ -501,17 +793,21 @@ fun AddPropertyScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-            }
+                } // end Column (card)
+            } // end Card
             Spacer(Modifier.height(32.dp))
-        }
-    }
-}
-// --- Helper Composables -----------------------------------------------------
+        } // end Column (scroll)
+    } // end Box
+} // end AddPropertyScreen
 
-// Section label (centered or left-aligned) � uses real Material Icons, no emoji
+// â”€â”€â”€ Helper Composables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
-private fun AddPropertySectionLabel(icon: ImageVector, text: String, centered: Boolean = false) {
+private fun AddPropertySectionLabel(
+    icon: ImageVector,
+    text: String,
+    centered: Boolean = false
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start
@@ -540,98 +836,989 @@ private fun AddPropertySectionLabel(icon: ImageVector, text: String, centered: B
     }
 }
 
-// -- Property type chip --
+// ─── Classification Dropdown (centered) ──────────────────────────────────────
+
 @Composable
-private fun PropertyTypeChip(
-    icon: ImageVector,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
+private fun ClassificationDropdown(
+    selected: String,
+    onSelect: (String) -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.93f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "chip_scale"
-    )
-    val bgColor by animateColorAsState(
-        targetValue = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant,
-        label = "chip_bg"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-        label = "chip_text"
-    )
-    val borderColor by animateColorAsState(
-        targetValue = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.outline,
-        label = "chip_border"
+    var expanded by remember { mutableStateOf(false) }
+    val options = PropertyClassification.primaryOptions
+
+    val iconMap = mapOf(
+        "Residential" to Icons.Default.Home,
+        "Commercial"  to Icons.Default.Store,
+        "Industrial"  to Icons.Default.Factory,
+        "Land"        to Icons.Default.Landscape,
+        "Mixed-Use"   to Icons.Default.Layers
     )
 
-    Box(
-        modifier = Modifier
-            .scale(scale)
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = !expanded },
+            modifier = Modifier.fillMaxWidth(0.92f)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = contentColor,
-                modifier = Modifier.size(16.dp)
+            OutlinedTextField(
+                value = selected.ifEmpty { "Select Classification" },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Primary Classification", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = iconMap[selected] ?: Icons.Default.Category,
+                        contentDescription = null,
+                        tint = RentOutColors.Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center)
             )
-            Text(
-                text = label,
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = contentColor
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = iconMap[option] ?: Icons.Default.Category,
+                                    contentDescription = null,
+                                    tint = if (option == selected) RentOutColors.Primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = option,
+                                    fontWeight = if (option == selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (option == selected) RentOutColors.Primary
+                                            else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        },
+                        onClick = { onSelect(option); expanded = false },
+                        trailingIcon = if (option == selected) ({
+                            Icon(Icons.Default.Check, null, tint = RentOutColors.Primary, modifier = Modifier.size(16.dp))
+                        }) else null
+                    )
+                }
+            }
+        }
+    }
+}
+// â”€â”€â”€ Property Type Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@Composable
+private fun PropertyTypeGrid(
+    types: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    val chunked = types.chunked(2)
+    chunked.forEach { rowItems ->
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            rowItems.forEach { type ->
+                val interactionSource = remember { MutableInteractionSource() }
+                val isPressed by interactionSource.collectIsPressedAsState()
+                val scale by animateFloatAsState(
+                    targetValue = if (isPressed) 0.95f else 1f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                    label = "ptg_scale"
+                )
+                val isSelected = type == selected
+                val bgColor by animateColorAsState(
+                    targetValue = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant,
+                    label = "ptg_bg"
+                )
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                    label = "ptg_text"
+                )
+                val borderColor by animateColorAsState(
+                    targetValue = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.outline,
+                    label = "ptg_border"
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .scale(scale)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
+                        .background(bgColor)
+                        .clickable(interactionSource = interactionSource, indication = null) { onSelect(type) }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = type,
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = textColor,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+// ─── Location Type — modern radio-button panel ────────────────────────────────
+
+@Composable
+private fun LocationTypeDropdown(
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    val options = listOf(
+        Triple("Low Density", Icons.Default.Villa, "Quiet suburbs with spacious surroundings"),
+        Triple("Medium Density", Icons.Default.Apartment, "Balanced residential neighborhoods"),
+        Triple("High Density", Icons.Default.Business, "Compact urban living close to amenities"),
+        Triple("Peri-Urban Residential", Icons.Default.NaturePeople, "On the edge of town with more open space"),
+        Triple("Rural", Icons.Default.Park, "Countryside and farm-area properties")
+    )
+
+    val selectedOption = options.firstOrNull { it.first == selected }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        OutlinedCard(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .clickable { showDialog = true },
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = if (selected.isBlank()) MaterialTheme.colorScheme.surface
+                else RentOutColors.Primary.copy(alpha = 0.06f)
+            ),
+            border = BorderStroke(
+                width = 1.5.dp,
+                color = if (selected.isBlank()) MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                else RentOutColors.Primary.copy(alpha = 0.55f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(RentOutColors.Primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = selectedOption?.second ?: Icons.Default.LocationCity,
+                            contentDescription = null,
+                            tint = RentOutColors.Primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Choose location type",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = selectedOption?.first ?: "Tap to select from available location types",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedOption == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowDown,
+                    contentDescription = "Open location type picker",
+                    tint = RentOutColors.Primary
+                )
+            }
+        }
+
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Select Location Type", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Pick the setting that best matches your property",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        options.forEach { (option, icon, subtitle) ->
+                            val isSelected = selected == option
+                            val containerColor by animateColorAsState(
+                                if (isSelected) RentOutColors.Primary.copy(alpha = 0.1f)
+                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                label = "location_dialog_bg"
+                            )
+                            val borderColor by animateColorAsState(
+                                if (isSelected) RentOutColors.Primary
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                label = "location_dialog_border"
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
+                                    .background(containerColor)
+                                    .clickable {
+                                        onSelect(option)
+                                        showDialog = false
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        onSelect(option)
+                                        showDialog = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = RentOutColors.Primary)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Icon(icon, null, tint = RentOutColors.Primary, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(option, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showDialog = false }) { Text("Cancel") }
+                }
             )
         }
     }
 }
 
-// -- Pricing Section: monthly rent + security deposit side by side --
+// â”€â”€â”€ Map Placeholder Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
-private fun PricingSection(
+private fun MapPlaceholderSection(
+    latitude: String,
+    longitude: String,
+    onLatChange: (String) -> Unit,
+    onLonChange: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Map container placeholder
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                    RoundedCornerShape(16.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    Icons.Default.Map,
+                    contentDescription = null,
+                    tint = RentOutColors.Primary.copy(alpha = 0.5f),
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Interactive Map",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Google Maps integration â€” pin your property location",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
+            // GPS button overlay
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = RentOutColors.Primary,
+                    shadowElevation = 4.dp
+                ) {
+                    Icon(
+                        Icons.Default.MyLocation,
+                        contentDescription = "Use current location",
+                        tint = Color.White,
+                        modifier = Modifier.padding(10.dp).size(20.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Coordinate fields
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = latitude,
+                onValueChange = onLatChange,
+                label = { Text("Latitude", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.SouthAmerica,
+                        contentDescription = null,
+                        tint = RentOutColors.IconTeal,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                placeholder = { Text("-17.8292", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = longitude,
+                onValueChange = onLonChange,
+                label = { Text("Longitude", fontSize = 12.sp) },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.East,
+                        contentDescription = null,
+                        tint = RentOutColors.IconBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                },
+                placeholder = { Text("31.0522", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Coordinates auto-fill when you pin the map. You can also type them manually.",
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
+    }
+}
+// â”€â”€â”€ Proximity Facilities Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@Composable
+private fun ProximityFacilitiesSection(
+    selected: Set<String>,
+    onToggle: (String, Boolean) -> Unit
+) {
+    val facilities = PropertyClassification.proximityFacilities
+    val selectedCount = selected.size
+
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        AnimatedVisibility(
+            visible = selectedCount > 0,
+            enter = fadeIn() + expandVertically(),
+            exit  = fadeOut() + shrinkVertically()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                Surface(shape = RoundedCornerShape(20.dp), color = RentOutColors.IconTeal) {
+                    Text(
+                        text = "$selectedCount selected",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+
+        val chunked = facilities.chunked(2)
+        chunked.forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(0.9f).padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                rowItems.forEach { facility ->
+                    val isSelected = facility in selected
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isPressed by interactionSource.collectIsPressedAsState()
+                    val scale by animateFloatAsState(
+                        targetValue = if (isPressed) 0.95f else 1f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "prox_scale"
+                    )
+                    val bgColor by animateColorAsState(
+                        targetValue = if (isSelected) RentOutColors.IconTeal.copy(alpha = 0.15f)
+                                      else MaterialTheme.colorScheme.surfaceVariant,
+                        label = "prox_bg"
+                    )
+                    val borderColor by animateColorAsState(
+                        targetValue = if (isSelected) RentOutColors.IconTeal else MaterialTheme.colorScheme.outline,
+                        label = "prox_border"
+                    )
+                    val textColor by animateColorAsState(
+                        targetValue = if (isSelected) RentOutColors.IconTeal else MaterialTheme.colorScheme.onSurfaceVariant,
+                        label = "prox_text"
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .scale(scale)
+                            .clip(RoundedCornerShape(10.dp))
+                            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                            .background(bgColor)
+                            .clickable(interactionSource = interactionSource, indication = null) {
+                                onToggle(facility, !isSelected)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (isSelected) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = RentOutColors.IconTeal,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = facility,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = textColor
+                        )
+                    }
+                }
+                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+// ─── Bathroom Type — modern radio-button panel ────────────────────────────────
+
+@Composable
+private fun BathroomTypeDropdown(
+    selected: String,
+    onSelect: (String) -> Unit,
+    customDetails: String = "",
+    onCustomDetailsChange: (String) -> Unit = {}
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    val options = listOf(
+        Triple("En-suite", Icons.Default.Bathtub, "Private bathroom attached to the bedroom"),
+        Triple("Shared Bathroom", Icons.Default.People, "Shared between a few tenants only"),
+        Triple("Common Bathroom", Icons.Default.MeetingRoom, "Shared facility for all occupants"),
+        Triple("Other", Icons.Default.MoreHoriz, "Different arrangement — specify below")
+    )
+
+    val selectedOption = options.firstOrNull { it.first == selected }
+    val subtitleMap = options.associate { it.first to it.third }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Tap-to-open card — outline disappears when Other is active (field takes focus)
+        val isOther = selected == "Other"
+        val cardBorderColor by animateColorAsState(
+            targetValue = when {
+                isOther -> Color.Transparent
+                selected.isNotEmpty() -> RentOutColors.Primary.copy(alpha = 0.5f)
+                else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            },
+            animationSpec = tween(300),
+            label = "bathroom_card_border"
+        )
+        val cardContainerColor by animateColorAsState(
+            targetValue = when {
+                isOther -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                selected.isNotEmpty() -> RentOutColors.Primary.copy(alpha = 0.04f)
+                else -> MaterialTheme.colorScheme.surface
+            },
+            animationSpec = tween(300),
+            label = "bathroom_card_bg"
+        )
+        OutlinedCard(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .clickable { showDialog = true },
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.outlinedCardColors(containerColor = cardContainerColor),
+            border = BorderStroke(
+                width = if (isOther) 0.dp else if (selected.isNotEmpty()) 2.dp else 1.dp,
+                color = cardBorderColor
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Leading icon
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (selected.isNotEmpty()) RentOutColors.Primary.copy(alpha = 0.12f)
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = selectedOption?.second ?: Icons.Default.Bathtub,
+                        contentDescription = null,
+                        tint = if (selected.isNotEmpty()) RentOutColors.Primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (selected.isNotEmpty()) selected else "Select bathroom type",
+                        fontSize = 15.sp,
+                        fontWeight = if (selected.isNotEmpty()) FontWeight.Bold else FontWeight.Normal,
+                        color = if (selected.isNotEmpty()) MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (selected.isNotEmpty()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = if (selected == "Other" && customDetails.isNotBlank())
+                                       customDetails
+                                   else subtitleMap[selected] ?: "",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = "Select",
+                    tint = if (selected.isNotEmpty()) RentOutColors.Primary
+                           else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // "Other" hidden text field — slides in with animation
+        AnimatedVisibility(
+            visible = selected == "Other",
+            enter = fadeIn(tween(250)) + expandVertically(tween(300)),
+            exit  = fadeOut(tween(200)) + shrinkVertically(tween(250))
+        ) {
+            Column(modifier = Modifier.fillMaxWidth(0.94f).padding(top = 10.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(RentOutColors.Primary.copy(alpha = 0.07f))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Lightbulb,
+                        null,
+                        tint = RentOutColors.Primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Describe your bathroom arrangement so tenants know what to expect.",
+                        fontSize = 11.sp,
+                        color = RentOutColors.Primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                // Pulsing border to draw user attention
+                var isFocused by remember { mutableStateOf(false) }
+                val infiniteTransition = rememberInfiniteTransition(label = "bathroom_pulse")
+                val pulseAlpha by infiniteTransition.animateFloat(
+                    initialValue = 0.55f,
+                    targetValue = 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(900, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "bathroom_pulse_alpha"
+                )
+                val fieldBorderColor by animateColorAsState(
+                    targetValue = if (isFocused) RentOutColors.Primary
+                                  else RentOutColors.Primary.copy(alpha = pulseAlpha),
+                    animationSpec = tween(200),
+                    label = "bathroom_field_border"
+                )
+                OutlinedTextField(
+                    value = customDetails,
+                    onValueChange = onCustomDetailsChange,
+                    label = {
+                        Text(
+                            "Describe the bathroom arrangement",
+                            fontSize = 12.sp,
+                            color = RentOutColors.Primary
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Edit,
+                            null,
+                            tint = RentOutColors.Primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            "e.g. Outdoor bathroom shared between 2 units",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)
+                        )
+                    },
+                    singleLine = false,
+                    maxLines = 3,
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            width = if (isFocused) 2.dp else 1.5.dp,
+                            color = fieldBorderColor,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        .onFocusChanged { isFocused = it.isFocused }
+                )
+            }
+        }
+
+        // Dialog
+        if (showDialog) {
+            AlertDialog(
+                onDismissRequest = { showDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Bathtub,
+                            null,
+                            tint = RentOutColors.Primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("Bathroom Type", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    }
+                },
+                text = {
+                    Column {
+                        Text(
+                            "Choose the type of bathroom arrangement for this property.",
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        options.forEach { (option, icon, subtitle) ->
+                            val isSelected = option == selected
+                            val bgColor by animateColorAsState(
+                                if (isSelected) RentOutColors.Primary.copy(alpha = 0.10f)
+                                else Color.Transparent,
+                                label = "bg"
+                            )
+                            val borderColor by animateColorAsState(
+                                if (isSelected) RentOutColors.Primary
+                                else MaterialTheme.colorScheme.outline.copy(0.25f),
+                                label = "border"
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 5.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
+                                    .background(bgColor)
+                                    .clickable {
+                                        onSelect(option)
+                                        showDialog = false
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        onSelect(option)
+                                        showDialog = false
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = RentOutColors.Primary)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Icon(
+                                    icon,
+                                    null,
+                                    tint = if (isSelected) RentOutColors.Primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        option,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) RentOutColors.Primary
+                                                else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        subtitle,
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { showDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun RoomQuantitySelector(
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    val options = listOf(
+        Triple("One Room", Icons.Default.BedroomChild, "Perfect for compact single-room listings"),
+        Triple("Two Rooms", Icons.Default.Bed, "A flexible setup for singles or couples"),
+        Triple("Three Rooms", Icons.Default.BedroomParent, "Comfortable for small families"),
+        Triple("Four Rooms", Icons.Default.HolidayVillage, "Spacious option for growing households"),
+        Triple("Five+ Rooms", Icons.Default.Domain, "Large properties with multiple private rooms")
+    )
+
+    val selectedOption = options.firstOrNull { it.first == selected }
+
+    OutlinedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { showDialog = true },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = if (selected.isBlank()) MaterialTheme.colorScheme.surface
+            else RentOutColors.Primary.copy(alpha = 0.06f)
+        ),
+        border = BorderStroke(
+            1.5.dp,
+            if (selected.isBlank()) MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+            else RentOutColors.Primary.copy(alpha = 0.55f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(RentOutColors.Primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = selectedOption?.second ?: Icons.Default.MeetingRoom,
+                        contentDescription = null,
+                        tint = RentOutColors.Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Choose room quantity",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = selectedOption?.first ?: "Tap to choose how many rooms are available",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (selectedOption == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Open room quantity picker",
+                tint = RentOutColors.Primary
+            )
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Select Room Quantity", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Choose the option that best matches the available rooms",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    options.forEach { (option, icon, subtitle) ->
+                        val isSelected = selected == option
+                        val containerColor by animateColorAsState(
+                            if (isSelected) RentOutColors.Primary.copy(alpha = 0.1f)
+                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            label = "room_dialog_bg"
+                        )
+                        val borderColor by animateColorAsState(
+                            if (isSelected) RentOutColors.Primary
+                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                            label = "room_dialog_border"
+                        )
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .border(1.5.dp, borderColor, RoundedCornerShape(16.dp))
+                                .background(containerColor)
+                                .clickable {
+                                    onSelect(option)
+                                    showDialog = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    onSelect(option)
+                                    showDialog = false
+                                },
+                                colors = RadioButtonDefaults.colors(selectedColor = RentOutColors.Primary)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Icon(icon, null, tint = RentOutColors.Primary, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(option, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium)
+                                Spacer(Modifier.height(2.dp))
+                                Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+// â”€â”€â”€ Enhanced Pricing Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@Composable
+private fun EnhancedPricingSection(
     price: String,
     onPriceChange: (String) -> Unit,
     priceError: String,
     securityDeposit: String,
-    onDepositChange: (String) -> Unit
+    onDepositChange: (String) -> Unit,
+    depositNotApplicable: Boolean,
+    onDepositNAChange: (Boolean) -> Unit,
+    billsInclusive: Set<String>,
+    onBillsInclusiveToggle: (String, Boolean) -> Unit,
+    billsExclusive: Set<String>,
+    onBillsExclusiveToggle: (String, Boolean) -> Unit
 ) {
+    val billItems = listOf("WiFi", "Water", "Electricity")
+
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Header row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                Icons.Default.AttachMoney,
-                contentDescription = null,
-                tint = RentOutColors.IconGreen,
-                modifier = Modifier.size(18.dp)
-            )
+        // Header
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AttachMoney, null, tint = RentOutColors.IconGreen, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(
-                text = "Pricing",
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Text("Pricing", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
         Spacer(Modifier.height(6.dp))
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         Spacer(Modifier.height(12.dp))
 
-        // Monthly Rent � centered, prominent
+        // Monthly rent
         Text(
             text = "Monthly Rent",
             fontSize = 13.sp,
@@ -678,7 +1865,26 @@ private fun PricingSection(
 
         Spacer(Modifier.height(16.dp))
 
-        // Security Deposit row with icon + info
+        // Bills inclusive/exclusive
+        BillsSection(
+            title = "Inclusive of (bills included in rent):",
+            billItems = billItems,
+            selected = billsInclusive,
+            accentColor = RentOutColors.Tertiary,
+            onToggle = onBillsInclusiveToggle
+        )
+        Spacer(Modifier.height(10.dp))
+        BillsSection(
+            title = "Exclusive of (bills paid separately):",
+            billItems = billItems,
+            selected = billsExclusive,
+            accentColor = RentOutColors.IconAmber,
+            onToggle = onBillsExclusiveToggle
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // Security Deposit
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
@@ -690,162 +1896,589 @@ private fun PricingSection(
                     .background(RentOutColors.IconAmber.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.AccountBalance,
-                    contentDescription = null,
-                    tint = RentOutColors.IconAmber,
-                    modifier = Modifier.size(20.dp)
-                )
+                Icon(Icons.Default.AccountBalance, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Security Deposit",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Refundable amount collected upfront",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Security Deposit", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text("Refundable amount collected upfront", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = securityDeposit,
-            onValueChange = onDepositChange,
-            label = { Text("Security Deposit (USD)", fontSize = 12.sp) },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Shield,
-                    contentDescription = null,
-                    tint = RentOutColors.IconAmber,
-                    modifier = Modifier.size(20.dp)
-                )
-            },
-            placeholder = { Text("e.g. 500", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth(),
-            supportingText = {
-                Text(
-                    text = "Optional � leave blank if no deposit required",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f)
-                )
-            }
-        )
+
+        // Not applicable checkbox
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { onDepositNAChange(!depositNotApplicable) }
+                .padding(vertical = 4.dp)
+        ) {
+            Checkbox(
+                checked = depositNotApplicable,
+                onCheckedChange = onDepositNAChange,
+                colors = CheckboxDefaults.colors(checkedColor = RentOutColors.IconAmber)
+            )
+            Text(
+                text = "Not Applicable / Not Offered",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        AnimatedVisibility(
+            visible = !depositNotApplicable,
+            enter = fadeIn() + expandVertically(),
+            exit  = fadeOut() + shrinkVertically()
+        ) {
+            OutlinedTextField(
+                value = securityDeposit,
+                onValueChange = onDepositChange,
+                label = { Text("Security Deposit (USD)", fontSize = 12.sp) },
+                leadingIcon = {
+                    Text(
+                        text = "$",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = RentOutColors.IconAmber,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                },
+                placeholder = { Text("e.g. 500", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth(),
+                supportingText = {
+                    Text("Optional — leave blank if no deposit required", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
+                }
+            )
+        }
     }
 }
 
-// --- PropertyAmenities catalogue --------------------------------------------
+@Composable
+private fun BillsSection(
+    title: String,
+    billItems: List<String>,
+    selected: Set<String>,
+    accentColor: Color,
+    onToggle: (String, Boolean) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(accentColor.copy(alpha = 0.06f))
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(0.9f),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            billItems.forEach { bill ->
+                val isSelected = bill in selected
+                val interactionSource = remember { MutableInteractionSource() }
+                val bgColor by animateColorAsState(
+                    targetValue = if (isSelected) accentColor else MaterialTheme.colorScheme.surface,
+                    label = "bill_bg"
+                )
+                val textColor by animateColorAsState(
+                    targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                    label = "bill_text"
+                )
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(bgColor)
+                        .border(1.dp, if (isSelected) accentColor else MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
+                        .clickable(interactionSource = interactionSource, indication = null) { onToggle(bill, !isSelected) }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isSelected) {
+                        Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text(bill, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = textColor)
+                }
+            }
+        }
+    }
+}
+
+// â”€â”€â”€ Availability Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@Composable
+private fun AvailabilitySection(
+    availabilityDate: String,
+    onDateChange: (String) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.CalendarMonth, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Availability Period", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        }
+        Spacer(Modifier.height(6.dp))
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        Spacer(Modifier.height(12.dp))
+
+        // Status chips: Available Now vs Available From date
+        val isAvailableNow = availabilityDate.isEmpty()
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AvailabilityChip(
+                label = "Available Now",
+                icon  = Icons.Default.CheckCircle,
+                selected = isAvailableNow,
+                accentColor = RentOutColors.Tertiary,
+                onClick = { onDateChange("") },
+                modifier = Modifier.weight(1f)
+            )
+            AvailabilityChip(
+                label = "Available From Date",
+                icon  = Icons.Default.CalendarToday,
+                selected = !isAvailableNow,
+                accentColor = RentOutColors.Primary,
+                onClick = {
+                    if (availabilityDate.isEmpty()) onDateChange("Select Date")
+                },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = !isAvailableNow,
+            enter = fadeIn() + expandVertically(),
+            exit  = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                Spacer(Modifier.height(12.dp))
+                // ── Interactive date picker ──────────────────────────────────
+                InteractiveDatePicker(
+                    selectedDate = if (availabilityDate == "Select Date") "" else availabilityDate,
+                    onDateSelected = onDateChange
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvailabilityChip(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    accentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "avail_scale"
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (selected) accentColor.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+        label = "avail_bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) accentColor else MaterialTheme.colorScheme.outline,
+        label = "avail_border"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "avail_text"
+    )
+    Row(
+        modifier = modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp))
+            .background(bgColor)
+            .clickable(interactionSource = interactionSource, indication = null) { onClick() }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, null, tint = textColor, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, color = textColor)
+    }
+}
+
+// ─── Interactive Date Picker ──────────────────────────────────────────────────
+
+@Composable
+private fun InteractiveDatePicker(
+    selectedDate: String,
+    onDateSelected: (String) -> Unit
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    // Format "yyyy-MM-dd" → "d MMMM yyyy" for display (pure string parsing, KMP-safe)
+    val displayText = remember(selectedDate) {
+        if (selectedDate.isBlank()) "Tap to pick a date"
+        else {
+            val parts = selectedDate.split("-")
+            if (parts.size == 3) {
+                val months = listOf("January","February","March","April","May","June",
+                    "July","August","September","October","November","December")
+                val y = parts[0]; val m = parts[1].toIntOrNull() ?: 0; val d = parts[2].trimStart('0')
+                if (m in 1..12) "$d ${months[m-1]} $y" else selectedDate
+            } else selectedDate
+        }
+    }
+
+    if (showDialog) {
+        PlatformDatePickerDialog(
+            initialDate = selectedDate,
+            onDateSelected = { onDateSelected(it); showDialog = false },
+            onDismiss = { showDialog = false }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true },
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (selectedDate.isBlank())
+                    MaterialTheme.colorScheme.surfaceVariant
+                else
+                    RentOutColors.Primary.copy(alpha = 0.08f)
+            ),
+            border = BorderStroke(
+                1.5.dp,
+                if (selectedDate.isBlank()) MaterialTheme.colorScheme.outline.copy(0.4f)
+                else RentOutColors.Primary
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        null,
+                        tint = if (selectedDate.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                               else RentOutColors.Primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Available From",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            displayText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedDate.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant
+                                    else RentOutColors.Primary
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (selectedDate.isNotBlank()) {
+                        IconButton(
+                            onClick = { onDateSelected("") },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                "Clear date",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    Icon(
+                        Icons.Default.Edit,
+                        "Pick date",
+                        tint = RentOutColors.Primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ─── Tenant Requirements Section ──────────────────────────────────────────────
+
+@Composable
+private fun TenantRequirementsSection(
+    selected: Set<String>,
+    onToggle: (String, Boolean) -> Unit
+) {
+    val requirements = listOf(
+        "Single Person"        to Icons.Default.Person,
+        "Couple"               to Icons.Default.Favorite,
+        "Family"               to Icons.Default.FamilyRestroom,
+        "Student"              to Icons.Default.School,
+        "Female Only"          to Icons.Default.Female,
+        "Male Only"            to Icons.Default.Male,
+        "Working Professional" to Icons.Default.Work,
+        "Retiree / Pensioner"  to Icons.Default.ElderlyWoman,
+        "No Pets"              to Icons.Default.Pets,
+        "No Smoking"           to Icons.Default.SmokeFree,
+        "No Children"          to Icons.Default.ChildCare,
+        "Quiet Tenant"         to Icons.Default.VolumeOff
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Group, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Preferred Tenant Type", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        }
+        Spacer(Modifier.height(6.dp))
+        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Select all that apply — leave blank to accept anyone",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.height(10.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            requirements.chunked(2).forEach { pair ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    pair.forEach { (label, icon) ->
+                        val isSelected = label in selected
+                        val bgColor by animateColorAsState(
+                            if (isSelected) RentOutColors.Primary.copy(alpha = 0.12f)
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                            label = "tr_bg_$label"
+                        )
+                        val borderColor by animateColorAsState(
+                            if (isSelected) RentOutColors.Primary
+                            else MaterialTheme.colorScheme.outline.copy(0.3f),
+                            label = "tr_border_$label"
+                        )
+                        val textColor by animateColorAsState(
+                            if (isSelected) RentOutColors.Primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            label = "tr_text_$label"
+                        )
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(1.5.dp, borderColor, RoundedCornerShape(10.dp))
+                                .background(bgColor)
+                                .clickable { onToggle(label, !isSelected) }
+                                .padding(horizontal = 10.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(icon, null, tint = textColor, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = textColor,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                    // If odd number in last row, fill remaining space
+                    if (pair.size == 1) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// â”€â”€â”€ Description Field with Hint Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+@Composable
+private fun DescriptionFieldWithHint(
+    description: String,
+    onChange: (String) -> Unit,
+    isError: Boolean,
+    errorMessage: String
+) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Column {
+        AnimatedVisibility(
+            visible = isFocused,
+            enter = fadeIn() + expandVertically(),
+            exit  = fadeOut() + shrinkVertically()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(RentOutColors.Primary.copy(alpha = 0.08f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(Icons.Default.Lightbulb, null, tint = RentOutColors.Primary, modifier = Modifier.size(14.dp).padding(top = 2.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Describe unique features, nearby amenities, and why tenants will love this property. Keep it concise and appealing.",
+                    fontSize = 11.sp,
+                    color = RentOutColors.Primary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        OutlinedTextField(
+            value = description,
+            onValueChange = onChange,
+            label = { Text("Describe the property...", fontSize = 12.sp) },
+            leadingIcon = {
+                Icon(Icons.Default.Article, null, tint = RentOutColors.IconSlate, modifier = Modifier.size(20.dp))
+            },
+            isError = isError,
+            singleLine = false,
+            maxLines = 6,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { isFocused = it.isFocused }
+        )
+        if (isError && errorMessage.isNotBlank()) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+            )
+        }
+    }
+}
+// â”€â”€â”€ PropertyAmenities Catalogue â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 object PropertyAmenities {
     data class AmenityDef(val key: String, val label: String, val icon: ImageVector)
 
-    val roomAmenities = listOf(
-        AmenityDef("own_entrance",     "Own Entrance",       Icons.Default.DoorFront),
-        AmenityDef("own_bathroom",     "Own Bathroom",       Icons.Default.Bathtub),
-        AmenityDef("en_suite",         "En-Suite",           Icons.Default.Shower),
-        AmenityDef("kitchenette",      "Kitchenette",        Icons.Default.Kitchen),
-        AmenityDef("shared_kitchen",   "Shared Kitchen",     Icons.Default.OutdoorGrill),
-        AmenityDef("wifi",             "WiFi",               Icons.Default.Wifi),
-        AmenityDef("furnished",        "Furnished",          Icons.Default.Chair),
-        AmenityDef("semi_furnished",   "Semi-Furnished",     Icons.Default.TableBar),
-        AmenityDef("electricity",      "Electricity Incl.",  Icons.Default.ElectricBolt),
-        AmenityDef("water",            "Water Incl.",        Icons.Default.WaterDrop),
-        AmenityDef("laundry_access",   "Laundry Access",     Icons.Default.LocalLaundryService),
-        AmenityDef("parking",          "Parking",            Icons.Default.LocalParking),
-        AmenityDef("security",         "Security",           Icons.Default.Security),
-        AmenityDef("garden_access",    "Garden Access",      Icons.Default.Yard),
-        AmenityDef("pets_allowed",     "Pets Allowed",       Icons.Default.Pets),
-        AmenityDef("air_conditioning", "Air Conditioning",   Icons.Default.AcUnit),
-        AmenityDef("heater",           "Heater",             Icons.Default.Thermostat),
-        AmenityDef("cctv",             "CCTV",               Icons.Default.Videocam),
-        AmenityDef("backup_power",     "Backup Power",       Icons.Default.BatteryChargingFull),
-        AmenityDef("storage",          "Storage Room",       Icons.Default.Inventory)
+    // Exact casing as specified
+    private val universalAmenities = listOf(
+        AmenityDef("bic",               "BIC",                    Icons.Default.Checkroom),
+        AmenityDef("ceiling",           "Ceiling",                Icons.Default.CropSquare),
+        AmenityDef("tiled",             "Tiled",                  Icons.Default.GridOn),
+        AmenityDef("durawall",          "Durawall",               Icons.Default.Fence),
+        AmenityDef("gated",             "Gated",                  Icons.Default.Lock),
+        AmenityDef("borehole",          "Borehole",               Icons.Default.WaterDrop),
+        AmenityDef("solar_power",       "Solar Power",            Icons.Default.WbSunny),
+        AmenityDef("backup_generator",  "Backup Generator",       Icons.Default.OfflineBolt),
+        AmenityDef("air_conditioning",  "Air Conditioning",       Icons.Default.AcUnit),
+        AmenityDef("fitted_kitchen",    "Fitted Kitchen",         Icons.Default.Kitchen),
+        AmenityDef("paved_yard",        "Paved Yard",             Icons.Default.Square),
+        AmenityDef("swimming_pool",     "Swimming Pool",          Icons.Default.Pool),
+        AmenityDef("garden",            "Garden",                 Icons.Default.Yard),
+        AmenityDef("parking",           "Parking",                Icons.Default.LocalParking),
+        AmenityDef("security_guard",    "Security Guard",         Icons.Default.Security),
+        AmenityDef("cctv",              "CCTV",                   Icons.Default.Videocam),
+        AmenityDef("intercom",          "Intercom",               Icons.Default.Doorbell),
+        AmenityDef("electric_fence",    "Electric Fence",         Icons.Default.Fence)
     )
+
+    val roomAmenities = listOf(
+        AmenityDef("own_entrance",      "Own Entrance",           Icons.Default.DoorFront),
+        AmenityDef("own_bathroom",      "Own Bathroom",           Icons.Default.Bathtub),
+        AmenityDef("en_suite",          "En-Suite",               Icons.Default.Shower),
+        AmenityDef("kitchenette",       "Kitchenette",            Icons.Default.Kitchen),
+        AmenityDef("shared_kitchen",    "Shared Kitchen",         Icons.Default.OutdoorGrill),
+        AmenityDef("wifi",              "WiFi",                   Icons.Default.Wifi),
+        AmenityDef("furnished",         "Furnished",              Icons.Default.Chair),
+        AmenityDef("semi_furnished",    "Semi-Furnished",         Icons.Default.TableBar),
+        AmenityDef("electricity",       "Electricity Incl.",      Icons.Default.ElectricBolt),
+        AmenityDef("water",             "Water Incl.",            Icons.Default.WaterDrop),
+        AmenityDef("laundry_access",    "Laundry Access",         Icons.Default.LocalLaundryService),
+        AmenityDef("pets_allowed",      "Pets Allowed",           Icons.Default.Pets),
+        AmenityDef("air_conditioning",  "Air Conditioning",       Icons.Default.AcUnit),
+        AmenityDef("heater",            "Heater",                 Icons.Default.Thermostat),
+        AmenityDef("cctv",              "CCTV",                   Icons.Default.Videocam),
+        AmenityDef("backup_power",      "Backup Power",           Icons.Default.BatteryChargingFull),
+        AmenityDef("storage",           "Storage Room",           Icons.Default.Inventory)
+    ) + universalAmenities.filter { it.key !in setOf("air_conditioning", "cctv") }
 
     val apartmentAmenities = listOf(
-        AmenityDef("wifi",             "WiFi",               Icons.Default.Wifi),
-        AmenityDef("parking",          "Parking",            Icons.Default.LocalParking),
-        AmenityDef("security",         "24/7 Security",      Icons.Default.Security),
-        AmenityDef("cctv",             "CCTV",               Icons.Default.Videocam),
-        AmenityDef("intercom",         "Intercom",           Icons.Default.Doorbell),
-        AmenityDef("pool",             "Swimming Pool",      Icons.Default.Pool),
-        AmenityDef("gym",              "Gym",                Icons.Default.FitnessCenter),
-        AmenityDef("rooftop",          "Rooftop Terrace",    Icons.Default.Deck),
-        AmenityDef("furnished",        "Furnished",          Icons.Default.Chair),
-        AmenityDef("semi_furnished",   "Semi-Furnished",     Icons.Default.TableBar),
-        AmenityDef("air_conditioning", "Air Conditioning",   Icons.Default.AcUnit),
-        AmenityDef("backup_power",     "Backup Power",       Icons.Default.BatteryChargingFull),
-        AmenityDef("borehole",         "Borehole Water",     Icons.Default.WaterDrop),
-        AmenityDef("laundry",          "Laundry Room",       Icons.Default.LocalLaundryService),
-        AmenityDef("storage",          "Storage Unit",       Icons.Default.Inventory),
-        AmenityDef("lift",             "Lift / Elevator",    Icons.Default.Elevator),
-        AmenityDef("concierge",        "Concierge",          Icons.Default.SupportAgent),
-        AmenityDef("pets_allowed",     "Pets Allowed",       Icons.Default.Pets),
-        AmenityDef("balcony",          "Balcony",            Icons.Default.Deck),
-        AmenityDef("garden",           "Shared Garden",      Icons.Default.Yard)
-    )
+        AmenityDef("wifi",              "WiFi",                   Icons.Default.Wifi),
+        AmenityDef("security",          "24/7 Security",          Icons.Default.Security),
+        AmenityDef("gym",               "Gym",                    Icons.Default.FitnessCenter),
+        AmenityDef("rooftop",           "Rooftop Terrace",        Icons.Default.Deck),
+        AmenityDef("furnished",         "Furnished",              Icons.Default.Chair),
+        AmenityDef("semi_furnished",    "Semi-Furnished",         Icons.Default.TableBar),
+        AmenityDef("backup_power",      "Backup Power",           Icons.Default.BatteryChargingFull),
+        AmenityDef("laundry",           "Laundry Room",           Icons.Default.LocalLaundryService),
+        AmenityDef("storage",           "Storage Unit",           Icons.Default.Inventory),
+        AmenityDef("lift",              "Lift / Elevator",        Icons.Default.Elevator),
+        AmenityDef("concierge",         "Concierge",              Icons.Default.SupportAgent),
+        AmenityDef("pets_allowed",      "Pets Allowed",           Icons.Default.Pets),
+        AmenityDef("balcony",           "Balcony",                Icons.Default.Deck)
+    ) + universalAmenities
 
     val houseAmenities = listOf(
-        AmenityDef("pool",             "Swimming Pool",      Icons.Default.Pool),
-        AmenityDef("garage",           "Garage",             Icons.Default.Garage),
-        AmenityDef("garden",           "Garden / Yard",      Icons.Default.Yard),
-        AmenityDef("wifi",             "WiFi",               Icons.Default.Wifi),
-        AmenityDef("security",         "Security System",    Icons.Default.Security),
-        AmenityDef("cctv",             "CCTV",               Icons.Default.Videocam),
-        AmenityDef("electric_fence",   "Electric Fence",     Icons.Default.Fence),
-        AmenityDef("borehole",         "Borehole Water",     Icons.Default.WaterDrop),
-        AmenityDef("backup_power",     "Backup Power",       Icons.Default.BatteryChargingFull),
-        AmenityDef("servant_quarters", "Servant Quarters",   Icons.Default.OtherHouses),
-        AmenityDef("double_garage",    "Double Garage",      Icons.Default.Garage),
-        AmenityDef("air_conditioning", "Air Conditioning",   Icons.Default.AcUnit),
-        AmenityDef("solar",            "Solar Power",        Icons.Default.WbSunny),
-        AmenityDef("pets_allowed",     "Pets Allowed",       Icons.Default.Pets),
-        AmenityDef("furnished",        "Furnished",          Icons.Default.Chair),
-        AmenityDef("patio",            "Patio / Braai",      Icons.Default.Deck),
-        AmenityDef("laundry",          "Laundry Room",       Icons.Default.LocalLaundryService),
-        AmenityDef("study",            "Study / Office",     Icons.Default.MenuBook),
-        AmenityDef("storage",          "Storage Room",       Icons.Default.Inventory),
-        AmenityDef("alarm",            "Alarm System",       Icons.Default.NotificationImportant)
-    )
+        AmenityDef("double_garage",     "Double Garage",          Icons.Default.Garage),
+        AmenityDef("servant_quarters",  "Servant Quarters",       Icons.Default.OtherHouses),
+        AmenityDef("wifi",              "WiFi",                   Icons.Default.Wifi),
+        AmenityDef("backup_power",      "Backup Power",           Icons.Default.BatteryChargingFull),
+        AmenityDef("pets_allowed",      "Pets Allowed",           Icons.Default.Pets),
+        AmenityDef("furnished",         "Furnished",              Icons.Default.Chair),
+        AmenityDef("patio",             "Patio / Braai",          Icons.Default.Deck),
+        AmenityDef("laundry",           "Laundry Room",           Icons.Default.LocalLaundryService),
+        AmenityDef("study",             "Study / Office",         Icons.Default.MenuBook),
+        AmenityDef("storage",           "Storage Room",           Icons.Default.Inventory),
+        AmenityDef("alarm",             "Alarm System",           Icons.Default.NotificationImportant)
+    ) + universalAmenities
 
     val commercialAmenities = listOf(
-        AmenityDef("parking",          "Parking Bay(s)",     Icons.Default.LocalParking),
-        AmenityDef("wifi",             "Fibre / WiFi",       Icons.Default.Wifi),
-        AmenityDef("security",         "24/7 Security",      Icons.Default.Security),
-        AmenityDef("cctv",             "CCTV",               Icons.Default.Videocam),
-        AmenityDef("reception",        "Reception Area",     Icons.Default.MeetingRoom),
-        AmenityDef("boardroom",        "Boardroom",          Icons.Default.Groups),
-        AmenityDef("air_conditioning", "Air Conditioning",   Icons.Default.AcUnit),
-        AmenityDef("backup_power",     "Backup Power",       Icons.Default.BatteryChargingFull),
-        AmenityDef("lift",             "Lift / Elevator",    Icons.Default.Elevator),
-        AmenityDef("loading_bay",      "Loading Bay",        Icons.Default.LocalShipping),
-        AmenityDef("storage",          "Storage / Warehouse",Icons.Default.Inventory),
-        AmenityDef("kitchenette",      "Kitchenette",        Icons.Default.Kitchen),
-        AmenityDef("ablution",         "Ablution Facilities",Icons.Default.Wc),
-        AmenityDef("signage",          "Signage Rights",     Icons.Default.Signpost),
-        AmenityDef("open_plan",        "Open Plan",          Icons.Default.ViewQuilt),
-        AmenityDef("partitioned",      "Partitioned Offices",Icons.Default.GridView),
-        AmenityDef("disabled_access",  "Disabled Access",    Icons.Default.Accessible),
-        AmenityDef("canteen",          "Canteen / Cafeteria",Icons.Default.Restaurant),
-        AmenityDef("generator",        "Generator",          Icons.Default.OfflineBolt),
-        AmenityDef("solar",            "Solar Power",        Icons.Default.WbSunny)
-    )
+        AmenityDef("wifi",              "Fibre / WiFi",           Icons.Default.Wifi),
+        AmenityDef("reception",         "Reception Area",         Icons.Default.MeetingRoom),
+        AmenityDef("boardroom",         "Boardroom",              Icons.Default.Groups),
+        AmenityDef("lift",              "Lift / Elevator",        Icons.Default.Elevator),
+        AmenityDef("loading_bay",       "Loading Bay",            Icons.Default.LocalShipping),
+        AmenityDef("storage",           "Storage / Warehouse",    Icons.Default.Inventory),
+        AmenityDef("kitchenette",       "Kitchenette",            Icons.Default.Kitchen),
+        AmenityDef("ablution",          "Ablution Facilities",    Icons.Default.Wc),
+        AmenityDef("signage",           "Signage Rights",         Icons.Default.Signpost),
+        AmenityDef("open_plan",         "Open Plan",              Icons.Default.ViewQuilt),
+        AmenityDef("partitioned",       "Partitioned Offices",    Icons.Default.GridView),
+        AmenityDef("disabled_access",   "Disabled Access",        Icons.Default.Accessible),
+        AmenityDef("canteen",           "Canteen / Cafeteria",    Icons.Default.Restaurant)
+    ) + universalAmenities
 
-    fun forType(propertyType: String): List<AmenityDef> = when (propertyType) {
-        "room"       -> roomAmenities
-        "house"      -> houseAmenities
-        "commercial" -> commercialAmenities
-        else         -> apartmentAmenities
+    fun forType(amenityKey: String): List<AmenityDef> = when (amenityKey) {
+        "room"       -> roomAmenities.distinctBy { it.key }
+        "house"      -> houseAmenities.distinctBy { it.key }
+        "commercial" -> commercialAmenities.distinctBy { it.key }
+        else         -> apartmentAmenities.distinctBy { it.key }
     }
 }
 
-// --- AmenitiesSection -------------------------------------------------------
+// â”€â”€â”€ AmenitiesSection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
 private fun AmenitiesSection(
     propType: String,
@@ -853,12 +2486,6 @@ private fun AmenitiesSection(
     selectedKeys: Set<String>,
     onToggle: (key: String, on: Boolean) -> Unit
 ) {
-    val typeLabel = when (propType) {
-        "room"       -> "Room"
-        "house"      -> "House"
-        "commercial" -> "Commercial"
-        else         -> "Apartment"
-    }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
@@ -879,7 +2506,7 @@ private fun AmenitiesSection(
             Icon(Icons.Default.Info, null, tint = RentOutColors.Primary, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                text = "Showing amenities for: $typeLabel. Change property type above to see different options.",
+                text = "Showing amenities for: $propType. Change property type above to see different options.",
                 fontSize = 11.sp, color = RentOutColors.Primary, fontWeight = FontWeight.Medium
             )
         }
@@ -926,319 +2553,417 @@ private fun AmenityChip(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (isPressed) 0.93f else 1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy), label = "amenity_scale")
-    val bgColor by animateColorAsState(if (checked) RentOutColors.Primary.copy(alpha = 0.13f) else MaterialTheme.colorScheme.surfaceVariant, label = "amenity_bg")
-    val borderColor by animateColorAsState(if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), label = "amenity_border")
-    val iconTint by animateColorAsState(if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant, label = "amenity_icon")
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.93f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "amenity_scale"
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (checked) RentOutColors.Primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+        label = "amenity_bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.outline,
+        label = "amenity_border"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        label = "amenity_content"
+    )
 
-    Box(
+    Column(
         modifier = modifier
             .scale(scale)
             .clip(RoundedCornerShape(10.dp))
-            .border(1.5.dp, borderColor, RoundedCornerShape(10.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
             .background(bgColor)
             .clickable(interactionSource = interactionSource, indication = null) { onToggle(!checked) }
-            .padding(horizontal = 6.dp, vertical = 9.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Box {
-                Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
-                if (checked) {
-                    Icon(Icons.Default.Check, null, tint = RentOutColors.Primary,
-                        modifier = Modifier.size(10.dp).align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp))
-                }
-            }
-            Text(
-                text = label, fontSize = 10.sp,
-                fontWeight = if (checked) FontWeight.Bold else FontWeight.Normal,
-                color = if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center, maxLines = 2
-            )
-        }
+        Icon(icon, null, tint = contentColor, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            fontSize = 10.sp,
+            fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+            color = contentColor,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
-// --- FormCompletenessIndicator -----------------------------------------------
+// â”€â”€â”€ Form Completeness Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
 private fun FormCompletenessIndicator(
-    hasTitle: Boolean, hasPrice: Boolean, hasRooms: Boolean,
-    hasDescription: Boolean, hasAddress: Boolean, hasContact: Boolean
-) {
-    val items = listOf(
-        "Title" to hasTitle, "Price" to hasPrice, "Bedrooms" to hasRooms,
-        "Description" to hasDescription, "Address" to hasAddress, "Contact" to hasContact
-    )
-    val completedCount = items.count { it.second }
-    val total = items.size
-    val animatedProgress by animateFloatAsState(completedCount / total.toFloat(), tween(600, easing = FastOutSlowInEasing), label = "form_progress")
-    val isComplete = completedCount == total
-    val barColor by animateColorAsState(if (isComplete) RentOutColors.Primary else RentOutColors.IconTeal, label = "form_bar")
 
-    Card(
+    hasTitle: Boolean,
+
+    hasPrice: Boolean,
+
+    hasRooms: Boolean,
+
+    hasDescription: Boolean,
+
+    hasAddress: Boolean,
+
+    hasContact: Boolean
+
+) {
+
+    val items = listOf(
+
+        "Title" to hasTitle,
+
+        "Price" to hasPrice,
+
+        "Rooms" to hasRooms,
+
+        "Description" to hasDescription,
+
+        "Address" to hasAddress,
+
+        "Contact" to hasContact
+
+    )
+
+    val completed = items.count { it.second }
+
+    val total = items.size
+
+    val progress = completed.toFloat() / total.toFloat()
+
+
+
+    val animatedProgress by animateFloatAsState(
+
+        targetValue = progress,
+
+        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing),
+
+        label = "completeness_progress"
+
+    )
+
+
+
+    Column(
+
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isComplete) RentOutColors.Primary.copy(alpha = 0.07f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-        border = if (isComplete) BorderStroke(1.dp, RentOutColors.Primary.copy(alpha = 0.3f)) else null
+
+        horizontalAlignment = Alignment.CenterHorizontally
+
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (isComplete) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked, null,
-                        tint = if (isComplete) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (isComplete) "All fields complete!" else "Form completion",
-                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                        color = if (isComplete) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text("$completedCount / $total", fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    color = if (isComplete) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = animatedProgress,
-                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
-                color = barColor, trackColor = MaterialTheme.colorScheme.surfaceVariant
+
+        Row(
+
+            modifier = Modifier.fillMaxWidth(0.94f),
+
+            horizontalArrangement = Arrangement.Center,
+
+            verticalAlignment = Alignment.CenterVertically
+
+        ) {
+
+            Text(
+
+                text = "Form Completeness",
+
+                fontSize = 12.sp,
+
+                fontWeight = FontWeight.Medium,
+
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+
             )
-            AnimatedVisibility(visible = !isComplete) {
-                val missing = items.filter { !it.second }.map { it.first }
-                Column {
-                    Spacer(Modifier.height(10.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Still needed: ${missing.joinToString(", ")}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Text(
+
+                text = "$completed / $total",
+
+                fontSize = 12.sp,
+
+                fontWeight = FontWeight.Bold,
+
+                color = if (completed == total) RentOutColors.Tertiary else RentOutColors.Primary
+
+            )
+
         }
+
+        Spacer(Modifier.height(6.dp))
+
+        LinearProgressIndicator(
+
+            progress = animatedProgress,
+
+            modifier = Modifier
+
+                .fillMaxWidth(0.94f)
+
+                .clip(RoundedCornerShape(6.dp)),
+
+            color = if (completed == total) RentOutColors.Tertiary else RentOutColors.Primary,
+
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+
+        )
+
+        Spacer(Modifier.height(10.dp))
+
+        Column(
+
+            modifier = Modifier.fillMaxWidth(0.94f),
+
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+
+            horizontalAlignment = Alignment.CenterHorizontally
+
+        ) {
+
+            items.chunked(3).forEach { rowItems ->
+
+                Row(
+
+                    modifier = Modifier.fillMaxWidth(),
+
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+                ) {
+
+                    rowItems.forEach { (label, done) ->
+
+                        FormCompletenessChip(
+
+                            label = label,
+
+                            done = done,
+
+                            modifier = Modifier.weight(1f)
+
+                        )
+
+                    }
+
+                    repeat(3 - rowItems.size) {
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                    }
+
+                }
+
+            }
+
+        }
+
     }
+
 }
 
-// -- Property Address Section --
+
+
+@Composable
+
+private fun FormCompletenessChip(
+
+    label: String,
+
+    done: Boolean,
+
+    modifier: Modifier = Modifier
+
+) {
+
+    val containerColor by animateColorAsState(
+
+        targetValue = if (done) RentOutColors.Tertiary.copy(alpha = 0.12f)
+
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+
+        label = "form_chip_bg"
+
+    )
+
+    val contentColor by animateColorAsState(
+
+        targetValue = if (done) RentOutColors.Tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+
+        label = "form_chip_content"
+
+    )
+
+    val borderColor by animateColorAsState(
+
+        targetValue = if (done) RentOutColors.Tertiary.copy(alpha = 0.6f)
+
+        else MaterialTheme.colorScheme.outline.copy(alpha = 0.24f),
+
+        label = "form_chip_border"
+
+    )
+
+
+
+    Row(
+
+        modifier = modifier
+
+            .clip(RoundedCornerShape(12.dp))
+
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+
+            .background(containerColor)
+
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+
+        verticalAlignment = Alignment.CenterVertically,
+
+        horizontalArrangement = Arrangement.Center
+
+    ) {
+
+        Icon(
+
+            imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+
+            contentDescription = null,
+
+            tint = contentColor,
+
+            modifier = Modifier.size(14.dp)
+
+        )
+
+        Spacer(Modifier.width(6.dp))
+
+        Text(
+
+            text = label,
+
+            fontSize = 10.sp,
+
+            fontWeight = if (done) FontWeight.SemiBold else FontWeight.Medium,
+
+            color = contentColor,
+
+            textAlign = TextAlign.Center,
+
+            maxLines = 1
+
+        )
+
+    }
+
+}
+
+// â”€â”€â”€ Property Address Section (kept from existing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
 private fun PropertyAddressSection(
     address: PropertyAddress,
     onChange: (PropertyAddress) -> Unit
 ) {
-    val isComplete = address.isComplete
-    var expanded by remember { mutableStateOf(true) }
+    var isExpanded by remember { mutableStateOf(true) }
+    var allFilledTimer by remember { mutableStateOf(false) }
 
-    // Each time the user opens the edit view we bump this key so any in-flight
-    // collapse coroutine is cancelled and the countdown restarts from scratch
-    // only after the landlord has filled all fields again.
-    var collapseKey by remember { mutableStateOf(0) }
-
-    LaunchedEffect(collapseKey) {
-        // Only run the countdown when the fields are already complete at the
-        // time this coroutine starts (i.e. editing is done AND address is full).
-        if (!isComplete) return@LaunchedEffect
-        // Give the landlord 5 seconds to review what they entered.
-        kotlinx.coroutines.delay(5_000)
-        // Re-check: if the address is still complete, collapse.
-        if (address.isComplete) expanded = false
+    val isAllFilled = address.isComplete
+    LaunchedEffect(isAllFilled) {
+        if (isAllFilled) {
+            kotlinx.coroutines.delay(5000)
+            isExpanded = false
+            allFilledTimer = true
+        } else {
+            isExpanded = true
+            allFilledTimer = false
+        }
     }
 
-    // Whenever completeness flips to true (field just filled), trigger a new countdown.
-    LaunchedEffect(isComplete) {
-        if (isComplete) collapseKey++ // cancels old coroutine, starts a fresh 5-second wait
-    }
-
-    AnimatedVisibility(
-        visible = isComplete && !expanded,
-        enter = fadeIn() + expandVertically(),
-        exit  = fadeOut() + shrinkVertically()
-    ) {
-        AddressCompletedCard(address = address, onEdit = {
-            expanded = true
-            collapseKey = 0  // reset so the countdown won't fire until address is completed again
-        })
-    }
-
-    AnimatedVisibility(
-        visible = !isComplete || expanded,
-        enter = fadeIn() + expandVertically(),
-        exit  = fadeOut() + shrinkVertically()
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-
-            // Step 1 � House Number & Street (free text)
-            AddressStepRow(stepNum = 1, isFilled = address.houseAndStreet.isNotBlank()) {
-                OutlinedTextField(
-                    value = address.houseAndStreet,
-                    onValueChange = { onChange(address.copy(houseAndStreet = it)) },
-                    label = { Text("House Number & Street") },
-                    leadingIcon = {
-                        Icon(Icons.Default.Home, null,
-                            tint = RentOutColors.IconBlue, modifier = Modifier.size(20.dp))
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(
+                    if (isAllFilled) RentOutColors.Tertiary.copy(alpha = 0.08f)
+                    else MaterialTheme.colorScheme.surfaceVariant
                 )
-            }
-
-            // Step 2 � Suburb picker (smart dropdown based on chosen town)
-            AddressStepRow(stepNum = 2, isFilled = address.suburb.isNotBlank()) {
-                SuburbPickerField(
-                    selectedSuburb = address.suburb,
-                    selectedTown = address.townOrCity,
-                    selectedCountry = address.country,
-                    onSuburbSelected = { onChange(address.copy(suburb = it)) },
-                    modifier = Modifier.fillMaxWidth()
+                .clickable { isExpanded = !isExpanded }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isAllFilled) Icons.Default.CheckCircle else Icons.Default.EditLocation,
+                contentDescription = null,
+                tint = if (isAllFilled) RentOutColors.Tertiary else RentOutColors.Primary,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isAllFilled) "Address complete" else "Enter property address",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isAllFilled) RentOutColors.Tertiary else MaterialTheme.colorScheme.onSurface
                 )
-            }
-
-            // Step 3 � Town / City picker (smart dropdown for Zimbabwe, free text otherwise)
-            AddressStepRow(stepNum = 3, isFilled = address.townOrCity.isNotBlank()) {
-                TownPickerField(
-                    selectedTown = address.townOrCity,
-                    selectedCountry = address.country,
-                    onTownSelected = { town ->
-                        // Reset suburb when town changes so stale suburbs are cleared
-                        onChange(address.copy(townOrCity = town, suburb = ""))
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // Step 4 � Country picker (SADC, default Zimbabwe)
-            AddressStepRow(stepNum = 4, isFilled = address.country.isNotBlank()) {
-                CountryPickerField(
-                    selectedCountry = address.country,
-                    onCountrySelected = { country ->
-                        // When country changes, reset town & suburb if switching away from Zimbabwe
-                        val newTown = if (country == "Zimbabwe") address.townOrCity else ""
-                        val newSuburb = if (country == "Zimbabwe") "" else address.suburb
-                        onChange(address.copy(country = country, townOrCity = newTown, suburb = newSuburb))
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // Suburb�Town context hint � shown when suburb is blank but town is already chosen
-            AnimatedVisibility(
-                visible = address.suburb.isBlank() && address.townOrCity.isNotBlank() &&
-                          address.country.equals("Zimbabwe", ignoreCase = true),
-                enter = fadeIn() + expandVertically(),
-                exit  = fadeOut() + shrinkVertically()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(RentOutColors.IconTeal.copy(alpha = 0.08f))
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Icon(Icons.Default.Lightbulb, null,
-                        tint = RentOutColors.IconTeal, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
+                if (isAllFilled) {
                     Text(
-                        text = "Tap the Suburb field to pick a suburb in ${address.townOrCity}",
-                        fontSize = 12.sp,
-                        color = RentOutColors.IconTeal,
-                        fontWeight = FontWeight.Medium
+                        text = "${address.houseAndStreet}, ${address.suburb}, ${address.townOrCity}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-
-            AddressProgressIndicator(address = address)
-        }
-    }
-}
-
-@Composable
-private fun AddressStepRow(
-    stepNum: Int,
-    isFilled: Boolean,
-    content: @Composable () -> Unit
-) {
-    Row(verticalAlignment = Alignment.Top) {
-        Box(
-            modifier = Modifier
-                .padding(top = 16.dp)
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isFilled) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isFilled) {
-                Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-            } else {
-                Text(
-                    "$stepNum", fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        Spacer(Modifier.width(10.dp))
-        Box(modifier = Modifier.weight(1f)) { content() }
-    }
-}
-
-@Composable
-private fun AddressProgressIndicator(address: PropertyAddress) {
-    val filledCount = listOf(
-        address.houseAndStreet, address.suburb, address.townOrCity, address.country
-    ).count { it.isNotBlank() }
-    val progress = filledCount / 4f
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress,
-        animationSpec = tween(600, easing = FastOutSlowInEasing),
-        label = "addr_progress"
-    )
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Address completion", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                text = "$filledCount / 4",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (progress == 1f) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
         }
-        Spacer(Modifier.height(4.dp))
-        LinearProgressIndicator(
-            progress = animatedProgress,
-            modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
-            color = if (progress == 1f) RentOutColors.Primary else RentOutColors.IconTeal,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    }
-}
 
-@Composable
-private fun AddressCompletedCard(address: PropertyAddress, onEdit: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = RentOutColors.Primary.copy(alpha = 0.08f)),
-        border = BorderStroke(1.dp, RentOutColors.Primary.copy(alpha = 0.3f))
-    ) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Primary, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Address Saved", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RentOutColors.Primary)
-                Text(
-                    text = "${address.houseAndStreet}, ${address.suburb}, ${address.townOrCity}, ${address.country}",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2
+        AnimatedVisibility(
+            visible = isExpanded,
+            enter = fadeIn() + expandVertically(),
+            exit  = fadeOut() + shrinkVertically()
+        ) {
+            Column(modifier = Modifier.padding(top = 12.dp)) {
+                RentOutTextField(
+                    value         = address.houseAndStreet,
+                    onValueChange = { onChange(address.copy(houseAndStreet = it)) },
+                    label         = "House No. & Street",
+                    leadingIcon   = Icons.Default.Home,
+                    leadingIconTint = RentOutColors.IconBlue,
+                    labelFontSize = 12.sp
                 )
-            }
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Edit, "Edit address", tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.height(10.dp))
+                SuburbPickerField(
+                    selectedSuburb  = address.suburb,
+                    selectedTown    = address.townOrCity,
+                    selectedCountry = address.country,
+                    onSuburbSelected = { onChange(address.copy(suburb = it)) }
+                )
+                Spacer(Modifier.height(10.dp))
+                TownPickerField(
+                    selectedTown    = address.townOrCity,
+                    selectedCountry = address.country,
+                    onTownSelected  = { onChange(address.copy(townOrCity = it)) }
+                )
+                Spacer(Modifier.height(10.dp))
+                CountryPickerField(
+                    selectedCountry   = address.country,
+                    onCountrySelected = { onChange(address.copy(country = it)) }
+                )
             }
         }
     }
 }
 
-// -- Contact Details Section --
+// â”€â”€â”€ Contact Details Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
 private fun ContactDetailsSection(
     contact: String,
@@ -1246,360 +2971,141 @@ private fun ContactDetailsSection(
     contactErr: String,
     isAutoFilled: Boolean
 ) {
-    Column {
-        AnimatedVisibility(visible = isAutoFilled, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (isAutoFilled) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 10.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(RentOutColors.IconGreen.copy(alpha = 0.10f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .background(RentOutColors.Tertiary.copy(alpha = 0.08f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.AutoAwesome, null, tint = RentOutColors.IconGreen, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Auto-filled from your profile. You can edit this to use a different number.",
-                    fontSize = 11.sp, color = RentOutColors.IconGreen, fontWeight = FontWeight.Medium
-                )
+                Icon(Icons.Default.AutoAwesome, null, tint = RentOutColors.Tertiary, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Auto-filled from your profile", fontSize = 11.sp, color = RentOutColors.Tertiary, fontWeight = FontWeight.Medium)
             }
+            Spacer(Modifier.height(8.dp))
         }
         RentOutTextField(
-            value = contact, onValueChange = onContact,
-            label = "Contact Number (hidden from tenants)",
-            leadingIcon = Icons.Default.Call, leadingIconTint = RentOutColors.IconAmber,
+            value           = contact,
+            onValueChange   = onContact,
+            label           = "Contact Number",
+            leadingIcon     = Icons.Default.Phone,
+            leadingIconTint = RentOutColors.IconGreen,
+            isError         = contactErr.isNotEmpty(),
+            errorMessage    = contactErr,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            isError = contactErr.isNotEmpty(), errorMessage = contactErr,
-            labelFontSize = 12.sp
+            labelFontSize   = 12.sp
         )
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Shield, null, tint = RentOutColors.IconSlate, modifier = Modifier.size(14.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                "Revealed to tenants only after they pay to unlock this listing",
-                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 
-// ── Existing images gallery (edit mode only) ─────────────────────────────────
-@Composable
-private fun ExistingImagesGallery(imageUrls: List<String>, onManagePhotos: () -> Unit = {}) {
-    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+// â”€â”€â”€ Existing Images Gallery (edit mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+@Composable
+private fun ExistingImagesGallery(
+    imageUrls: List<String>,
+    onManagePhotos: () -> Unit = {}
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Section header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(RentOutColors.Primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.PhotoLibrary,
-                    contentDescription = null,
-                    tint = RentOutColors.Primary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Property Photos",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${imageUrls.size} photo${if (imageUrls.size != 1) "s" else ""} on record",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            // Manage Photos button in header
-            val mgmtInteraction = remember { MutableInteractionSource() }
-            val mgmtPressed by mgmtInteraction.collectIsPressedAsState()
-            val mgmtScale by animateFloatAsState(
-                if (mgmtPressed) 0.93f else 1f,
-                spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                label = "mgmt_scale"
-            )
-            Box(
-                modifier = Modifier
-                    .scale(mgmtScale)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(RentOutColors.Primary)
-                    .clickable(interactionSource = mgmtInteraction, indication = null, onClick = onManagePhotos)
-                    .padding(horizontal = 12.dp, vertical = 7.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Edit, null,
-                        tint = Color.White,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = if (imageUrls.isEmpty()) "Add Photos" else "Edit Photos",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.PhotoLibrary, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Property Photos", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
         Spacer(Modifier.height(6.dp))
         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         Spacer(Modifier.height(12.dp))
 
         if (imageUrls.isEmpty()) {
-            // Empty state
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(80.dp)
+                    .height(100.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.PhotoLibrary, null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "No photos yet. Tap \"Add Photos\" to upload.",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        textAlign = TextAlign.Center
-                    )
+                    Icon(Icons.Default.AddPhotoAlternate, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+                    Text("No photos yet", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            return@Column
-        }
-
-        // Info banner
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(RentOutColors.IconAmber.copy(alpha = 0.10f))
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            Icon(
-                Icons.Default.Info,
-                contentDescription = null,
-                tint = RentOutColors.IconAmber,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = "Tap any photo to preview. Tap \"Edit Photos\" to add or remove.",
-                fontSize = 11.sp,
-                color = RentOutColors.IconAmber,
-                fontWeight = FontWeight.Medium
-            )
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 4.dp)) {
+                items(imageUrls) { url ->
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.Center).size(32.dp))
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(12.dp))
-
-        // Horizontal scrollable thumbnail row
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
+        OutlinedButton(
+            onClick = onManagePhotos,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.5.dp, RentOutColors.Primary)
         ) {
-            itemsIndexed(imageUrls) { index, url ->
-                val isSelected = selectedIndex == index
-                val scale by animateFloatAsState(
-                    targetValue = if (isSelected) 1.05f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "img_scale_$index"
-                )
-                val borderColor by animateColorAsState(
-                    targetValue = if (isSelected) RentOutColors.Primary else Color.Transparent,
-                    animationSpec = tween(200),
-                    label = "img_border_$index"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .scale(scale)
-                        .size(width = 110.dp, height = 90.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(2.dp, borderColor, RoundedCornerShape(12.dp))
-                        .shadow(if (isSelected) 6.dp else 2.dp, RoundedCornerShape(12.dp))
-                        .clickable { selectedIndex = if (isSelected) null else index }
-                ) {
-                    coil3.compose.AsyncImage(
-                        model             = url,
-                        contentDescription = "Property photo ${index + 1}",
-                        contentScale      = ContentScale.Crop,
-                        modifier          = Modifier.fillMaxSize()
-                    )
-                    // Index badge
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(5.dp)
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.55f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${index + 1}",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                    // Selected checkmark overlay — use graphicsLayer instead of
-                    // AnimatedVisibility to avoid ColumnScope receiver conflict inside LazyListScope
-                    val checkAlpha by animateFloatAsState(
-                        targetValue = if (isSelected) 1f else 0f,
-                        animationSpec = tween(200),
-                        label = "check_alpha_$index"
-                    )
-                    val checkScale by animateFloatAsState(
-                        targetValue = if (isSelected) 1f else 0.6f,
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                        label = "check_scale_$index"
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(5.dp)
-                            .size(20.dp)
-                            .graphicsLayer { alpha = checkAlpha; scaleX = checkScale; scaleY = checkScale }
-                            .clip(CircleShape)
-                            .background(RentOutColors.Primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Full-size preview of selected image
-        AnimatedVisibility(
-            visible = selectedIndex != null,
-            enter   = fadeIn(tween(300)) + expandVertically(tween(300)),
-            exit    = fadeOut(tween(200)) + shrinkVertically(tween(200))
-        ) {
-            val url = selectedIndex?.let { imageUrls.getOrNull(it) }
-            if (url != null) {
-                Spacer(Modifier.height(12.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(220.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .shadow(8.dp, RoundedCornerShape(16.dp))
-                ) {
-                    coil3.compose.AsyncImage(
-                        model              = url,
-                        contentDescription = "Photo preview",
-                        contentScale       = ContentScale.Crop,
-                        modifier           = Modifier.fillMaxSize()
-                    )
-                    // Gradient overlay at bottom
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(60.dp)
-                            .align(Alignment.BottomCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f))
-                                )
-                            )
-                    )
-                    // Photo N of M label
-                    Text(
-                        text = "Photo ${(selectedIndex ?: 0) + 1} of ${imageUrls.size}",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 10.dp)
-                    )
-                    // Close button
-                    IconButton(
-                        onClick = { selectedIndex = null },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(6.dp)
-                            .size(30.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.45f))
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close preview",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
+            Icon(Icons.Default.PhotoLibrary, null, tint = RentOutColors.Primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Manage Property Photos", color = RentOutColors.Primary, fontWeight = FontWeight.SemiBold)
         }
     }
 }
 
+// â”€â”€â”€ Add Images / Submit Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 @Composable
-private fun AddImagesButton(isLoading: Boolean, isEditMode: Boolean = false, onClick: () -> Unit) {
-    val buttonLabel = if (isEditMode) "Save Changes" else "Add Photos & Submit"
-    val buttonIcon  = if (isEditMode) Icons.Default.Save else Icons.Default.PhotoCamera
+private fun AddImagesButton(
+    isLoading: Boolean,
+    isEditMode: Boolean = false,
+    onClick: () -> Unit
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.93f else 1f,
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "add_img_scale"
+        label = "submit_scale"
     )
-    val elevation by animateDpAsState(if (isPressed) 2.dp else 10.dp, label = "add_img_elev")
 
     Button(
         onClick = onClick,
         enabled = !isLoading,
-        interactionSource = interactionSource,
         modifier = Modifier
             .fillMaxWidth()
             .scale(scale)
-            .shadow(elevation, RoundedCornerShape(16.dp))
-            .height(56.dp),
+            .height(54.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = RentOutColors.Secondary,
-            contentColor = Color.White
-        )
+        colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary),
+        interactionSource = interactionSource
     ) {
         if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.5.dp)
-        } else {
-            Icon(buttonIcon, contentDescription = null, modifier = Modifier.size(20.dp))
+            CircularProgressIndicator(
+                modifier = Modifier.size(22.dp),
+                color = Color.White,
+                strokeWidth = 2.5.dp
+            )
+            Spacer(Modifier.width(10.dp))
+            Text("Saving...", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        } else if (isEditMode) {
+            Icon(Icons.Default.Save, null, tint = Color.White, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text(buttonLabel, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
+            Text("Save Changes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        } else {
+            Icon(Icons.Default.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Save & Add Photos", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }
+
+
+

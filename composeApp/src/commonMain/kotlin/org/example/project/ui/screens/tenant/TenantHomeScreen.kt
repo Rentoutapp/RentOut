@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -350,6 +351,10 @@ fun TenantHomeScreen(
                                 OutlinedTextField(
                                     value = searchQuery,
                                     onValueChange = onSearchQueryChange,
+                                    textStyle = LocalTextStyle.current.copy(
+                                        color = TenantNavy,
+                                        fontSize = 14.sp
+                                    ),
                                     placeholder = { Text("Search properties...", color = TenantSlateLight, fontSize = 14.sp) },
                                     leadingIcon = { Icon(Icons.Default.Search, null, tint = TenantCoral, modifier = Modifier.size(20.dp)) },
                                     trailingIcon = if (searchQuery.isNotEmpty()) ({
@@ -400,6 +405,8 @@ fun TenantHomeScreen(
                                     ActiveFilterChip("$${activeFilter.minPrice?.toInt() ?: 0}–$${activeFilter.maxPrice?.toInt()?.toString() ?: "∞"}", onRemove = { onFilterChange(activeFilter.copy(minPrice = null, maxPrice = null)) })
                                 }
                                 activeFilter.propertyTypes.forEach { type -> item { ActiveFilterChip(type.replaceFirstChar { it.uppercase() }, onRemove = { onFilterChange(activeFilter.copy(propertyTypes = activeFilter.propertyTypes - type)) }) } }
+                                activeFilter.classifications.forEach { c -> item { ActiveFilterChip(c, onRemove = { onFilterChange(activeFilter.copy(classifications = activeFilter.classifications - c)) }) } }
+                                activeFilter.locationTypes.forEach { lt -> item { ActiveFilterChip(lt, onRemove = { onFilterChange(activeFilter.copy(locationTypes = activeFilter.locationTypes - lt)) }) } }
                                 if (activeFilter.minBedrooms != null) item {
                                     ActiveFilterChip(if (activeFilter.maxBedrooms != null) "${activeFilter.minBedrooms}–${activeFilter.maxBedrooms} beds" else "${activeFilter.minBedrooms}+ beds", onRemove = { onFilterChange(activeFilter.copy(minBedrooms = null, maxBedrooms = null)) })
                                 }
@@ -555,7 +562,17 @@ private fun TenantTownPickerDialog(
                 OutlinedTextField(
                     value = search,
                     onValueChange = { search = it },
-                    placeholder = { Text("Search Zimbabwe towns...", fontSize = 14.sp) },
+                    textStyle = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp
+                    ),
+                    placeholder = {
+                        Text(
+                            "Search Zimbabwe towns...",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     leadingIcon = {
                         Icon(Icons.Default.Search, null, tint = RentOutColors.Primary)
                     },
@@ -1042,7 +1059,113 @@ private fun PropertyFilterSheet(
 
                 Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
-                // ── 4. Bedrooms ───────────────────────────────────────────────
+                // ── 4. Classification ───────────────────────────────────────────────
+                FilterSection(title = "Property Classification", icon = Icons.Default.Category) {
+                    val classificationOptions = listOf("Residential", "Commercial", "Industrial", "Land", "Mixed-Use")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        classificationOptions.forEach { classification ->
+                            val selected = classification in draft.classifications
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (selected) RentOutColors.Primary.copy(0.10f)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .border(
+                                        width = if (selected) 1.5.dp else 0.dp,
+                                        color = if (selected) RentOutColors.Primary else Color.Transparent,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        draft = draft.copy(
+                                            classifications = if (selected)
+                                                draft.classifications - classification
+                                            else
+                                                draft.classifications + classification
+                                        )
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    if (selected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                    null,
+                                    tint = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    classification,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
+
+                // ── 5. Location Type ───────────────────────────────────────────────
+                FilterSection(title = "Location Type", icon = Icons.Default.LocationCity) {
+                    val locationTypeOptions = listOf("Low Density", "Medium Density", "High Density", "Peri-Urban Residential", "Rural")
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        locationTypeOptions.forEach { locationType ->
+                            val selected = locationType in draft.locationTypes
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (selected) RentOutColors.Primary.copy(0.10f)
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    .border(
+                                        width = if (selected) 1.5.dp else 0.dp,
+                                        color = if (selected) RentOutColors.Primary else Color.Transparent,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        draft = draft.copy(
+                                            locationTypes = if (selected)
+                                                draft.locationTypes - locationType
+                                            else
+                                                draft.locationTypes + locationType
+                                        )
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    if (selected) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                                    null,
+                                    tint = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(0.5f),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    locationType,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
+
+                // ── 6. Bedrooms ───────────────────────────────────────────────
                 FilterSection(title = "Bedrooms", icon = Icons.Default.Bed) {
                     val bedOptions = listOf(null to "Any", 1 to "1", 2 to "2", 3 to "3", 4 to "4", 5 to "5+")
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1068,7 +1191,7 @@ private fun PropertyFilterSheet(
 
                 Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
-                // ── 5. Bathrooms ──────────────────────────────────────────────
+                // ── 7. Bathrooms ───────────────────────────────────────────────
                 FilterSection(title = "Bathrooms", icon = Icons.Default.Bathtub) {
                     val bathOptions = listOf(null to "Any", 1 to "1+", 2 to "2+", 3 to "3+")
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1085,7 +1208,7 @@ private fun PropertyFilterSheet(
 
                 Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
-                // ── 6. Availability & Verification ────────────────────────────
+                // ── 8. Availability & Verification ────────────────────────────
                 FilterSection(title = "Listing Status", icon = Icons.Default.CheckCircle) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         FilterToggleRow(
@@ -1105,7 +1228,7 @@ private fun PropertyFilterSheet(
 
                 Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
-                // ── 7. Amenities ──────────────────────────────────────────────
+                // ── 9. Amenities ──────────────────────────────────────────────
                 FilterSection(title = "Must-Have Amenities", icon = Icons.Default.Star) {
                     val amenities = listOf(
                         "WiFi / Internet", "Parking", "Water 24/7", "Generator / Backup Power",

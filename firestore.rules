@@ -140,6 +140,11 @@ service cloud.firestore {
       // Only active landlords can create properties for themselves.
       // New listings always start as 'pending' — only admin can approve.
       // securityDeposit is optional (defaults to 0 if omitted).
+      // Additional optional fields are allowed (but not required):
+      // tenantRequirements, locationType, classification, availabilityDate,
+      // proximityFacilities, amenities, billsInclusive, billsExclusive,
+      // latitude, longitude, depositNotApplicable. Type validation is enforced
+      // for optional fields to ensure data integrity.
       allow create: if isLandlord() && isActiveUser()
         && request.resource.data.landlordId == request.auth.uid
         && request.resource.data.status == 'pending'
@@ -151,7 +156,13 @@ service cloud.firestore {
         && request.resource.data.price is number
         && request.resource.data.price > 0
         && (!('securityDeposit' in request.resource.data)
-            || request.resource.data.securityDeposit is number);
+            || request.resource.data.securityDeposit is number)
+        && (!('tenantRequirements' in request.resource.data)
+            || request.resource.data.tenantRequirements is list)
+        && (!('classification' in request.resource.data)
+            || request.resource.data.classification is string)
+        && (!('locationType' in request.resource.data)
+            || request.resource.data.locationType is string);
 
       // Landlord can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).

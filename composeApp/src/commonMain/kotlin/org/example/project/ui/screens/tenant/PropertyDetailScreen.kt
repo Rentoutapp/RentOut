@@ -595,19 +595,181 @@ private fun TenantOverviewContent(property: Property) {
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TenantOverviewStat(Icons.Default.Bed, "${property.rooms}", "Beds", RentOutColors.IconBlue)
-            TenantVerticalDivider()
-            TenantOverviewStat(Icons.Default.Bathtub, "${property.bathrooms}", "Baths", RentOutColors.IconTeal)
-            TenantVerticalDivider()
-            TenantOverviewStat(Icons.Default.Apartment, property.propertyType.replaceFirstChar { it.uppercase() }, "Type", RentOutColors.IconPurple)
-            if (property.securityDeposit > 0) {
+            if (property.rooms > 0) {
+                TenantOverviewStat(Icons.Default.Bed, "${property.rooms}", "Beds", RentOutColors.IconBlue)
+                TenantVerticalDivider()
+            }
+            if (property.bathrooms > 0) {
+                TenantOverviewStat(Icons.Default.Bathtub, "${property.bathrooms}", "Baths", RentOutColors.IconTeal)
+                TenantVerticalDivider()
+            }
+            TenantOverviewStat(Icons.Default.HomeWork, property.propertyType, "Type", RentOutColors.IconPurple)
+            if (property.securityDeposit > 0 && !property.depositNotApplicable) {
                 TenantVerticalDivider()
                 TenantOverviewStat(Icons.Default.Shield, "$${property.securityDeposit.toInt()}", "Deposit", RentOutColors.IconAmber)
+            } else if (property.depositNotApplicable) {
+                TenantVerticalDivider()
+                TenantOverviewStat(Icons.Default.Shield, "None", "Deposit", RentOutColors.Tertiary)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Classification & Location Type row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (property.classification.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = RentOutColors.Primary.copy(alpha = 0.10f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Category, null, tint = RentOutColors.Primary, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(property.classification, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = RentOutColors.Primary)
+                    }
+                }
+            }
+            if (property.locationType.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = RentOutColors.IconPurple.copy(alpha = 0.10f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.LocationCity, null, tint = RentOutColors.IconPurple, modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(property.locationType, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = RentOutColors.IconPurple)
+                    }
+                }
+            }
+        }
+
+        // Room quantity (if set)
+        if (property.roomQuantity.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.MeetingRoom, null, tint = RentOutColors.IconBlue, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Room Quantity: ${property.roomQuantity}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+            }
+        }
+
+        // Bathroom type (if set)
+        if (property.bathroomType.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Bathtub, null, tint = RentOutColors.IconTeal, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Bathroom: ${property.bathroomType}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+            }
+        }
+
+        // Bills inclusive / exclusive
+        if (property.billsInclusive.isNotEmpty() || property.billsExclusive.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text("Bills", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(6.dp))
+            if (property.billsInclusive.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(RentOutColors.Tertiary.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Tertiary, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Included: ${property.billsInclusive.joinToString(" · ")}", fontSize = 12.sp, color = RentOutColors.Tertiary, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            if (property.billsExclusive.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(RentOutColors.IconAmber.copy(alpha = 0.08f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Cancel, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Excluded: ${property.billsExclusive.joinToString(" · ")}", fontSize = 12.sp, color = RentOutColors.IconAmber, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // Availability
+        if (property.availabilityDate.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(RentOutColors.Primary.copy(alpha = 0.06f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.CalendarToday, null, tint = RentOutColors.Primary, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Available from: ${property.availabilityDate}", fontSize = 12.sp, color = RentOutColors.Primary, fontWeight = FontWeight.SemiBold)
+            }
+        } else {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(RentOutColors.Tertiary.copy(alpha = 0.08f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.Tertiary, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Available Now", fontSize = 12.sp, color = RentOutColors.Tertiary, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Proximity facilities
+        if (property.proximityFacilities.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Text("Nearby", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(8.dp))
+            val chunked = property.proximityFacilities.chunked(2)
+            chunked.forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowItems.forEach { facility ->
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DetailNavy.copy(alpha = 0.06f))
+                                .padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Place, null, tint = DetailNavy, modifier = Modifier.size(12.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text(facility, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                }
             }
         }
 
         Spacer(Modifier.height(20.dp))
-
         Text("Description", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.height(8.dp))
         Text(

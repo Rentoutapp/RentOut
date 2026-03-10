@@ -117,21 +117,39 @@ fun PropertyCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                // Property type chip
-                Box(
+                // Classification + property type chip (top-left)
+                Column(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(12.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Black.copy(alpha = 0.5f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(
-                        text = property.propertyType.replaceFirstChar { it.uppercase() },
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(RentOutColors.Primary.copy(alpha = 0.85f))
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = property.classification,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.Black.copy(alpha = 0.5f))
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = property.propertyType,
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
                 // Bottom-left city
                 Text(
@@ -215,11 +233,33 @@ fun PropertyCard(
                 Spacer(Modifier.height(10.dp))
                 // Stats row
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    PropertyStat(icon = Icons.Default.Bed, label = "${property.rooms} Beds", tint = RentOutColors.IconBlue)
-                    PropertyStat(icon = Icons.Default.Bathtub, label = "${property.bathrooms} Bath", tint = RentOutColors.IconTeal)
+                    if (property.rooms > 0) PropertyStat(icon = Icons.Default.Bed, label = "${property.rooms} Beds", tint = RentOutColors.IconBlue)
+                    if (property.bathrooms > 0) PropertyStat(icon = Icons.Default.Bathtub, label = "${property.bathrooms} Bath", tint = RentOutColors.IconTeal)
+                    if (property.locationType.isNotBlank()) PropertyStat(icon = Icons.Default.LocationCity, label = property.locationType, tint = RentOutColors.IconPurple)
+                }
+                // Bills row
+                if (property.billsInclusive.isNotEmpty() || property.billsExclusive.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        if (property.billsInclusive.isNotEmpty()) {
+                            PropertyStat(
+                                icon = Icons.Default.CheckCircle,
+                                label = "Incl: ${property.billsInclusive.joinToString(", ")}",
+                                tint = RentOutColors.Tertiary
+                            )
+                        }
+                        if (property.billsExclusive.isNotEmpty()) {
+                            PropertyStat(
+                                icon = Icons.Default.Cancel,
+                                label = "Excl: ${property.billsExclusive.joinToString(", ")}",
+                                tint = RentOutColors.IconAmber
+                            )
+                        }
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 // Badges row

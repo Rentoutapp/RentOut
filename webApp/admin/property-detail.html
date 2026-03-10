@@ -234,6 +234,14 @@
           </div>
         </div>
 
+        <!-- Classification & Type row -->
+        <div class="flex flex-wrap gap-3 items-center" id="classification-row">
+          <span id="p-classification-badge" class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold bg-blue-100 text-blue-700 border border-blue-200"></span>
+          <span id="p-proptype-badge" class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200"></span>
+          <span id="p-locationtype-badge" class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-purple-50 text-purple-700 border border-purple-200"></span>
+          <span id="p-availability-badge" class="hidden inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"></span>
+        </div>
+
         <!-- Two-column detail grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -252,6 +260,29 @@
               <div id="p-amenities" class="flex flex-wrap gap-2"></div>
             </div>
 
+            <!-- Bills -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6" id="bills-card">
+              <h2 class="text-lg font-bold text-gray-800 mb-3">💡 Bills</h2>
+              <div class="space-y-3">
+                <div id="bills-inclusive-row" class="hidden">
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Included in rent</p>
+                  <div id="p-bills-inclusive" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div id="bills-exclusive-row" class="hidden">
+                  <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Paid separately</p>
+                  <div id="p-bills-exclusive" class="flex flex-wrap gap-2"></div>
+                </div>
+                <p id="bills-empty" class="text-sm text-gray-400 hidden">No bill information provided.</p>
+              </div>
+            </div>
+
+            <!-- Proximity Facilities -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6" id="proximity-card">
+              <h2 class="text-lg font-bold text-gray-800 mb-3">📍 Proximity Facilities</h2>
+              <div id="p-proximity" class="flex flex-wrap gap-2"></div>
+              <p id="proximity-empty" class="text-sm text-gray-400 hidden">No proximity facilities listed.</p>
+            </div>
+
             <!-- Location -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 class="text-lg font-bold text-gray-800 mb-3">📍 Location</h2>
@@ -263,6 +294,10 @@
                 <div class="flex items-start gap-2">
                   <span class="text-rose-400 mt-0.5">📌</span>
                   <div><span class="font-semibold text-gray-700">Address:</span> <span id="p-location-address"></span></div>
+                </div>
+                <div id="coords-row" class="hidden flex items-start gap-2">
+                  <span class="mt-0.5">🗺️</span>
+                  <div><span class="font-semibold text-gray-700">Coordinates:</span> <span id="p-coords" class="font-mono text-xs"></span></div>
                 </div>
               </div>
             </div>
@@ -310,12 +345,28 @@
                   <span class="font-mono text-xs text-gray-600 truncate max-w-[140px]" id="meta-id" title=""></span>
                 </div>
                 <div class="flex justify-between">
+                  <span class="text-gray-400">Classification</span>
+                  <span class="font-semibold text-blue-700" id="meta-classification">—</span>
+                </div>
+                <div class="flex justify-between">
                   <span class="text-gray-400">Type</span>
-                  <span class="font-semibold text-gray-700 capitalize" id="meta-type"></span>
+                  <span class="font-semibold text-gray-700" id="meta-type"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Location Type</span>
+                  <span class="font-semibold text-purple-700" id="meta-locationtype">—</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Deposit</span>
+                  <span class="font-semibold text-gray-700" id="meta-deposit">—</span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-400">Available</span>
                   <span id="meta-available"></span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-400">Availability</span>
+                  <span class="text-gray-600 text-xs font-semibold" id="meta-availability-date">—</span>
                 </div>
                 <div class="flex justify-between">
                   <span class="text-gray-400">Verified</span>
@@ -440,7 +491,30 @@
     }
 
     function typeIcon(t) {
-      return { apartment:'🏢', house:'🏠', room:'🛏', commercial:'🏬' }[t] || '🏠';
+      const map = {
+        apartment:'🏢', house:'🏠', room:'🛏', commercial:'🏬',
+        'Bedsitter':'🛏', 'Full House':'🏠', 'Cottage':'🏡', 'Room':'🛏',
+        'Apartment':'🏢', 'Shared-Apartment':'🏘', 'Garden Flat':'🌿',
+        'Office':'💼', 'Store':'🏪', 'Warehouse':'🏭', 'Hotel':'🏨',
+        'Agriculture/Farmland':'🌾', 'Greenfield':'🌱', 'Garage':'🚗'
+      };
+      return map[t] || '🏠';
+    }
+
+    function classificationIcon(c) {
+      return { Residential:'🏘', Commercial:'🏢', Industrial:'🏭', Land:'🌍', 'Mixed-Use':'🏙' }[c] || '🏠';
+    }
+
+    function billTag(bill, type) {
+      const color = type === 'inclusive'
+        ? 'bg-green-100 text-green-700 border-green-200'
+        : 'bg-amber-100 text-amber-700 border-amber-200';
+      const icon  = type === 'inclusive' ? '✅' : '❌';
+      return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${color}">${icon} ${bill}</span>`;
+    }
+
+    function proximityTag(facility) {
+      return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200">📍 ${facility}</span>`;
     }
 
     function boolBadge(val, trueLabel = 'Yes', falseLabel = 'No') {
@@ -766,25 +840,64 @@
         $('p-id').textContent          = `ID: ${p.id.substring(0, 12)}…`;
 
         $('p-price').textContent       = formatCurrency(p.price);
-        $('p-deposit').textContent     = p.securityDeposit ? formatCurrency(p.securityDeposit) : '—';
-        $('p-rooms').textContent       = p.rooms      || '—';
-        $('p-bathrooms').textContent   = p.bathrooms  || '—';
+        $('p-deposit').textContent     = p.depositNotApplicable ? 'N/A' : (p.securityDeposit ? formatCurrency(p.securityDeposit) : '—');
+        $('p-rooms').textContent       = p.rooms     || '—';
+        $('p-bathrooms').textContent   = p.bathrooms || '—';
 
         $('p-description').textContent = p.description || 'No description provided.';
 
         $('p-location-city').textContent    = p.city     || '—';
         $('p-location-address').textContent = p.location || '—';
 
+        // Coordinates
+        if (p.latitude && p.longitude && (p.latitude !== 0 || p.longitude !== 0)) {
+          $('coords-row').classList.remove('hidden');
+          $('p-coords').textContent = `${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`;
+        }
+
         $('p-contact').textContent = p.contactNumber || '—';
 
+        // Classification & type badges
+        if (p.classification) {
+          const cb = $('p-classification-badge');
+          cb.innerHTML = `${classificationIcon(p.classification)} ${p.classification}`;
+          cb.classList.remove('hidden');
+        }
+        if (p.propertyType) {
+          const tb = $('p-proptype-badge');
+          tb.innerHTML = `${typeIcon(p.propertyType)} ${p.propertyType}`;
+          tb.classList.remove('hidden');
+        }
+        if (p.locationType) {
+          const ltb = $('p-locationtype-badge');
+          ltb.innerHTML = `🏙 ${p.locationType}`;
+          ltb.classList.remove('hidden');
+        }
+        // Availability badge
+        const avBadge = $('p-availability-badge');
+        if (p.availabilityDate && p.availabilityDate !== '') {
+          avBadge.innerHTML = `📅 Available from ${p.availabilityDate}`;
+          avBadge.className = avBadge.className.replace('hidden', '') + ' bg-blue-50 text-blue-700 border border-blue-200';
+          avBadge.classList.remove('hidden');
+        } else {
+          avBadge.innerHTML = '✅ Available Now';
+          avBadge.className = avBadge.className.replace('hidden', '') + ' bg-green-50 text-green-700 border border-green-200';
+          avBadge.classList.remove('hidden');
+        }
+
         // Metadata panel
-        $('meta-id').textContent        = p.id;
-        $('meta-id').title              = p.id;
-        $('meta-type').textContent      = p.propertyType || '—';
-        $('meta-available').innerHTML   = boolBadge(p.isAvailable !== false, 'Yes', 'No');
-        $('meta-verified').innerHTML    = boolBadge(p.isVerified,  'Yes', 'No');
-        $('meta-flagged').innerHTML     = boolBadge(p.isFlagged,   '🚩 Yes', 'No');
-        $('meta-date').textContent      = formatDate(p.createdAt);
+        $('meta-id').textContent              = p.id;
+        $('meta-id').title                    = p.id;
+        $('meta-classification').textContent  = p.classification || '—';
+        $('meta-type').textContent            = p.propertyType   || '—';
+        $('meta-locationtype').textContent    = p.locationType   || '—';
+        $('meta-deposit').textContent         = p.depositNotApplicable ? 'Not Applicable'
+                                                : (p.securityDeposit ? formatCurrency(p.securityDeposit) : '—');
+        $('meta-available').innerHTML         = boolBadge(p.isAvailable !== false, 'Yes', 'No');
+        $('meta-availability-date').textContent = p.availabilityDate || 'Available Now';
+        $('meta-verified').innerHTML          = boolBadge(p.isVerified,  'Yes', 'No');
+        $('meta-flagged').innerHTML           = boolBadge(p.isFlagged,   '🚩 Yes', 'No');
+        $('meta-date').textContent            = formatDate(p.createdAt);
 
         // Amenities
         if (p.amenities && p.amenities.length > 0) {
@@ -793,6 +906,29 @@
           ).join('');
         } else {
           $('amenities-card').classList.add('hidden');
+        }
+
+        // Bills inclusive / exclusive
+        const hasInclusive = p.billsInclusive && p.billsInclusive.length > 0;
+        const hasExclusive = p.billsExclusive && p.billsExclusive.length > 0;
+        if (hasInclusive) {
+          $('bills-inclusive-row').classList.remove('hidden');
+          $('p-bills-inclusive').innerHTML = p.billsInclusive.map(b => billTag(b, 'inclusive')).join('');
+        }
+        if (hasExclusive) {
+          $('bills-exclusive-row').classList.remove('hidden');
+          $('p-bills-exclusive').innerHTML = p.billsExclusive.map(b => billTag(b, 'exclusive')).join('');
+        }
+        if (!hasInclusive && !hasExclusive) {
+          $('bills-empty').classList.remove('hidden');
+        }
+
+        // Proximity facilities
+        if (p.proximityFacilities && p.proximityFacilities.length > 0) {
+          $('p-proximity').innerHTML = p.proximityFacilities.map(f => proximityTag(f)).join('');
+          $('proximity-empty').classList.add('hidden');
+        } else {
+          $('proximity-empty').classList.remove('hidden');
         }
 
         // Action buttons

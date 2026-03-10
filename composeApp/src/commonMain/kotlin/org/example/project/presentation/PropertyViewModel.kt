@@ -36,7 +36,9 @@ enum class SortOption(val label: String) {
 data class PropertyFilter(
     val minPrice: Double? = null,           // null = no lower bound
     val maxPrice: Double? = null,           // null = no upper bound
-    val propertyTypes: Set<String> = emptySet(),   // "apartment"|"house"|"room"|"commercial"
+    val propertyTypes: Set<String> = emptySet(),   // fine-grained property types
+    val classifications: Set<String> = emptySet(), // "Residential"|"Commercial"|etc.
+    val locationTypes: Set<String> = emptySet(),   // "Low Density"|"High Density"|etc.
     val minBedrooms: Int? = null,           // null = any
     val maxBedrooms: Int? = null,
     val minBathrooms: Int? = null,          // null = any
@@ -48,6 +50,8 @@ data class PropertyFilter(
     val isActive: Boolean get() =
         minPrice != null || maxPrice != null ||
         propertyTypes.isNotEmpty() ||
+        classifications.isNotEmpty() ||
+        locationTypes.isNotEmpty() ||
         minBedrooms != null || maxBedrooms != null ||
         minBathrooms != null ||
         availableOnly || verifiedOnly ||
@@ -57,6 +61,8 @@ data class PropertyFilter(
     val activeCount: Int get() = listOfNotNull(
         if (minPrice != null || maxPrice != null) "price" else null,
         if (propertyTypes.isNotEmpty()) "type" else null,
+        if (classifications.isNotEmpty()) "class" else null,
+        if (locationTypes.isNotEmpty()) "loctype" else null,
         if (minBedrooms != null || maxBedrooms != null) "beds" else null,
         if (minBathrooms != null) "baths" else null,
         if (availableOnly) "available" else null,
@@ -77,21 +83,37 @@ sealed class PropertyFormState {
 // Draft state — survives navigation between AddPropertyScreen ↔ PropertyImagesScreen
 // ---------------------------------------------------------------------------
 data class PropertyDraft(
-    val title:           String = "",
-    val price:           String = "",
-    val securityDeposit: String = "",
-    val rooms:           String = "",
-    val bathrooms:       String = "",
-    val description:     String = "",
-    val propType:        String = "apartment",
-    val houseAndStreet:  String = "",
-    val townOrCity:      String = "Gweru",
-    val suburb:          String = "",
-    val country:         String = "Zimbabwe",
-    val contact:         String = "",
-    val amenityKeys:     Set<String> = emptySet(),
+    val title:                String = "",
+    val price:                String = "",
+    val securityDeposit:      String = "",
+    val depositNotApplicable: Boolean = false,
+    val rooms:                String = "",
+    val customBedroomDetails: String = "",
+    val bathrooms:            String = "",
+    val bathroomType:         String = "",
+    val customBathroomDetails: String = "",
+    val hasSharedKitchen:     Boolean = false,
+    val kitchenCount:         String = "",
+    val description:          String = "",
+    val classification:       String = "Residential",
+    val propType:             String = "Apartment",
+    val locationType:         String = "",
+    val billsInclusive:       Set<String> = emptySet(),
+    val billsExclusive:       Set<String> = emptySet(),
+    val roomQuantity:         String = "",
+    val proximityFacilities:  Set<String> = emptySet(),
+    val latitude:             String = "",
+    val longitude:            String = "",
+    val availabilityDate:     String = "",
+    val tenantRequirements:   Set<String> = emptySet(),
+    val houseAndStreet:       String = "",
+    val townOrCity:           String = "Gweru",
+    val suburb:               String = "",
+    val country:              String = "Zimbabwe",
+    val contact:              String = "",
+    val amenityKeys:          Set<String> = emptySet(),
     // Temporarily holds picked images so they survive back-navigation
-    val pickedImages:    List<PickedImage> = emptyList()
+    val pickedImages:         List<PickedImage> = emptyList()
 )
 
 class PropertyViewModel : ViewModel() {
@@ -151,9 +173,19 @@ class PropertyViewModel : ViewModel() {
         filter.minPrice?.let { min -> result = result.filter { it.price >= min } }
         filter.maxPrice?.let { max -> result = result.filter { it.price <= max } }
 
-        // Property type
+        // Property type (fine-grained)
         if (filter.propertyTypes.isNotEmpty()) {
             result = result.filter { it.propertyType in filter.propertyTypes }
+        }
+
+        // Classification
+        if (filter.classifications.isNotEmpty()) {
+            result = result.filter { it.classification in filter.classifications }
+        }
+
+        // Location type
+        if (filter.locationTypes.isNotEmpty()) {
+            result = result.filter { it.locationType in filter.locationTypes }
         }
 
         // Bedrooms

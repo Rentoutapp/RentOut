@@ -88,6 +88,7 @@
           <tr class="bg-gray-50 border-b border-gray-100">
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Property</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">City</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Classification</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Price</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Landlord</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -175,7 +176,7 @@
 
     function showTableLoading() {
       document.getElementById('props-table').innerHTML =
-        `<tr><td colspan="7" class="px-6 py-16 text-center">
+        `<tr><td colspan="8" class="px-6 py-16 text-center">
            <div class="flex flex-col items-center gap-3">
              <div class="spinner w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
              <span class="text-gray-400 text-sm">Loading properties from Firestore...</span>
@@ -219,7 +220,7 @@
         : allProperties.filter(p => p.status === currentFilter);
       const tbody = document.getElementById('props-table');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center">
+        tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-16 text-center">
           <div class="flex flex-col items-center gap-2">
             <span class="text-4xl">??</span>
             <span class="text-gray-400 font-medium">No ${currentFilter === 'all' ? '' : currentFilter} properties found.</span>
@@ -252,6 +253,12 @@
           </td>
           <td class="px-4 py-3 text-sm text-gray-600">
             <div class="flex items-center gap-1"><span class="text-rose-400">??</span>${p.city || '—'}</div>
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex flex-col gap-1">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${p.classification === 'Residential' ? 'bg-green-100 text-green-700' : p.classification === 'Commercial' ? 'bg-blue-100 text-blue-700' : p.classification === 'Industrial' ? 'bg-orange-100 text-orange-700' : p.classification === 'Land' ? 'bg-yellow-100 text-yellow-700' : 'bg-purple-100 text-purple-700'}">${p.classification || 'Residential'}</span>
+              <span class="text-xs text-gray-400">${p.propertyType || '—'}</span>
+            </div>
           </td>
           <td class="px-4 py-3">
             <div class="font-bold text-gray-800 text-sm">$${Number(p.price || 0).toLocaleString()}<span class="font-normal text-gray-400 text-xs">/mo</span></div>
