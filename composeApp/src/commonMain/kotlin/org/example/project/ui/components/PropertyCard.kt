@@ -150,32 +150,33 @@ fun PropertyCard(
                             fontWeight = FontWeight.Medium
                         )
                     }
-                    // Provider subtype chip
-                    val providerChipText = when (property.providerSubtype) {
-                        "agent"     -> "🤝 Agent"
-                        "brokerage" -> "🏢 Brokerage"
-                        else        -> ""
-                    }
-                    if (providerChipText.isNotBlank()) {
-                        Spacer(Modifier.width(6.dp))
-                        val chipColor = when (property.providerSubtype) {
-                            "agent"     -> Color(0xFF00897B)
-                            "brokerage" -> Color(0xFF7C5CBF)
-                            else        -> Color.Transparent
-                        }
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = chipColor.copy(alpha = 0.12f)
-                        ) {
-                            Text(
-                                text = providerChipText,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = chipColor,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
+                }
+
+                // Listed by banner — bottom right of image
+                val listedByText = when (property.providerSubtype) {
+                    "agent"     -> "🤝 Agent"
+                    "brokerage" -> "🏢 Brokerage"
+                    else        -> "🏠 Landlord"
+                }
+                val listedByColor = when (property.providerSubtype) {
+                    "agent"     -> Color(0xFF00897B)
+                    "brokerage" -> Color(0xFF7C5CBF)
+                    else        -> RentOutColors.Primary
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(listedByColor.copy(alpha = 0.88f))
+                        .padding(horizontal = 9.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = listedByText,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
                 // Bottom-left city
                 Text(
@@ -290,7 +291,7 @@ fun PropertyCard(
                 Spacer(Modifier.height(10.dp))
                 // Badges row
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (property.isVerified) VerifiedBadge()
+                    if (property.isVerified) VerifiedBadge(property.providerSubtype)
                     AvailabilityBadge(property.isAvailable)
                     if (showActions) StatusBadge(property.status)
                 }

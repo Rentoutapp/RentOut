@@ -251,18 +251,22 @@ fun PropertyDetailScreen(
                             "brokerage" -> Color(0xFF7C5CBF)
                             else        -> MaterialTheme.colorScheme.primary
                         }
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = providerColor.copy(alpha = 0.10f),
-                            modifier = Modifier.wrapContentWidth()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            Text(
-                                text = providerLabel,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = providerColor,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                            )
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = providerColor.copy(alpha = 0.10f)
+                            ) {
+                                Text(
+                                    text = providerLabel,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = providerColor,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(8.dp))
@@ -291,7 +295,7 @@ fun PropertyDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (property.isVerified) VerifiedBadge()
+                                if (property.isVerified) VerifiedBadge(property.providerSubtype)
                                 AvailabilityBadge(property.isAvailable)
                             }
                         }
@@ -455,7 +459,19 @@ fun PropertyDetailScreen(
                     }
                 }
 
-                // Action button (right)
+                // Action button — hidden on the Contact tab (the tab has its own unlock button,
+                // so showing it here too is redundant). Animates in/out smoothly.
+                AnimatedVisibility(
+                    visible = selectedTab != TenantDetailTab.CONTACT,
+                    enter = fadeIn(tween(250)) + slideInHorizontally(
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                        initialOffsetX = { it }
+                    ),
+                    exit  = fadeOut(tween(200)) + slideOutHorizontally(
+                        animationSpec = tween(220, easing = FastOutSlowInEasing),
+                        targetOffsetX = { it }
+                    )
+                ) {
                 if (isUnlocked) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -543,7 +559,8 @@ fun PropertyDetailScreen(
                             )
                         }
                     }
-                }
+                } // end if (isUnlocked)
+                } // end AnimatedVisibility (action button)
             }
         }
     }
