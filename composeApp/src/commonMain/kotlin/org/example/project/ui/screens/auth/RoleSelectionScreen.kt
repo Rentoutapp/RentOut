@@ -151,7 +151,7 @@ fun RoleSelectionScreen(
 
             Spacer(Modifier.height(40.dp))
 
-            // Property Provider card with animation and expandable subtypes
+            // Property Provider card — subtypes are directly clickable inside
             AnimatedVisibility(
                 visible = landlordCardVisible,
                 enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing)) +
@@ -160,55 +160,13 @@ fun RoleSelectionScreen(
                             initialOffsetY = { it / 2 }
                         )
             ) {
-                Column {
-                    ProviderRoleCard(
-                        isSelected = selectedRole == "landlord",
-                        onClick = {
-                            selectedRole = "landlord"
-                            if (selectedSubtype.isBlank()) selectedSubtype = "landlord"
-                        }
-                    )
-
-                    // Expandable subtype pills
-                    AnimatedVisibility(
-                        visible = selectedRole == "landlord",
-                        enter = expandVertically(animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMedium
-                        )) + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Spacer(Modifier.height(10.dp))
-                            ProviderSubtypePill(
-                                emoji = "🏠",
-                                title = "Landlord",
-                                subtitle = "I own the properties I list",
-                                subtype = "landlord",
-                                isSelected = selectedSubtype == "landlord",
-                                onSelect = { selectedSubtype = "landlord" }
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            ProviderSubtypePill(
-                                emoji = "🤝",
-                                title = "Freelancer Agent",
-                                subtitle = "I list on behalf of property owners",
-                                subtype = "agent",
-                                isSelected = selectedSubtype == "agent",
-                                onSelect = { selectedSubtype = "agent" }
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            ProviderSubtypePill(
-                                emoji = "🏢",
-                                title = "Brokerage",
-                                subtitle = "I represent a company or agency",
-                                subtype = "brokerage",
-                                isSelected = selectedSubtype == "brokerage",
-                                onSelect = { selectedSubtype = "brokerage" }
-                            )
-                        }
+                ProviderRoleCard(
+                    selectedSubtype = selectedSubtype,
+                    onSubtypeSelected = { subtype ->
+                        selectedRole    = "landlord"
+                        selectedSubtype = subtype
                     }
-                }
+                )
             }
 
             Spacer(Modifier.height(20.dp))
@@ -274,160 +232,165 @@ fun RoleSelectionScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Property Provider card — shows all 3 subtypes as preview badges before tap
+// Property Provider card — 3 directly-tappable subtype badges inside the card
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ProviderRoleCard(
-    isSelected: Boolean,
-    onClick: () -> Unit
+    selectedSubtype: String,
+    onSubtypeSelected: (String) -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val pulseScale = if (isSelected) rememberPulseAnimation(0.98f, 1.02f, 2000) else 1f
-
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "provider_card_scale"
-    )
+    val isDark   = isSystemInDarkTheme()
+    val isAnySelected = selectedSubtype.isNotBlank()
 
     val haloWidth by animateDpAsState(
-        targetValue = if (isSelected) 3.dp else 1.dp,
-        animationSpec = tween(300),
-        label = "provider_halo_width"
+        targetValue = if (isAnySelected) 3.dp else 1.dp,
+        animationSpec = tween(300), label = "provider_halo_width"
     )
-
     val haloColor by animateColorAsState(
-        targetValue = if (isSelected) RentOutColors.Primary
-        else if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-        else Color(0xFFE0E5ED),
-        animationSpec = tween(300),
-        label = "provider_halo_color"
+        targetValue = if (isAnySelected) RentOutColors.Primary
+                      else if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                      else Color(0xFFE0E5ED),
+        animationSpec = tween(300), label = "provider_halo_color"
     )
-
-    val checkScale by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "provider_check_scale"
-    )
-
     val cardBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
+
+    // Greeting text shown when a subtype is selected
+    val greetingText = when (selectedSubtype) {
+        "landlord"  -> "👋 Welcome, Landlord!"
+        "agent"     -> "👋 Welcome, Freelancer Agent!"
+        "brokerage" -> "👋 Welcome, Brokerage!"
+        else        -> ""
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale * pulseScale
-                scaleY = scale * pulseScale
-                shadowElevation = if (isSelected) 20f else 8f
-                shape = RoundedCornerShape(24.dp)
-                clip = false
-            }
             .border(haloWidth, haloColor, RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
             .background(cardBg)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(24.dp)
+            .padding(22.dp)
     ) {
         Column {
-            // ── Top row: icon box + title + checkmark ─────────────────────
+            // ── Header row ────────────────────────────────────────────────
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Icon box
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .size(58.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(RentOutColors.IconBlue.copy(alpha = if (isDark) 0.25f else 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "🏘️",
-                        fontSize = 30.sp,
+                        fontSize = 28.sp,
                         modifier = Modifier.graphicsLayer {
-                            rotationZ = if (isSelected) 8f else 0f
-                            scaleX = if (isSelected) 1.1f else 1f
-                            scaleY = if (isSelected) 1.1f else 1f
+                            rotationZ = if (isAnySelected) 8f else 0f
+                            scaleX    = if (isAnySelected) 1.1f else 1f
+                            scaleY    = if (isAnySelected) 1.1f else 1f
                         }
                     )
                 }
-
-                Spacer(Modifier.width(20.dp))
-
+                Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Property Provider",
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(3.dp))
                     Text(
-                        text = "List properties & earn — tap to choose your type",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.85f else 0.7f),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                if (isSelected) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Selected",
-                        tint = RentOutColors.Primary,
-                        modifier = Modifier.size(28.dp).scale(checkScale)
+                        text = "List properties & earn — choose your type below",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                            alpha = if (isDark) 0.85f else 0.65f
+                        ),
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
 
-            // ── Preview badges row ────────────────────────────────────────
             Spacer(Modifier.height(16.dp))
+
+            // ── 3 clickable subtype tiles ─────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Landlord badge
-                ProviderPreviewBadge(
-                    emoji = "🏠",
-                    label = "Landlord",
-                    color = RentOutColors.IconBlue,
-                    modifier = Modifier.weight(1f)
+                ProviderSubtypeTile(
+                    emoji    = "🏠",
+                    label    = "Landlord",
+                    sublabel = "I own the\nproperties I list",
+                    color    = RentOutColors.IconBlue,
+                    isSelected = selectedSubtype == "landlord",
+                    modifier = Modifier.weight(1f),
+                    onClick  = { onSubtypeSelected("landlord") }
                 )
-                // Agent badge
-                ProviderPreviewBadge(
-                    emoji = "🤝",
-                    label = "Agent",
-                    color = RentOutColors.IconTeal,
-                    modifier = Modifier.weight(1f)
+                ProviderSubtypeTile(
+                    emoji    = "🤝",
+                    label    = "Agent",
+                    sublabel = "I list on behalf\nof owners",
+                    color    = RentOutColors.IconTeal,
+                    isSelected = selectedSubtype == "agent",
+                    modifier = Modifier.weight(1f),
+                    onClick  = { onSubtypeSelected("agent") }
                 )
-                // Brokerage badge
-                ProviderPreviewBadge(
-                    emoji = "🏢",
-                    label = "Brokerage",
-                    color = RentOutColors.IconBlue,
-                    modifier = Modifier.weight(1f)
+                ProviderSubtypeTile(
+                    emoji    = "🏢",
+                    label    = "Brokerage",
+                    sublabel = "I represent\na company",
+                    color    = Color(0xFF7C5CBF),
+                    isSelected = selectedSubtype == "brokerage",
+                    modifier = Modifier.weight(1f),
+                    onClick  = { onSubtypeSelected("brokerage") }
                 )
             }
 
-            // ── Tap hint ─────────────────────────────────────────────────
-            if (!isSelected) {
-                Spacer(Modifier.height(12.dp))
+            // ── Greeting / hint row ───────────────────────────────────────
+            Spacer(Modifier.height(14.dp))
+            AnimatedVisibility(
+                visible = isAnySelected,
+                enter   = fadeIn(tween(300)) + expandVertically(),
+                exit    = fadeOut(tween(200)) + shrinkVertically()
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = RentOutColors.Primary.copy(alpha = 0.10f)
+                    ) {
+                        Text(
+                            text = greetingText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = RentOutColors.Primary,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                        )
+                    }
+                }
+            }
+            AnimatedVisibility(
+                visible = !isAnySelected,
+                enter   = fadeIn(),
+                exit    = fadeOut()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
                         Icons.Default.TouchApp,
                         contentDescription = null,
-                        tint = RentOutColors.Primary.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
+                        tint   = RentOutColors.Primary.copy(alpha = 0.55f),
+                        modifier = Modifier.size(13.dp)
                     )
                     Spacer(Modifier.width(5.dp))
                     Text(
-                        text = "Tap to select your provider type",
+                        text = "Tap a tile to select your provider type",
                         fontSize = 11.sp,
-                        color = RentOutColors.Primary.copy(alpha = 0.7f),
+                        color = RentOutColors.Primary.copy(alpha = 0.65f),
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -436,130 +399,110 @@ private fun ProviderRoleCard(
     }
 }
 
-@Composable
-private fun ProviderPreviewBadge(
-    emoji: String,
-    label: String,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    val isDark = isSystemInDarkTheme()
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = if (isDark) 0.18f else 0.09f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(text = emoji, fontSize = 20.sp)
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = label,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = color,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Individual subtype tile — tappable, animated checkmark, colour glow on select
+// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ProviderSubtypePill(
-    emoji: String,
-    title: String,
-    subtitle: String,
-    subtype: String,
+private fun ProviderSubtypeTile(
+    emoji:      String,
+    label:      String,
+    sublabel:   String,
+    color:      Color,
     isSelected: Boolean,
-    onSelect: () -> Unit
+    modifier:   Modifier = Modifier,
+    onClick:    () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    
+
     val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.96f
-            else -> 1f
-        },
+        targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "pill_scale"
+        label = "tile_scale"
     )
-    
+    val bgAlpha by animateFloatAsState(
+        targetValue = if (isSelected) (if (isDark) 0.30f else 0.13f) else (if (isDark) 0.12f else 0.06f),
+        animationSpec = tween(250), label = "tile_bg"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 2.dp else 1.dp,
+        animationSpec = tween(200), label = "tile_border_w"
+    )
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) RentOutColors.Primary else {
-            if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f) else Color(0xFFE0E5ED)
-        },
-        animationSpec = tween(300),
-        label = "pill_border_color"
+        targetValue = if (isSelected) color else color.copy(alpha = 0.25f),
+        animationSpec = tween(250), label = "tile_border_c"
     )
-    
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .border(
-                width = 2.dp,
-                color = borderColor,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onSelect),
-        shape = RoundedCornerShape(14.dp),
-        color = if (isDark) MaterialTheme.colorScheme.surface else Color.White,
-        tonalElevation = if (isSelected) 8.dp else 0.dp
+    val checkScale by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "tile_check"
+    )
+    val emojiScale by animateFloatAsState(
+        targetValue = if (isSelected) 1.18f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "tile_emoji_scale"
+    )
+
+    Box(
+        modifier = modifier
+            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(color.copy(alpha = bgAlpha))
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(vertical = 12.dp, horizontal = 8.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = emoji,
-                    fontSize = 24.sp,
-                    modifier = Modifier.padding(end = 12.dp)
+            // Checkmark — top right corner
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Spacer(Modifier.fillMaxWidth())
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = "Selected",
+                    tint     = color,
+                    modifier = Modifier
+                        .size(16.dp)
+                        .scale(checkScale)
+                        .align(Alignment.TopEnd)
                 )
-                
-                Column {
-                    Text(
-                        text = title,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = subtitle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                            alpha = if (isDark) 0.75f else 0.65f
-                        ),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
             }
-            
-            Spacer(Modifier.width(12.dp))
-            
-            RadioButton(
-                selected = isSelected,
-                onClick = onSelect,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = RentOutColors.Primary
-                )
+
+            Spacer(Modifier.height(2.dp))
+
+            // Emoji
+            Text(
+                text = emoji,
+                fontSize = 26.sp,
+                modifier = Modifier.graphicsLayer {
+                    scaleX = emojiScale; scaleY = emojiScale
+                }
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            // Label
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isSelected) color else MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(3.dp))
+
+            // Sublabel
+            Text(
+                text = sublabel,
+                fontSize = 9.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.7f else 0.6f),
+                textAlign = TextAlign.Center,
+                lineHeight = 12.sp
             )
         }
     }
