@@ -485,6 +485,13 @@ fun EditPropertyImagesScreen(
                     Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     Spacer(Modifier.height(12.dp))
 
+                    // ── Residential mandatory photo banner ────────────────────
+                    val isResidential = property.classification.equals("Residential", ignoreCase = true)
+                    if (isResidential) {
+                        ResidentialPhotoBannerEdit()
+                        Spacer(Modifier.height(12.dp))
+                    }
+
                     // ── Image grid ────────────────────────────────────────────
                     if (totalCount == 0) {
                         // Empty state
@@ -535,9 +542,10 @@ fun EditPropertyImagesScreen(
 
                     // ── Save button ───────────────────────────────────────────
                     EditSaveButton(
-                        isLoading  = isLoading,
-                        totalCount = totalCount,
-                        onClick    = {
+                        isLoading     = isLoading,
+                        totalCount    = totalCount,
+                        isResidential = isResidential,
+                        onClick       = {
                             println("💾 EditPropertyImagesScreen: Save button clicked")
                             println("   keptRemoteUrls (${keptRemoteUrls.size}): $keptRemoteUrls")
                             println("   newImages count: ${newImages.size}")
@@ -845,10 +853,74 @@ private fun LegendChip(color: Color, label: String) {
     }
 }
 
+// ── Residential mandatory photo requirements banner (Edit screen) ─────────────
+@Composable
+private fun ResidentialPhotoBannerEdit() {
+    val infiniteTransition = rememberInfiniteTransition(label = "edit_banner_pulse")
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "edit_border_alpha"
+    )
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.5.dp,
+                color = Color(0xFFF59E0B).copy(alpha = borderAlpha),
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFFFFBEB)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text = "⚠️", fontSize = 16.sp)
+                Text(
+                    text = "Mandatory Photos Required",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF92400E)
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Residential listings must include at least 5 photos covering:",
+                fontSize = 12.sp,
+                color = Color(0xFF78350F)
+            )
+            Spacer(Modifier.height(4.dp))
+            val requirements = listOf(
+                "🚿  The bathroom",
+                "🚽  The toilet",
+                "📐  At least 3 angles of each room"
+            )
+            requirements.forEach { req ->
+                Row(
+                    modifier = Modifier.padding(start = 8.dp, top = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = req, fontSize = 12.sp, color = Color(0xFF92400E))
+                }
+            }
+        }
+    }
+}
+
 // ── Save button ───────────────────────────────────────────────────────────────
 @Composable
-private fun EditSaveButton(isLoading: Boolean, totalCount: Int, onClick: () -> Unit) {
-    val enabled = totalCount > 0 && !isLoading
+private fun EditSaveButton(
+    isLoading: Boolean,
+    totalCount: Int,
+    isResidential: Boolean,
+    onClick: () -> Unit
+) {
+    val minRequired = if (isResidential) 5 else 1
+    val enabled = totalCount >= minRequired && !isLoading
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -897,7 +969,11 @@ private fun EditSaveButton(isLoading: Boolean, totalCount: Int, onClick: () -> U
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    if (totalCount == 0) "Add at least one photo" else "Save Photos",
+                    when {
+                        totalCount == 0 -> "Add at least one photo"
+                        isResidential && totalCount < minRequired -> "Add ${minRequired - totalCount} more photo${if (minRequired - totalCount != 1) "s" else ""} to save"
+                        else -> "Save Photos"
+                    },
                     color = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp

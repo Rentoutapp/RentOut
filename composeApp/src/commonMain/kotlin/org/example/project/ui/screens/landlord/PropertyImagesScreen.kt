@@ -45,6 +45,64 @@ import org.example.project.ui.util.PickedImage
 import org.example.project.ui.util.rememberImagePickerLauncher
 import org.example.project.ui.components.RemoveImageConfirmationDialog
 
+// ── Residential mandatory photo requirements banner ───────────────────────────
+@Composable
+private fun ResidentialPhotoBanner() {
+    val infiniteTransition = rememberInfiniteTransition(label = "banner_pulse")
+    val borderAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "border_alpha"
+    )
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.5.dp,
+                color = Color(0xFFF59E0B).copy(alpha = borderAlpha),
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFFFFBEB)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(text = "⚠️", fontSize = 16.sp)
+                Text(
+                    text = "Mandatory Photos Required",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF92400E)
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Residential listings must include at least 5 photos covering:",
+                fontSize = 12.sp,
+                color = Color(0xFF78350F)
+            )
+            Spacer(Modifier.height(4.dp))
+            val requirements = listOf(
+                "🚿  The bathroom",
+                "🚽  The toilet",
+                "📐  At least 3 angles of each room"
+            )
+            requirements.forEach { req ->
+                Row(
+                    modifier = Modifier.padding(start = 8.dp, top = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = req, fontSize = 12.sp, color = Color(0xFF92400E))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun PropertyImagesScreen(
     property: Property,
@@ -197,6 +255,13 @@ fun PropertyImagesScreen(
                     Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
                     Spacer(Modifier.height(16.dp))
 
+                    // ── Residential mandatory photo banner ──
+                    val isResidential = property.classification.equals("Residential", ignoreCase = true)
+                    if (isResidential) {
+                        ResidentialPhotoBanner()
+                        Spacer(Modifier.height(16.dp))
+                    }
+
                     // ── Image grid or empty state ──
                     if (pickedImages.isEmpty()) {
                         ImageEmptyState(onAddClick = { showSourceDialog = true })
@@ -232,9 +297,10 @@ fun PropertyImagesScreen(
 
                     // ── Submit for Review button ──
                     SubmitForReviewButton(
-                        imageCount = pickedImages.size,
-                        isLoading  = isLoading,
-                        onClick    = {
+                        imageCount    = pickedImages.size,
+                        isLoading     = isLoading,
+                        isResidential = isResidential,
+                        onClick       = {
                             onSubmit(property, pickedImages.map { it.bytes })
                         }
                     )
@@ -487,10 +553,15 @@ private fun AddMoreImageTile(onClick: () -> Unit) {
 
 // ── Submit for Review button — morphs into an animated loading bar ──
 @Composable
-private fun SubmitForReviewButton(imageCount: Int, isLoading: Boolean, onClick: () -> Unit) {
-
+private fun SubmitForReviewButton(
+    imageCount: Int,
+    isLoading: Boolean,
+    isResidential: Boolean,
+    onClick: () -> Unit
+) {
     // ── States ────────────────────────────────────────────────────────────────
-    val enabled = imageCount > 0 && !isLoading
+    val minRequired = if (isResidential) 5 else 1
+    val enabled = imageCount >= minRequired && !isLoading
 
     // Simulated upload progress: 0f → 1f over ~2.8 s while isLoading is true
     var simulatedProgress by remember { mutableStateOf(0f) }
@@ -708,7 +779,11 @@ private fun SubmitForReviewButton(imageCount: Int, isLoading: Boolean, onClick: 
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = if (imageCount == 0) "Add photos to submit" else "Submit for Review",
+                        text = when {
+                            imageCount == 0 -> "Add photos to submit"
+                            isResidential && imageCount < minRequired -> "Add ${minRequired - imageCount} more photo${if (minRequired - imageCount != 1) "s" else ""} to submit"
+                            else -> "Submit for Review"
+                        },
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.3.sp,

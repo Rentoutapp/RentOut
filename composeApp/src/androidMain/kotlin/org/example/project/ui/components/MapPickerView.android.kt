@@ -22,7 +22,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -196,6 +198,8 @@ actual fun MapPickerView(
             }
     }
 
+    val rootView = LocalView.current
+
     Column(modifier = modifier.fillMaxWidth()) {
 
         // Nested scroll interceptor — consumes all scroll so parent column doesn't move
@@ -215,6 +219,20 @@ actual fun MapPickerView(
                 .height(280.dp)
                 .clip(RoundedCornerShape(18.dp))
                 .nestedScroll(mapScrollConsumer)
+                // Disallow parent scroll from intercepting ANY touch on the map.
+                // When a finger goes down on the map, we tell the parent view hierarchy
+                // to stop intercepting touch events so the map can handle all gestures
+                // (pan, pinch-zoom, drag marker) without the screen scrolling.
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            // As soon as any finger is on the map, lock out the parent scroller
+                            val hasFingerDown = event.changes.any { it.pressed }
+                            rootView.parent?.requestDisallowInterceptTouchEvent(hasFingerDown)
+                        }
+                    }
+                }
         ) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),

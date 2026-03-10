@@ -716,7 +716,7 @@ fun AddPropertyScreen(
                         hasDescription     = description.isNotBlank(),
                         hasAddress         = address.isComplete,
                         hasContact         = contact.isNotBlank(),
-                        hasAvailability    = availabilityDate.isNotBlank(),
+                        hasAvailability    = availabilityDate.isEmpty() || (availabilityDate.isNotBlank() && availabilityDate != "Select Date"),
                         hasTenantReqs      = tenantRequirements.isNotEmpty(),
                         hasProximity       = proximityFacilities.isNotEmpty()
                     )
