@@ -7,6 +7,7 @@ data class Property(
     val id: String = "",
     val landlordId: String = "",
     val landlordName: String = "",
+    val providerSubtype: String = "",   // "landlord" | "agent" | "brokerage" | ""
     val title: String = "",
     val location: String = "",
     val city: String = "",

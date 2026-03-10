@@ -240,6 +240,33 @@ fun PropertyDetailScreen(
                     Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp)) {
 
                         // ── Property type + badges row ───────────────────────
+                        // Provider subtype badge — full width row
+                        val providerLabel = when (property.providerSubtype) {
+                            "agent"     -> "🤝 Listed by Agent"
+                            "brokerage" -> "🏢 Listed by Brokerage"
+                            else        -> "🏠 Listed by Landlord"
+                        }
+                        val providerColor = when (property.providerSubtype) {
+                            "agent"     -> Color(0xFF00897B)
+                            "brokerage" -> Color(0xFF7C5CBF)
+                            else        -> MaterialTheme.colorScheme.primary
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = providerColor.copy(alpha = 0.10f),
+                            modifier = Modifier.wrapContentWidth()
+                        ) {
+                            Text(
+                                text = providerLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = providerColor,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                            )
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -251,13 +278,13 @@ fun PropertyDetailScreen(
                             ) {
                                 Icon(
                                     Icons.Default.Apartment, null,
-                                    tint = DetailNavy,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
                                     property.propertyType.replaceFirstChar { it.uppercase() },
                                     fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                    color = DetailNavy
+                                    color = MaterialTheme.colorScheme.primary
                                 )
                             }
                             Row(

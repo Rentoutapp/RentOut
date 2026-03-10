@@ -306,18 +306,20 @@ class PropertyViewModel : ViewModel() {
                     ref.getDownloadUrl()
                 }
 
-                val userDoc      = db.collection("users").document(uid).get()
-                val landlordName = userDoc.get("name") as? String ?: ""
+                val userDoc         = db.collection("users").document(uid).get()
+                val landlordName    = userDoc.get("name") as? String ?: ""
+                val providerSubtype = userDoc.get("providerSubtype") as? String ?: ""
 
                 val finalProperty = property.copy(
-                    id           = docRef.id,
-                    landlordId   = uid,
-                    landlordName = landlordName,
-                    imageUrl     = imageUrls.firstOrNull() ?: "",
-                    imageUrls    = imageUrls,
-                    status       = "pending",
-                    isVerified   = false,
-                    createdAt    = System.currentTimeMillis()
+                    id              = docRef.id,
+                    landlordId      = uid,
+                    landlordName    = landlordName,
+                    providerSubtype = providerSubtype,
+                    imageUrl        = imageUrls.firstOrNull() ?: "",
+                    imageUrls       = imageUrls,
+                    status          = "pending",
+                    isVerified      = false,
+                    createdAt       = System.currentTimeMillis()
                 )
 
                 docRef.set(finalProperty)

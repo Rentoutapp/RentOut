@@ -150,6 +150,32 @@ fun PropertyCard(
                             fontWeight = FontWeight.Medium
                         )
                     }
+                    // Provider subtype chip
+                    val providerChipText = when (property.providerSubtype) {
+                        "agent"     -> "🤝 Agent"
+                        "brokerage" -> "🏢 Brokerage"
+                        else        -> ""
+                    }
+                    if (providerChipText.isNotBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        val chipColor = when (property.providerSubtype) {
+                            "agent"     -> Color(0xFF00897B)
+                            "brokerage" -> Color(0xFF7C5CBF)
+                            else        -> Color.Transparent
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = chipColor.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = providerChipText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = chipColor,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
                 // Bottom-left city
                 Text(
