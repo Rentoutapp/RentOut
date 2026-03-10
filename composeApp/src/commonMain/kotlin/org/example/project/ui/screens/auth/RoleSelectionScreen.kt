@@ -23,6 +23,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.Image
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -230,12 +234,13 @@ fun RoleSelectionScreen(
 // ─────────────────────────────────────────────────────────────────────────────
 
 private data class ProviderTileData(
-    val subtype:  String,
-    val emoji:    String,
-    val label:    String,
-    val sublabel: String,
-    val greeting: String,
-    val color:    Color
+    val subtype:    String,
+    val emoji:      String,
+    val drawableRes: Int,       // Android drawable resource ID for the PNG icon
+    val label:      String,
+    val sublabel:   String,
+    val greeting:   String,
+    val color:      Color
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,9 +257,9 @@ private fun ProviderRoleCard(
 
     val tiles = remember {
         listOf(
-            ProviderTileData("landlord",  "🏠", "Landlord",         "I own the\nproperties I list",    "👋 Welcome, Landlord!",          Color(0xFF2196F3)),
-            ProviderTileData("agent",     "🤝", "Freelancer Agent", "I list on behalf\nof owners",     "👋 Welcome, Freelancer Agent!",   Color(0xFF00897B)),
-            ProviderTileData("brokerage", "🏢", "Brokerage",        "I represent\na company",          "👋 Welcome, Brokerage!",          Color(0xFF7C5CBF))
+            ProviderTileData("landlord",  "🏠", org.example.project.R.drawable.landlord,  "Landlord",         "I own the\nproperties I list",    "👋 Welcome, Landlord!",          Color(0xFF2196F3)),
+            ProviderTileData("agent",     "🤝", org.example.project.R.drawable.agent,     "Freelancer Agent", "I list on behalf\nof owners",     "👋 Welcome, Freelancer Agent!",   Color(0xFF00897B)),
+            ProviderTileData("brokerage", "🏢", org.example.project.R.drawable.brokerage, "Brokerage",        "I represent\na company",          "👋 Welcome, Brokerage!",          Color(0xFF7C5CBF))
         )
     }
 
@@ -541,10 +546,12 @@ private fun ProviderSubtypeTile(
                 )
             }
 
-            // Emoji — size-animates
-            Text(
-                text     = tile.emoji,
-                fontSize = emojiSize.sp
+            // PNG icon — size-animates, centred
+            Image(
+                painter            = painterResource(id = tile.drawableRes),
+                contentDescription = tile.label,
+                modifier           = Modifier.size(emojiSize.dp),
+                contentScale       = ContentScale.Fit
             )
 
             Spacer(Modifier.height(5.dp))

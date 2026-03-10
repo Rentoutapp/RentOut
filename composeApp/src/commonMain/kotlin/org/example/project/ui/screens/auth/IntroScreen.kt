@@ -24,7 +24,6 @@ fun IntroScreen(onGetStarted: () -> Unit) {
 
     // ── Animation stage flags ─────────────────────────────────────────────
     var videoEnded     by remember { mutableStateOf(false) }
-    var showTagline    by remember { mutableStateOf(false) }
     var showPills      by remember { mutableStateOf(false) }
     var showTrustLine  by remember { mutableStateOf(false) }
     var showScrim      by remember { mutableStateOf(false) }
@@ -43,23 +42,19 @@ fun IntroScreen(onGetStarted: () -> Unit) {
 
         // 1. Fade in the gradient scrim so text becomes readable
         showScrim = true
-        delay(300)
+        delay(400)
 
-        // 2. Tagline slides up
-        showTagline = true
+        // 2. Pills pop in
+        showPills = true
         delay(700)
 
-        // 3. Pills pop in
-        showPills = true
-        delay(600)
-
-        // 4. Trust line fades in
+        // 3. Trust line fades in
         showTrustLine = true
 
-        // 5. Hold so the user can read everything comfortably
-        delay(3_000)
+        // 4. Hold so the user can read everything comfortably
+        delay(3_200)
 
-        // 6. Auto-navigate
+        // 5. Auto-navigate
         onGetStarted()
     }
 
@@ -102,31 +97,6 @@ fun IntroScreen(onGetStarted: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
-
-            // ── Tagline — slides up + fades in ────────────────────────────
-            AnimatedVisibility(
-                visible = showTagline,
-                enter   = slideInVertically(
-                    animationSpec  = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness    = Spring.StiffnessMedium
-                    ),
-                    initialOffsetY = { it / 2 }
-                ) + fadeIn(tween(600))
-            ) {
-                Text(
-                    text      = "Zimbabwe's Premier\nRental Marketplace",
-                    color     = Color.White.copy(alpha = 0.97f),
-                    textAlign = TextAlign.Center,
-                    style     = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize   = 24.sp,
-                        lineHeight = 32.sp
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
 
             // ── Pills — each pops in with a spring scale ──────────────────
             AnimatedVisibility(
