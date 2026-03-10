@@ -164,7 +164,7 @@ fun IntroScreen(onGetStarted: () -> Unit) {
                 )
             }
 
-            Spacer(Modifier.height(200.dp))
+            Spacer(Modifier.height(80.dp))
         }
     }
 }
