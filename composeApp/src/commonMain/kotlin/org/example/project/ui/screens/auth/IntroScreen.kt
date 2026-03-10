@@ -11,7 +11,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -20,156 +19,106 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.example.project.ui.components.IntroVideoPlayer
-import org.example.project.ui.components.RentOutPrimaryButton
-import org.example.project.ui.theme.RentOutColors
 
 @Composable
 fun IntroScreen(onGetStarted: () -> Unit) {
-    // videoEnded = true either when video finishes or as a fallback after a timeout
     var videoEnded   by remember { mutableStateOf(false) }
     var overlayReady by remember { mutableStateOf(false) }
 
-    // Safety timeout — if video never fires onVideoEnded (e.g. missing file),
-    // we still show the UI after 6 seconds so the user is never stuck.
+    // Safety timeout — navigate regardless after 6 s if video never fires onVideoEnded
     LaunchedEffect(Unit) {
         delay(6_000)
         videoEnded = true
     }
 
-    // Animate the logo + text overlay in once video ends
+    // Once video ends: show overlay briefly, then auto-navigate
     LaunchedEffect(videoEnded) {
         if (videoEnded) {
-            delay(120)
+            delay(150)   // tiny pause so overlay animates in cleanly
             overlayReady = true
+            delay(2_200) // let the user read the overlay, then navigate
+            onGetStarted()
         }
     }
 
-    val logoScale by animateFloatAsState(
-        targetValue = if (overlayReady) 1f else 0.4f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness    = Spring.StiffnessLow
-        ),
-        label = "logo_scale"
-    )
     val contentAlpha by animateFloatAsState(
-        targetValue = if (overlayReady) 1f else 0f,
-        animationSpec = tween(700, easing = FastOutSlowInEasing),
+        targetValue   = if (overlayReady) 1f else 0f,
+        animationSpec = tween(800, easing = FastOutSlowInEasing),
         label = "content_alpha"
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Full-screen video (behind everything) ─────────────────────────
+        // ── Full-screen video ─────────────────────────────────────────────
         IntroVideoPlayer(
-            modifier    = Modifier.fillMaxSize(),
+            modifier     = Modifier.fillMaxSize(),
             onVideoEnded = { videoEnded = true }
         )
 
-        // ── Dark gradient scrim over video ────────────────────────────────
-        // Always visible so the logo/text is readable even before the video ends
+        // ── Gradient scrim (always visible for readability) ───────────────
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f to Color.Black.copy(alpha = 0.25f),
-                            0.5f to Color.Black.copy(alpha = 0.15f),
-                            0.75f to Color.Black.copy(alpha = 0.55f),
-                            1.0f to Color.Black.copy(alpha = 0.85f)
+                            0.00f to Color.Black.copy(alpha = 0.20f),
+                            0.45f to Color.Black.copy(alpha = 0.10f),
+                            0.72f to Color.Black.copy(alpha = 0.50f),
+                            1.00f to Color.Black.copy(alpha = 0.88f)
                         )
                     )
                 )
         )
 
-        // ── Content overlay (fades in after video ends) ───────────────────
+        // ── Overlay content ───────────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(32.dp),
+                .padding(horizontal = 28.dp)
+                .alpha(contentAlpha),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Bottom
         ) {
-            // ── Top: Logo + app name ──────────────────────────────────────
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
-                    .padding(top = 64.dp)
-                    .alpha(contentAlpha)
-            ) {
-                // Logo wordmark
-                Box(
-                    modifier = Modifier
-                        .scale(logoScale)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.12f))
-                        .padding(horizontal = 24.dp, vertical = 14.dp)
-                ) {
-                    Text(
-                        text = "RentOut",
-                        color = Color.White,
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-1.2).sp
-                    )
-                }
+            // Logo image (already contains the RentOut name — no duplicate text)
+            // The logo is displayed by the parent screen/splash; here we show
+            // only the tagline, pills, and trust line below the video overlay.
 
-                Spacer(Modifier.height(14.dp))
-
-                Text(
-                    text = "Zimbabwe's Premier\nRental Marketplace",
-                    color = Color.White.copy(alpha = 0.92f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontSize = 17.sp,
-                        lineHeight = 25.sp
-                    )
+            // ── Tagline ───────────────────────────────────────────────────
+            Text(
+                text      = "Zimbabwe's Premier\nRental Marketplace",
+                color     = Color.White.copy(alpha = 0.95f),
+                textAlign = TextAlign.Center,
+                style     = MaterialTheme.typography.headlineSmall.copy(
+                    fontWeight   = FontWeight.Bold,
+                    fontSize     = 22.sp,
+                    lineHeight   = 30.sp
                 )
+            )
 
-                Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
 
-                // Feature pills
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    IntroPill("🏠 List Properties")
-                    IntroPill("🔑 Find Rentals")
-                    IntroPill("✅ Verified")
-                }
-            }
-
-            // ── Bottom: CTA button (slides up after video ends) ───────────
-            AnimatedVisibility(
-                visible = overlayReady,
-                enter   = slideInVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness    = Spring.StiffnessMedium
-                    ),
-                    initialOffsetY = { it }
-                ) + fadeIn(tween(500))
+            // ── Feature pills ─────────────────────────────────────────────
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.wrapContentWidth()
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 32.dp)
-                ) {
-                    RentOutPrimaryButton(
-                        text     = "Get Started →",
-                        onClick  = onGetStarted,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Text(
-                        "Trusted by landlords & tenants across Zimbabwe",
-                        fontSize  = 12.sp,
-                        color     = Color.White.copy(alpha = 0.60f),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                IntroPill("🏠 List Properties")
+                IntroPill("🔑 Find Rentals")
+                IntroPill("✅ Verified")
             }
+
+            Spacer(Modifier.height(28.dp))
+
+            // ── Trust line ────────────────────────────────────────────────
+            Text(
+                text      = "Trusted by landlords & tenants across Zimbabwe",
+                fontSize  = 12.sp,
+                color     = Color.White.copy(alpha = 0.58f),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(48.dp))
         }
     }
 }
@@ -179,14 +128,14 @@ private fun IntroPill(text: String) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White.copy(alpha = 0.15f))
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .background(Color.White.copy(alpha = 0.16f))
+            .padding(horizontal = 13.dp, vertical = 7.dp)
     ) {
         Text(
             text       = text,
             color      = Color.White,
             fontSize   = 11.sp,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
