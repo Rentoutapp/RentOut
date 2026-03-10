@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import org.example.project.data.model.Property
 import org.example.project.data.model.User
+import org.example.project.data.model.dashboardTitle
 import org.example.project.presentation.PropertyListState
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors

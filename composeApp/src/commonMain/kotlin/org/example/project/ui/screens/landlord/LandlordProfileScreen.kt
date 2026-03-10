@@ -28,6 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import org.example.project.data.model.User
+import org.example.project.data.model.isAgent
+import org.example.project.data.model.isBrokerage
+import org.example.project.data.model.providerEmoji
+import org.example.project.data.model.providerDisplayName
 import org.example.project.ui.theme.RentOutColors
 import org.example.project.ui.components.DeleteAccountConfirmationDialog
 

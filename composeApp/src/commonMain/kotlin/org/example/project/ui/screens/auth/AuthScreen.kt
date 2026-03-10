@@ -957,14 +957,14 @@ fun AuthScreen(
                         ) {
                             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                                    Divider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                                     Spacer(Modifier.width(10.dp))
                                     Surface(shape = RoundedCornerShape(20.dp), color = RentOutColors.Primary.copy(alpha = 0.10f)) {
                                         Text("🤝 Agent Details", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                                             color = RentOutColors.Primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
                                     }
                                     Spacer(Modifier.width(10.dp))
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                                    Divider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                                 }
                                 RentOutTextField(
                                     value = regLicenseNumber, onValueChange = { regLicenseNumber = it; licenseError = "" },
@@ -988,14 +988,14 @@ fun AuthScreen(
                         ) {
                             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                                    Divider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                                     Spacer(Modifier.width(10.dp))
                                     Surface(shape = RoundedCornerShape(20.dp), color = RentOutColors.Primary.copy(alpha = 0.10f)) {
                                         Text("🏢 Company Details", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                                             color = RentOutColors.Primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
                                     }
                                     Spacer(Modifier.width(10.dp))
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+                                    Divider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
                                 }
                                 RentOutTextField(
                                     value = regCompanyName, onValueChange = { regCompanyName = it; companyNameError = "" },
@@ -1328,26 +1328,29 @@ fun AuthScreen(
                                     // Fire Firebase registration instantly, in parallel with the 8s bar
                                     val fullPhone = "${regCountry.code} ${regPhone.trim()}"
                                     // Subtype-specific validation
+                                    var subtypeValid = true
                                     if (selectedSubtype == "agent" && regLicenseNumber.isBlank()) {
                                         licenseError = "License number is required"
                                         coroutineScope.launch { scrollState.animateScrollTo(600) }
                                         createAccountLoading = false
-                                        return@onClick
+                                        subtypeValid = false
                                     }
-                                    if (selectedSubtype == "brokerage") {
-                                        if (regCompanyName.isBlank()) { companyNameError = "Company name is required"; createAccountLoading = false; return@onClick }
-                                        if (regCompanyReg.isBlank())  { companyRegError  = "Registration number is required"; createAccountLoading = false; return@onClick }
-                                        if (regCompanyAddress.isBlank()) { companyAddrError = "Office address is required"; createAccountLoading = false; return@onClick }
+                                    if (subtypeValid && selectedSubtype == "brokerage") {
+                                        if (regCompanyName.isBlank()) { companyNameError = "Company name is required"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyReg.isBlank())  { companyRegError  = "Registration number is required"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyAddress.isBlank()) { companyAddrError = "Office address is required"; createAccountLoading = false; subtypeValid = false }
                                     }
-                                    onRegister(
-                                        regName.trim(), regEmail.trim(), regPassword,
-                                        fullPhone, regPhotoUri, regPhotoBytes,
-                                        regGender, regNationalId.text.trim(),
-                                        selectedSubtype,
-                                        regLicenseNumber.trim(), regYearsExp.trim(),
-                                        regCompanyName.trim(), regCompanyReg.trim(),
-                                        regCompanyAddress.trim(), regTaxId.trim()
-                                    )
+                                    if (subtypeValid) {
+                                        onRegister(
+                                            regName.trim(), regEmail.trim(), regPassword,
+                                            fullPhone, regPhotoUri, regPhotoBytes,
+                                            regGender, regNationalId.text.trim(),
+                                            selectedSubtype,
+                                            regLicenseNumber.trim(), regYearsExp.trim(),
+                                            regCompanyName.trim(), regCompanyReg.trim(),
+                                            regCompanyAddress.trim(), regTaxId.trim()
+                                        )
+                                    }
                                 }
                             },
                             buttonText = "Create Account 🎉",
