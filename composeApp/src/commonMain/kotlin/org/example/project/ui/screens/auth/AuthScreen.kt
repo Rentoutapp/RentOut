@@ -968,9 +968,9 @@ fun AuthScreen(
                                 }
                                 RentOutTextField(
                                     value = regLicenseNumber, onValueChange = { regLicenseNumber = it; licenseError = "" },
-                                    label = "Agent License / Accreditation Number",
+                                    label = "Agent License / Accreditation Number (optional)",
                                     leadingIcon = Icons.Default.Badge, leadingIconTint = RentOutColors.IconTeal,
-                                    isError = licenseError.isNotEmpty(), errorMessage = licenseError
+                                    isError = false, errorMessage = ""
                                 )
                                 RentOutTextField(
                                     value = regYearsExp, onValueChange = { regYearsExp = it },
@@ -1329,12 +1329,7 @@ fun AuthScreen(
                                     val fullPhone = "${regCountry.code} ${regPhone.trim()}"
                                     // Subtype-specific validation
                                     var subtypeValid = true
-                                    if (selectedSubtype == "agent" && regLicenseNumber.isBlank()) {
-                                        licenseError = "License number is required"
-                                        coroutineScope.launch { scrollState.animateScrollTo(600) }
-                                        createAccountLoading = false
-                                        subtypeValid = false
-                                    }
+                                    // Agent license is optional — no validation needed
                                     if (subtypeValid && selectedSubtype == "brokerage") {
                                         if (regCompanyName.isBlank()) { companyNameError = "Company name is required"; createAccountLoading = false; subtypeValid = false }
                                         else if (regCompanyReg.isBlank())  { companyRegError  = "Registration number is required"; createAccountLoading = false; subtypeValid = false }
