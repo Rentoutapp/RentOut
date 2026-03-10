@@ -184,9 +184,10 @@ fun RoleSelectionScreen(
                     title = "Tenant",
                     subtitle = "Find rentals & pay a small fee to unlock landlord details",
                     emoji = "🔑",
+                    tenantDrawableRes = org.example.project.R.drawable.tenant,
                     isSelected = selectedRole == "tenant",
                     selectedBorderColor = MaterialTheme.colorScheme.secondary,
-                    onClick = { 
+                    onClick = {
                         selectedRole = "tenant"
                         selectedSubtype = ""
                     }
@@ -195,20 +196,31 @@ fun RoleSelectionScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // Button with animation - Linear Progression Button
+            // Button — only visible once a role (and subtype, for landlord) is selected.
+            // Slides up/fades in on selection; slides down/fades out if deselected.
+            val isRoleReady = selectedRole == "tenant" ||
+                              (selectedRole == "landlord" && selectedSubtype.isNotBlank())
             AnimatedVisibility(
-                visible = buttonVisible,
-                enter = fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) + 
+                visible = buttonVisible && isRoleReady,
+                enter = fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
                         slideInVertically(
-                            animationSpec = tween(400, easing = FastOutSlowInEasing),
-                            initialOffsetY = { 20 }
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness    = Spring.StiffnessMedium
+                            ),
+                            initialOffsetY = { it }   // slides up from its own height
+                        ),
+                exit  = fadeOut(animationSpec = tween(250, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(
+                            animationSpec = tween(280, easing = FastOutSlowInEasing),
+                            targetOffsetY = { it }    // slides back down
                         )
             ) {
                 var isLoading by remember { mutableStateOf(false) }
                 val coroutineScope = rememberCoroutineScope()
                 
                 ProgressButton(
-                    itemCount = if (selectedRole == "tenant" || (selectedRole == "landlord" && selectedSubtype.isNotBlank())) 1 else 0,
+                    itemCount = if (isRoleReady) 1 else 0,
                     isLoading = isLoading,
                     onClick = {
                         isLoading = true
@@ -297,31 +309,20 @@ private fun ProviderRoleCard(
     ) {
         Column {
 
-            // ── Morphing header ───────────────────────────────────────────
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(iconBgColor),
-                    contentAlignment = Alignment.Center
+            // ── Morphing header — centred, no start icon ─────────────────
+            val outerCheckScale by animateFloatAsState(
+                targetValue = if (isAnySelected) 1f else 0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness    = Spring.StiffnessMedium
+                ),
+                label = "outer_check"
+            )
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // AnimatedContent swaps the emoji smoothly
-                    AnimatedContent(
-                        targetState = headerEmoji,
-                        transitionSpec = {
-                            (fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.7f))
-                                .togetherWith(fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.7f))
-                        },
-                        label = "header_emoji"
-                    ) { emoji ->
-                        Text(text = emoji, fontSize = 26.sp)
-                    }
-                }
-
-                Spacer(Modifier.width(14.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
                     // Title morphs between "Property Provider" and selected role name
                     AnimatedContent(
                         targetState = headerTitle,
@@ -332,9 +333,10 @@ private fun ProviderRoleCard(
                         label = "header_title"
                     ) { title ->
                         Text(
-                            text = title,
-                            color = if (isAnySelected) headerColor else MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            text      = title,
+                            color     = if (isAnySelected) headerColor else MaterialTheme.colorScheme.onSurface,
+                            style     = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            textAlign = TextAlign.Center
                         )
                     }
                     Spacer(Modifier.height(2.dp))
@@ -342,35 +344,30 @@ private fun ProviderRoleCard(
                     AnimatedContent(
                         targetState = headerSubtitle,
                         transitionSpec = {
-                            (fadeIn(tween(280, delayMillis = 60)))
+                            fadeIn(tween(280, delayMillis = 60))
                                 .togetherWith(fadeOut(tween(150)))
                         },
                         label = "header_subtitle"
                     ) { subtitle ->
                         Text(
-                            text = subtitle.replace("\n", " "),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                            text      = subtitle.replace("\n", " "),
+                            color     = MaterialTheme.colorScheme.onSurfaceVariant.copy(
                                 alpha = if (isDark) 0.80f else 0.62f
                             ),
-                            style = MaterialTheme.typography.bodySmall
+                            style     = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
-
-                // Outer checkmark when any subtype is selected
-                val outerCheckScale by animateFloatAsState(
-                    targetValue = if (isAnySelected) 1f else 0f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness    = Spring.StiffnessMedium
-                    ),
-                    label = "outer_check"
-                )
+                // Checkmark floats top-right of the header
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = null,
                     tint     = headerColor,
-                    modifier = Modifier.size(24.dp).scale(outerCheckScale)
+                    modifier = Modifier
+                        .size(22.dp)
+                        .scale(outerCheckScale)
+                        .align(Alignment.TopEnd)
                 )
             }
 
@@ -546,15 +543,17 @@ private fun ProviderSubtypeTile(
                 )
             }
 
-            // PNG icon — size-animates, centred
+            // PNG icon — large, top-anchored, centred, size-animates
             Image(
                 painter            = painterResource(id = tile.drawableRes),
                 contentDescription = tile.label,
-                modifier           = Modifier.size(emojiSize.dp),
+                modifier           = Modifier
+                    .padding(top = 4.dp)
+                    .size(if (isSelected) 56.dp else if (anySelected) 36.dp else 48.dp),
                 contentScale       = ContentScale.Fit
             )
 
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(6.dp))
 
             // Label — fades/shrinks on unselected when another is active
             Text(
@@ -591,6 +590,7 @@ private fun RoleCard(
     title: String,
     subtitle: String,
     emoji: String,
+    tenantDrawableRes: Int? = null,
     isSelected: Boolean,
     selectedBorderColor: Color,
     onClick: () -> Unit
@@ -681,22 +681,38 @@ private fun RoleCard(
             .padding(24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(iconBoxColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = emoji,
-                    fontSize = 32.sp,
-                    modifier = Modifier.graphicsLayer {
-                        rotationZ = emojiRotation
-                        scaleX = emojiScale
-                        scaleY = emojiScale
-                    }
+            // If a PNG drawable is provided, show it directly (no background box)
+            // Otherwise fall back to the emoji inside a tinted box
+            if (tenantDrawableRes != null) {
+                Image(
+                    painter            = painterResource(id = tenantDrawableRes),
+                    contentDescription = title,
+                    contentScale       = ContentScale.Fit,
+                    modifier           = Modifier
+                        .size(64.dp)
+                        .graphicsLayer {
+                            scaleX = emojiScale
+                            scaleY = emojiScale
+                        }
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(iconBoxColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = emoji,
+                        fontSize = 32.sp,
+                        modifier = Modifier.graphicsLayer {
+                            rotationZ = emojiRotation
+                            scaleX = emojiScale
+                            scaleY = emojiScale
+                        }
+                    )
+                }
             }
 
             Spacer(Modifier.width(20.dp))
