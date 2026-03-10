@@ -705,12 +705,18 @@ fun AddPropertyScreen(
 
                     // â”€â”€ Form completeness indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     FormCompletenessIndicator(
-                        hasTitle       = title.isNotBlank(),
-                        hasPrice       = price.isNotBlank() && price.toDoubleOrNull() != null,
-                        hasRooms       = !isResidential || (rooms.isNotBlank() && (rooms.toIntOrNull() ?: 0) >= 1),
-                        hasDescription = description.isNotBlank(),
-                        hasAddress     = address.isComplete,
-                        hasContact     = contact.isNotBlank()
+                        hasTitle           = title.isNotBlank(),
+                        hasClassification  = classification.isNotBlank() && propType.isNotBlank(),
+                        hasLocationType    = locationType.isNotBlank(),
+                        hasPrice           = price.isNotBlank() && price.toDoubleOrNull() != null,
+                        hasRooms           = !isResidential || rooms.isNotBlank(),
+                        hasBathroomType    = !isResidential || bathroomType.isNotBlank(),
+                        hasDescription     = description.isNotBlank(),
+                        hasAddress         = address.isComplete,
+                        hasContact         = contact.isNotBlank(),
+                        hasAvailability    = availabilityDate.isNotBlank(),
+                        hasTenantReqs      = tenantRequirements.isNotEmpty(),
+                        hasProximity       = proximityFacilities.isNotEmpty()
                     )
 
                     // â”€â”€ Edit mode: image gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2597,35 +2603,32 @@ private fun AmenityChip(
 
 @Composable
 private fun FormCompletenessIndicator(
-
     hasTitle: Boolean,
-
+    hasClassification: Boolean,
+    hasLocationType: Boolean,
     hasPrice: Boolean,
-
     hasRooms: Boolean,
-
+    hasBathroomType: Boolean,
     hasDescription: Boolean,
-
     hasAddress: Boolean,
-
-    hasContact: Boolean
-
+    hasContact: Boolean,
+    hasAvailability: Boolean,
+    hasTenantReqs: Boolean,
+    hasProximity: Boolean
 ) {
-
     val items = listOf(
-
-        "Title" to hasTitle,
-
-        "Price" to hasPrice,
-
-        "Rooms" to hasRooms,
-
-        "Description" to hasDescription,
-
-        "Address" to hasAddress,
-
-        "Contact" to hasContact
-
+        "Title"        to hasTitle,
+        "Type"         to hasClassification,
+        "Location"     to hasLocationType,
+        "Price"        to hasPrice,
+        "Bedrooms"     to hasRooms,
+        "Bathroom"     to hasBathroomType,
+        "Description"  to hasDescription,
+        "Address"      to hasAddress,
+        "Contact"      to hasContact,
+        "Availability" to hasAvailability,
+        "Tenant Type"  to hasTenantReqs,
+        "Proximity"    to hasProximity
     )
 
     val completed = items.count { it.second }
