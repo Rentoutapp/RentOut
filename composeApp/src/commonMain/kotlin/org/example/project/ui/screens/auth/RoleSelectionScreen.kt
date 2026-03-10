@@ -151,42 +151,35 @@ fun RoleSelectionScreen(
 
             Spacer(Modifier.height(40.dp))
 
-            // Landlord card with animation and expandable subtypes
+            // Property Provider card with animation and expandable subtypes
             AnimatedVisibility(
                 visible = landlordCardVisible,
-                enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing)) + 
+                enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing)) +
                         slideInVertically(
                             animationSpec = tween(500, easing = FastOutSlowInEasing),
                             initialOffsetY = { it / 2 }
                         )
             ) {
                 Column {
-                    RoleCard(
-                        icon = Icons.Default.Home,
-                        iconTint = RentOutColors.IconBlue,
-                        title = "Landlord",
-                        subtitle = "List your properties &\nearn from tenants",
-                        emoji = "🏠",
+                    ProviderRoleCard(
                         isSelected = selectedRole == "landlord",
-                        selectedBorderColor = MaterialTheme.colorScheme.primary,
-                        onClick = { 
+                        onClick = {
                             selectedRole = "landlord"
-                            if (selectedSubtype.isBlank()) {
-                                selectedSubtype = "landlord"
-                            }
+                            if (selectedSubtype.isBlank()) selectedSubtype = "landlord"
                         }
                     )
-                    
-                    // Expandable provider subtypes
+
+                    // Expandable subtype pills
                     AnimatedVisibility(
                         visible = selectedRole == "landlord",
-                        enter = expandVertically() + fadeIn(),
+                        enter = expandVertically(animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )) + fadeIn(),
                         exit = shrinkVertically() + fadeOut()
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            Spacer(Modifier.height(12.dp))
-                            
-                            // Landlord pill
+                            Spacer(Modifier.height(10.dp))
                             ProviderSubtypePill(
                                 emoji = "🏠",
                                 title = "Landlord",
@@ -195,10 +188,7 @@ fun RoleSelectionScreen(
                                 isSelected = selectedSubtype == "landlord",
                                 onSelect = { selectedSubtype = "landlord" }
                             )
-                            
-                            Spacer(Modifier.height(10.dp))
-                            
-                            // Freelancer Agent pill
+                            Spacer(Modifier.height(8.dp))
                             ProviderSubtypePill(
                                 emoji = "🤝",
                                 title = "Freelancer Agent",
@@ -207,10 +197,7 @@ fun RoleSelectionScreen(
                                 isSelected = selectedSubtype == "agent",
                                 onSelect = { selectedSubtype = "agent" }
                             )
-                            
-                            Spacer(Modifier.height(10.dp))
-                            
-                            // Brokerage pill
+                            Spacer(Modifier.height(8.dp))
                             ProviderSubtypePill(
                                 emoji = "🏢",
                                 title = "Brokerage",
@@ -282,6 +269,201 @@ fun RoleSelectionScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property Provider card — shows all 3 subtypes as preview badges before tap
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ProviderRoleCard(
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val pulseScale = if (isSelected) rememberPulseAnimation(0.98f, 1.02f, 2000) else 1f
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "provider_card_scale"
+    )
+
+    val haloWidth by animateDpAsState(
+        targetValue = if (isSelected) 3.dp else 1.dp,
+        animationSpec = tween(300),
+        label = "provider_halo_width"
+    )
+
+    val haloColor by animateColorAsState(
+        targetValue = if (isSelected) RentOutColors.Primary
+        else if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+        else Color(0xFFE0E5ED),
+        animationSpec = tween(300),
+        label = "provider_halo_color"
+    )
+
+    val checkScale by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "provider_check_scale"
+    )
+
+    val cardBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale * pulseScale
+                scaleY = scale * pulseScale
+                shadowElevation = if (isSelected) 20f else 8f
+                shape = RoundedCornerShape(24.dp)
+                clip = false
+            }
+            .border(haloWidth, haloColor, RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(24.dp))
+            .background(cardBg)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(24.dp)
+    ) {
+        Column {
+            // ── Top row: icon box + title + checkmark ─────────────────────
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Icon box
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(RentOutColors.IconBlue.copy(alpha = if (isDark) 0.25f else 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🏘️",
+                        fontSize = 30.sp,
+                        modifier = Modifier.graphicsLayer {
+                            rotationZ = if (isSelected) 8f else 0f
+                            scaleX = if (isSelected) 1.1f else 1f
+                            scaleY = if (isSelected) 1.1f else 1f
+                        }
+                    )
+                }
+
+                Spacer(Modifier.width(20.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Property Provider",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "List properties & earn — tap to choose your type",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.85f else 0.7f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
+                if (isSelected) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Selected",
+                        tint = RentOutColors.Primary,
+                        modifier = Modifier.size(28.dp).scale(checkScale)
+                    )
+                }
+            }
+
+            // ── Preview badges row ────────────────────────────────────────
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Landlord badge
+                ProviderPreviewBadge(
+                    emoji = "🏠",
+                    label = "Landlord",
+                    color = RentOutColors.IconBlue,
+                    modifier = Modifier.weight(1f)
+                )
+                // Agent badge
+                ProviderPreviewBadge(
+                    emoji = "🤝",
+                    label = "Agent",
+                    color = RentOutColors.IconTeal,
+                    modifier = Modifier.weight(1f)
+                )
+                // Brokerage badge
+                ProviderPreviewBadge(
+                    emoji = "🏢",
+                    label = "Brokerage",
+                    color = RentOutColors.IconBlue,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // ── Tap hint ─────────────────────────────────────────────────
+            if (!isSelected) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.TouchApp,
+                        contentDescription = null,
+                        tint = RentOutColors.Primary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        text = "Tap to select your provider type",
+                        fontSize = 11.sp,
+                        color = RentOutColors.Primary.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProviderPreviewBadge(
+    emoji: String,
+    label: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = if (isDark) 0.18f else 0.09f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 10.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = emoji, fontSize = 20.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = label,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = color,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
