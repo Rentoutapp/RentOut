@@ -443,6 +443,38 @@ fun AddPropertyScreen(
                             longitude = lng
                         }
                     )
+                    Spacer(Modifier.height(12.dp))
+
+                    // Coordinate fields — auto-filled by the map pin, also manually editable
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        RentOutTextField(
+                            value           = latitude,
+                            onValueChange   = { latitude = it },
+                            label           = "Latitude",
+                            leadingIcon     = Icons.Default.MyLocation,
+                            leadingIconTint = RentOutColors.IconTeal,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier        = Modifier.weight(1f),
+                            labelFontSize   = 11.sp
+                        )
+                        RentOutTextField(
+                            value           = longitude,
+                            onValueChange   = { longitude = it },
+                            label           = "Longitude",
+                            leadingIcon     = Icons.Default.MyLocation,
+                            leadingIconTint = RentOutColors.IconBlue,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier        = Modifier.weight(1f),
+                            labelFontSize   = 11.sp
+                        )
+                    }
+                    // Helper note beneath coordinate fields
+                    Text(
+                        text  = "Auto-filled when you pin a location on the map above. You can also enter coordinates manually.",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                    )
                     Spacer(Modifier.height(20.dp))
 
                     // â”€â”€ 6. Proximity Facilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

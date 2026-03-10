@@ -452,6 +452,43 @@ Open `iosApp/iosApp.xcodeproj` in Xcode and run, or use the IDE run configuratio
 
 ---
 
+## 🗺️ Map Picker Pattern (Android)
+
+The `MapPickerView` Android implementation (`composeApp/src/androidMain/.../MapPickerView.android.kt`) uses a **two-state dialog pattern** to avoid scroll conflicts with the parent form:
+
+### Why this pattern?
+Embedding a fully interactive `GoogleMap` inside a `verticalScroll` Column causes touch conflicts — the parent steals scroll gestures from the map. The dialog pattern completely separates the map from the scroll context.
+
+### How it works
+1. **Preview thumbnail** (`MapPreviewCard`) — shown inline in the form:
+   - `GoogleMap` with ALL gestures disabled (`scrollGesturesEnabled = false`, etc.)
+   - Never conflicts with the parent scroll
+   - Shows a pulsing "Tap to pick location" badge when no pin is set
+   - Shows "Tap to adjust pin" when a pin exists
+   - Tapping opens the full-screen dialog
+
+2. **Full-screen dialog** (`MapPickerDialog`) — opens on thumbnail tap:
+   - Spring zoom-out entrance animation (`scaleIn` from 55% + `fadeIn`)
+   - On open: **auto-locates the user** and **immediately places the pin** at their GPS position (no extra tap needed)
+   - A 450ms click guard prevents the opening tap from accidentally moving the pin
+   - User can tap/drag to reposition the pin; GPS FAB re-pins to current location
+   - Coordinate chip shown at the bottom while a pin is active
+   - "Done" button dismisses and commits the coordinates
+
+3. **Lat/Lng fields** — shown below the map thumbnail in the form:
+   - Auto-filled whenever `onLocationPicked` fires (map pin placed or moved)
+   - Also manually editable for manual coordinate entry
+   - Coordinates are stored in Firestore as `latitude` and `longitude` (Double) fields
+   - Used by tenants later to locate the property on a map
+
+### Key behaviour rules
+- The opening tap **never** places a pin (450ms guard)
+- Auto-locate on open **always** places a pin immediately (no second tap needed)
+- The GPS FAB always places + pins (not just camera move)
+- Lat/Lng fields are always in sync with the map pin
+
+---
+
 ## ⌨️ Keyboard Overlap Prevention (IME Padding)
 
 ### Problem

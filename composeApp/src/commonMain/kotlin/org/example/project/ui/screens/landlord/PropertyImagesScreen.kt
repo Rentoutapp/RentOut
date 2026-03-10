@@ -256,10 +256,25 @@ fun PropertyImagesScreen(
                     Spacer(Modifier.height(16.dp))
 
                     // ── Residential mandatory photo banner ──
+                    // Show only until the landlord has uploaded at least 2 images.
+                    // After the 2nd image is added the banner animates away, freeing up space.
                     val isResidential = property.classification.equals("Residential", ignoreCase = true)
-                    if (isResidential) {
-                        ResidentialPhotoBanner()
-                        Spacer(Modifier.height(16.dp))
+                    val showBanner = isResidential && pickedImages.size < 2
+                    AnimatedVisibility(
+                        visible = showBanner,
+                        enter = fadeIn(tween(350)) + expandVertically(
+                            animationSpec = tween(400, easing = FastOutSlowInEasing),
+                            expandFrom = Alignment.Top
+                        ),
+                        exit = fadeOut(tween(300)) + shrinkVertically(
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            shrinkTowards = Alignment.Top
+                        )
+                    ) {
+                        Column {
+                            ResidentialPhotoBanner()
+                            Spacer(Modifier.height(16.dp))
+                        }
                     }
 
                     // ── Image grid or empty state ──

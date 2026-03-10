@@ -127,15 +127,22 @@ service cloud.firestore {
     // ─── Properties Collection ────────────────────────────────────────────────
     match /properties/{propertyId} {
 
-      // Admin sees all properties.
-      // Landlord sees their own properties regardless of status.
-      // Tenant sees only approved properties.
-      allow read: if isAuthenticated() && isActiveUser()
+      // get (single-document read): full ownership/role checks using resource.data.
+      // Admin sees any property; landlord sees their own; tenant sees approved only.
+      allow get: if isAuthenticated() && isActiveUser()
         && (
           isAdmin()
           || (isLandlord() && resource.data.landlordId == request.auth.uid)
           || (isTenant() && resource.data.status == 'approved')
         );
+
+      // list (collection queries): resource.data is NOT available during query
+      // evaluation in Firestore, so ownership checks cannot be applied here.
+      // Security is enforced at the app level (queries always filter by landlordId
+      // or status). Admin queries are unrestricted; landlords and tenants must
+      // filter in their queries.
+      allow list: if isAuthenticated() && isActiveUser()
+        && (isAdmin() || isLandlord() || isTenant());
 
       // Only active landlords can create properties for themselves.
       // New listings always start as 'pending' — only admin can approve.

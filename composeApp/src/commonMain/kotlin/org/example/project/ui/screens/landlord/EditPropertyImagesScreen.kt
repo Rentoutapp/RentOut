@@ -486,10 +486,26 @@ fun EditPropertyImagesScreen(
                     Spacer(Modifier.height(12.dp))
 
                     // ── Residential mandatory photo banner ────────────────────
+                    // Show only while the landlord has fewer than 2 photos total
+                    // (existing + new). Once 2 images are present the banner has
+                    // served its purpose and slides away to give the grid more space.
                     val isResidential = property.classification.equals("Residential", ignoreCase = true)
-                    if (isResidential) {
-                        ResidentialPhotoBannerEdit()
-                        Spacer(Modifier.height(12.dp))
+                    val showEditBanner = isResidential && totalCount < 2
+                    AnimatedVisibility(
+                        visible = showEditBanner,
+                        enter = fadeIn(tween(350)) + expandVertically(
+                            animationSpec = tween(400, easing = FastOutSlowInEasing),
+                            expandFrom = Alignment.Top
+                        ),
+                        exit = fadeOut(tween(300)) + shrinkVertically(
+                            animationSpec = tween(380, easing = FastOutSlowInEasing),
+                            shrinkTowards = Alignment.Top
+                        )
+                    ) {
+                        Column {
+                            ResidentialPhotoBannerEdit()
+                            Spacer(Modifier.height(12.dp))
+                        }
                     }
 
                     // ── Image grid ────────────────────────────────────────────
