@@ -549,7 +549,7 @@ private fun ProviderSubtypeTile(
                 contentDescription = tile.label,
                 modifier           = Modifier
                     .padding(top = 4.dp)
-                    .size(if (isSelected) 56.dp else if (anySelected) 36.dp else 48.dp),
+                    .size(if (isSelected) 90.dp else if (anySelected) 56.dp else 72.dp),
                 contentScale       = ContentScale.Fit
             )
 
@@ -689,7 +689,7 @@ private fun RoleCard(
                     contentDescription = title,
                     contentScale       = ContentScale.Fit,
                     modifier           = Modifier
-                        .size(64.dp)
+                        .size(80.dp)
                         .graphicsLayer {
                             scaleX = emojiScale
                             scaleY = emojiScale
