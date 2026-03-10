@@ -288,7 +288,7 @@ fun LandlordProfileScreen(
                     ProfileInfoRow(
                         icon = Icons.Default.Badge,
                         label = "Role",
-                        value = "Landlord",
+                        value = "${user.providerEmoji} ${user.providerDisplayName}",
                         iconTint = RentOutColors.IconPurple
                     )
                     Divider(
