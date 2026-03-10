@@ -111,13 +111,24 @@ fun LandlordProfileScreen(
                             shape = RoundedCornerShape(20.dp)
                         )
                     ) {
-                        Text(
-                            text = "${user.providerEmoji} ${user.providerDisplayName}",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Badge,
+                                null,
+                                tint = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "Landlord",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
 
@@ -318,47 +329,6 @@ fun LandlordProfileScreen(
                         } else "—",
                         iconTint = RentOutColors.IconAmber
                     )
-                }
-
-                Spacer(Modifier.height(20.dp))
-
-                AnimatedVisibility(
-                    visible = user.isAgent || user.isBrokerage,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            // Section title
-                            Text(
-                                text = if (user.isAgent) "🤝 Agent Details" else "🏢 Company Details",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            
-                            // Agent fields
-                            if (user.isAgent) {
-                                ProfileInfoRow(icon = Icons.Default.Badge, label = "License Number", value = user.agentLicenseNumber.ifBlank { "—" }, iconTint = RentOutColors.IconBlue)
-                                ProfileInfoRow(icon = Icons.Default.DateRange, label = "Years of Experience", value = user.yearsOfExperience.ifBlank { "—" }, iconTint = RentOutColors.IconAmber)
-                            }
-                            
-                            // Brokerage fields
-                            if (user.isBrokerage) {
-                                ProfileInfoRow(icon = Icons.Default.Business, label = "Company Name", value = user.companyName.ifBlank { "—" }, iconTint = RentOutColors.IconBlue)
-                                ProfileInfoRow(icon = Icons.Default.Info, label = "Reg. Number", value = user.companyRegNumber.ifBlank { "—" }, iconTint = RentOutColors.IconTeal)
-                                ProfileInfoRow(icon = Icons.Default.LocationOn, label = "Office Address", value = user.companyAddress.ifBlank { "—" }, iconTint = RentOutColors.IconGreen)
-                                if (user.taxId.isNotBlank()) {
-                                    ProfileInfoRow(icon = Icons.Default.Receipt, label = "Tax ID", value = user.taxId, iconTint = RentOutColors.IconAmber)
-                                }
-                            }
-                        }
-                    }
                 }
 
                 Spacer(Modifier.height(32.dp))

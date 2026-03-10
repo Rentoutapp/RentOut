@@ -155,19 +155,10 @@ private val countryCodes = listOf(
 @Composable
 fun AuthScreen(
     selectedRole: String,
-    selectedSubtype: String = "",
     authState: AuthState,
     onLogin: (String, String, Boolean) -> Unit,
     onNavigateAfterLogin: () -> Unit,
-    onRegister: (
-        name: String, email: String, password: String,
-        phoneNumber: String, profilePhotoUrl: String, photoBytes: ByteArray?,
-        gender: String, nationalId: String,
-        providerSubtype: String,
-        agentLicenseNumber: String, yearsOfExperience: String,
-        companyName: String, companyRegNumber: String,
-        companyAddress: String, taxId: String
-    ) -> Unit,
+    onRegister: (String, String, String, String, String, ByteArray?, String, String) -> Unit,
     onBack: () -> Unit,
     onClearError: () -> Unit,
     prefillEmail: String = "",
@@ -205,19 +196,6 @@ fun AuthScreen(
     // cursor position after each auto-format operation (e.g. placing cursor
     // after the auto-inserted hyphen, not before).
     var regNationalId by remember { mutableStateOf(TextFieldValue("")) }
-
-    // Agent-specific fields
-    var regLicenseNumber  by remember { mutableStateOf("") }
-    var regYearsExp       by remember { mutableStateOf("") }
-    var licenseError      by remember { mutableStateOf("") }
-    // Brokerage-specific fields
-    var regCompanyName    by remember { mutableStateOf("") }
-    var regCompanyReg     by remember { mutableStateOf("") }
-    var regCompanyAddress by remember { mutableStateOf("") }
-    var regTaxId          by remember { mutableStateOf("") }
-    var companyNameError  by remember { mutableStateOf("") }
-    var companyRegError   by remember { mutableStateOf("") }
-    var companyAddrError  by remember { mutableStateOf("") }
 
     // Validation errors — declared BEFORE imagePicker so the lambda can reference them
     var nameError      by remember { mutableStateOf("") }
@@ -292,12 +270,7 @@ fun AuthScreen(
             }
 
             Text(
-                text = when {
-                    selectedRole == "tenant"       -> "🔑 Tenant"
-                    selectedSubtype == "agent"     -> "🤝 Freelancer Agent"
-                    selectedSubtype == "brokerage" -> "🏢 Brokerage"
-                    else                           -> "🏠 Landlord"
-                },
+                text = if (selectedRole == "landlord") "🏠 Landlord" else "🔑 Tenant",
                 fontSize = 15.sp,
                 color = Color.White.copy(alpha = 0.9f),
                 fontWeight = FontWeight.Medium
@@ -949,81 +922,6 @@ fun AuthScreen(
                         Spacer(Modifier.height(14.dp))
 
                         // ── 6. Profile Photo ──────────────────────────────────
-                        // ── 5b. Agent fields ─────────────────────────────────
-                        AnimatedVisibility(
-                            visible = selectedRole == "landlord" && selectedSubtype == "agent",
-                            enter   = expandVertically() + fadeIn(),
-                            exit    = shrinkVertically() + fadeOut()
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
-                                    Spacer(Modifier.width(10.dp))
-                                    Surface(shape = RoundedCornerShape(20.dp), color = RentOutColors.Primary.copy(alpha = 0.10f)) {
-                                        Text("🤝 Agent Details", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                                            color = RentOutColors.Primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
-                                    }
-                                    Spacer(Modifier.width(10.dp))
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
-                                }
-                                RentOutTextField(
-                                    value = regLicenseNumber, onValueChange = { regLicenseNumber = it; licenseError = "" },
-                                    label = "Agent License / Accreditation Number",
-                                    leadingIcon = Icons.Default.Badge, leadingIconTint = RentOutColors.IconTeal,
-                                    isError = licenseError.isNotEmpty(), errorMessage = licenseError
-                                )
-                                RentOutTextField(
-                                    value = regYearsExp, onValueChange = { regYearsExp = it },
-                                    label = "Years of Experience (optional)",
-                                    leadingIcon = Icons.Default.WorkHistory, leadingIconTint = RentOutColors.IconAmber,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                                )
-                            }
-                        }
-                        // ── 5c. Brokerage fields ──────────────────────────────
-                        AnimatedVisibility(
-                            visible = selectedRole == "landlord" && selectedSubtype == "brokerage",
-                            enter   = expandVertically() + fadeIn(),
-                            exit    = shrinkVertically() + fadeOut()
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
-                                    Spacer(Modifier.width(10.dp))
-                                    Surface(shape = RoundedCornerShape(20.dp), color = RentOutColors.Primary.copy(alpha = 0.10f)) {
-                                        Text("🏢 Company Details", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                                            color = RentOutColors.Primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
-                                    }
-                                    Spacer(Modifier.width(10.dp))
-                                    HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
-                                }
-                                RentOutTextField(
-                                    value = regCompanyName, onValueChange = { regCompanyName = it; companyNameError = "" },
-                                    label = "Company / Agency Name",
-                                    leadingIcon = Icons.Default.Business, leadingIconTint = RentOutColors.IconBlue,
-                                    isError = companyNameError.isNotEmpty(), errorMessage = companyNameError
-                                )
-                                RentOutTextField(
-                                    value = regCompanyReg, onValueChange = { regCompanyReg = it; companyRegError = "" },
-                                    label = "Company Registration Number",
-                                    leadingIcon = Icons.Default.Numbers, leadingIconTint = RentOutColors.IconTeal,
-                                    isError = companyRegError.isNotEmpty(), errorMessage = companyRegError
-                                )
-                                RentOutTextField(
-                                    value = regCompanyAddress, onValueChange = { regCompanyAddress = it; companyAddrError = "" },
-                                    label = "Company / Office Address",
-                                    leadingIcon = Icons.Default.LocationCity, leadingIconTint = RentOutColors.IconGreen,
-                                    isError = companyAddrError.isNotEmpty(), errorMessage = companyAddrError
-                                )
-                                RentOutTextField(
-                                    value = regTaxId, onValueChange = { regTaxId = it },
-                                    label = "Tax ID / ZIMRA Number (optional)",
-                                    leadingIcon = Icons.Default.Receipt, leadingIconTint = RentOutColors.IconAmber
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(14.dp))
-
                         val photoShape = RoundedCornerShape(20.dp)
                         val photoWidth  = 120.dp
                         val photoHeight = 150.dp
@@ -1327,27 +1225,7 @@ fun AuthScreen(
                                     createAccountLoading = true
                                     // Fire Firebase registration instantly, in parallel with the 8s bar
                                     val fullPhone = "${regCountry.code} ${regPhone.trim()}"
-                                    // Subtype-specific validation
-                                    if (selectedSubtype == "agent" && regLicenseNumber.isBlank()) {
-                                        licenseError = "License number is required"
-                                        coroutineScope.launch { scrollState.animateScrollTo(600) }
-                                        createAccountLoading = false
-                                        return@onClick
-                                    }
-                                    if (selectedSubtype == "brokerage") {
-                                        if (regCompanyName.isBlank()) { companyNameError = "Company name is required"; createAccountLoading = false; return@onClick }
-                                        if (regCompanyReg.isBlank())  { companyRegError  = "Registration number is required"; createAccountLoading = false; return@onClick }
-                                        if (regCompanyAddress.isBlank()) { companyAddrError = "Office address is required"; createAccountLoading = false; return@onClick }
-                                    }
-                                    onRegister(
-                                        regName.trim(), regEmail.trim(), regPassword,
-                                        fullPhone, regPhotoUri, regPhotoBytes,
-                                        regGender, regNationalId.text.trim(),
-                                        selectedSubtype,
-                                        regLicenseNumber.trim(), regYearsExp.trim(),
-                                        regCompanyName.trim(), regCompanyReg.trim(),
-                                        regCompanyAddress.trim(), regTaxId.trim()
-                                    )
+                                    onRegister(regName.trim(), regEmail.trim(), regPassword, fullPhone, regPhotoUri, regPhotoBytes, regGender, regNationalId.text.trim())
                                 }
                             },
                             buttonText = "Create Account 🎉",

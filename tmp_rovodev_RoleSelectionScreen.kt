@@ -5,8 +5,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,10 +43,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun RoleSelectionScreen(
-    onRoleSelected: (role: String, subtype: String) -> Unit
+    onRoleSelected: (String) -> Unit
 ) {
     var selectedRole by remember { mutableStateOf("") }
-    var selectedSubtype by remember { mutableStateOf("") }
     val isDark = isSystemInDarkTheme()
     
     // Animation states - staggered entrance
@@ -150,7 +147,7 @@ fun RoleSelectionScreen(
 
             Spacer(Modifier.height(40.dp))
 
-            // Landlord card with animation and expandable subtypes
+            // Landlord card with animation
             AnimatedVisibility(
                 visible = landlordCardVisible,
                 enter = fadeIn(animationSpec = tween(500, easing = FastOutSlowInEasing)) + 
@@ -159,68 +156,16 @@ fun RoleSelectionScreen(
                             initialOffsetY = { it / 2 }
                         )
             ) {
-                Column {
-                    RoleCard(
-                        icon = Icons.Default.Home,
-                        iconTint = RentOutColors.IconBlue,
-                        title = "Landlord",
-                        subtitle = "List your properties &\nearn from tenants",
-                        emoji = "🏠",
-                        isSelected = selectedRole == "landlord",
-                        selectedBorderColor = MaterialTheme.colorScheme.primary,
-                        onClick = { 
-                            selectedRole = "landlord"
-                            if (selectedSubtype.isBlank()) {
-                                selectedSubtype = "landlord"
-                            }
-                        }
-                    )
-                    
-                    // Expandable provider subtypes
-                    AnimatedVisibility(
-                        visible = selectedRole == "landlord",
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Spacer(Modifier.height(12.dp))
-                            
-                            // Landlord pill
-                            ProviderSubtypePill(
-                                emoji = "🏠",
-                                title = "Landlord",
-                                subtitle = "I own the properties I list",
-                                subtype = "landlord",
-                                isSelected = selectedSubtype == "landlord",
-                                onSelect = { selectedSubtype = "landlord" }
-                            )
-                            
-                            Spacer(Modifier.height(10.dp))
-                            
-                            // Freelancer Agent pill
-                            ProviderSubtypePill(
-                                emoji = "🤝",
-                                title = "Freelancer Agent",
-                                subtitle = "I list on behalf of property owners",
-                                subtype = "agent",
-                                isSelected = selectedSubtype == "agent",
-                                onSelect = { selectedSubtype = "agent" }
-                            )
-                            
-                            Spacer(Modifier.height(10.dp))
-                            
-                            // Brokerage pill
-                            ProviderSubtypePill(
-                                emoji = "🏢",
-                                title = "Brokerage",
-                                subtitle = "I represent a company or agency",
-                                subtype = "brokerage",
-                                isSelected = selectedSubtype == "brokerage",
-                                onSelect = { selectedSubtype = "brokerage" }
-                            )
-                        }
-                    }
-                }
+                RoleCard(
+                    icon = Icons.Default.Home,
+                    iconTint = RentOutColors.IconBlue,
+                    title = "Landlord",
+                    subtitle = "List your properties &\nearn from tenants",
+                    emoji = "🏠",
+                    isSelected = selectedRole == "landlord",
+                    selectedBorderColor = MaterialTheme.colorScheme.primary,
+                    onClick = { selectedRole = "landlord" }
+                )
             }
 
             Spacer(Modifier.height(20.dp))
@@ -242,10 +187,7 @@ fun RoleSelectionScreen(
                     emoji = "🔑",
                     isSelected = selectedRole == "tenant",
                     selectedBorderColor = MaterialTheme.colorScheme.secondary,
-                    onClick = { 
-                        selectedRole = "tenant"
-                        selectedSubtype = ""
-                    }
+                    onClick = { selectedRole = "tenant" }
                 )
             }
 
@@ -264,14 +206,14 @@ fun RoleSelectionScreen(
                 val coroutineScope = rememberCoroutineScope()
                 
                 ProgressButton(
-                    itemCount = if (selectedRole == "tenant" || (selectedRole == "landlord" && selectedSubtype.isNotBlank())) 1 else 0,
+                    itemCount = if (selectedRole.isNotEmpty()) 1 else 0,
                     isLoading = isLoading,
                     onClick = {
                         isLoading = true
                         // 2.5-second delay synced to the 0→100% linear animation
                         coroutineScope.launch {
                             delay(2500)
-                            onRoleSelected(selectedRole, selectedSubtype)
+                            onRoleSelected(selectedRole)
                         }
                     },
                     buttonText = "Continue →",
@@ -281,103 +223,6 @@ fun RoleSelectionScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun ProviderSubtypePill(
-    emoji: String,
-    title: String,
-    subtitle: String,
-    subtype: String,
-    isSelected: Boolean,
-    onSelect: () -> Unit
-) {
-    val isDark = isSystemInDarkTheme()
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = when {
-            isPressed -> 0.96f
-            else -> 1f
-        },
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "pill_scale"
-    )
-    
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) RentOutColors.Primary else {
-            if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f) else Color(0xFFE0E5ED)
-        },
-        animationSpec = tween(300),
-        label = "pill_border_color"
-    )
-    
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .border(
-                width = 2.dp,
-                color = borderColor,
-                shape = RoundedCornerShape(14.dp)
-            )
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onSelect),
-        shape = RoundedCornerShape(14.dp),
-        color = if (isDark) MaterialTheme.colorScheme.surface else Color.White,
-        tonalElevation = if (isSelected) 8.dp else 0.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = emoji,
-                    fontSize = 24.sp,
-                    modifier = Modifier.padding(end = 12.dp)
-                )
-                
-                Column {
-                    Text(
-                        text = title,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = subtitle,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                            alpha = if (isDark) 0.75f else 0.65f
-                        ),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-            
-            Spacer(Modifier.width(12.dp))
-            
-            RadioButton(
-                selected = isSelected,
-                onClick = onSelect,
-                colors = RadioButtonDefaults.colors(
-                    selectedColor = RentOutColors.Primary
-                )
-            )
         }
     }
 }

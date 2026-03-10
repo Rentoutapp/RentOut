@@ -348,7 +348,7 @@ fun LandlordDashboardScreen(
             item {
                 Spacer(Modifier.height(20.dp))
                 Text(
-                    user.dashboardTitle,
+                    "My Dashboard",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp),
@@ -366,11 +366,7 @@ fun LandlordDashboardScreen(
                 }
                 Spacer(Modifier.height(24.dp))
                 Text(
-                    when (user.providerSubtype) {
-                        "agent"     -> "Your Listings"
-                        "brokerage" -> "Portfolio"
-                        else        -> "My Listings"
-                    },
+                    "My Listings",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp),

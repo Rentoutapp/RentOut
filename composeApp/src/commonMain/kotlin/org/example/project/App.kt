@@ -39,6 +39,7 @@ fun App() {
         val sessionChecked by authViewModel.sessionChecked.collectAsState()
         val rememberMeActive by authViewModel.rememberMeActive.collectAsState()
         val selectedRole by authViewModel.selectedRole.collectAsState()
+        val selectedSubtype by authViewModel.selectedSubtype.collectAsState()
         val propertyListState by propertyViewModel.landlordProperties.collectAsState()
         val tenantPropertyState by propertyViewModel.tenantProperties.collectAsState()
         val formState by propertyViewModel.formState.collectAsState()
@@ -95,8 +96,9 @@ fun App() {
             // -- ROLE SELECTION ------------------------------------------------
             composable(NavRoutes.ROLE_SELECTION) {
                 RoleSelectionScreen(
-                    onRoleSelected = { role ->
+                    onRoleSelected = { role, subtype ->
                         authViewModel.selectRole(role)
+                        authViewModel.selectSubtype(subtype)
                         navController.navigate("auth?prefillEmail=&prefillPassword=")
                     }
                 )
@@ -120,6 +122,7 @@ fun App() {
 
                 AuthScreen(
                     selectedRole = selectedRole,
+                    selectedSubtype = selectedSubtype,
                     authState = authState,
                     onLogin = { email, password, rememberMe ->
                         authViewModel.onEvent(AuthEvent.Login(email, password, rememberMe))
@@ -129,8 +132,18 @@ fun App() {
                             popUpTo(NavRoutes.INTRO) { inclusive = true }
                         }
                     },
-                    onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes, gender, nationalId ->
-                        authViewModel.onEvent(AuthEvent.Register(name, email, password, selectedRole, phoneNumber, profilePhotoUrl, photoBytes, gender, nationalId))
+                    onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes, gender, nationalId,
+                                   providerSubtype, agentLicenseNumber, yearsOfExperience,
+                                   companyName, companyRegNumber, companyAddress, taxId ->
+                        authViewModel.onEvent(AuthEvent.Register(
+                            name = name, email = email, password = password,
+                            role = selectedRole, providerSubtype = providerSubtype,
+                            phoneNumber = phoneNumber, profilePhotoUrl = profilePhotoUrl,
+                            photoBytes = photoBytes, gender = gender, nationalId = nationalId,
+                            agentLicenseNumber = agentLicenseNumber, yearsOfExperience = yearsOfExperience,
+                            companyName = companyName, companyRegNumber = companyRegNumber,
+                            companyAddress = companyAddress, taxId = taxId
+                        ))
                     },
                     onBack = { navController.popBackStack() },
                     onClearError = { authViewModel.clearError() },

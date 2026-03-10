@@ -33,11 +33,18 @@ sealed class AuthEvent {
         val email: String,
         val password: String,
         val role: String,
+        val providerSubtype: String = "",
         val phoneNumber: String = "",
         val profilePhotoUrl: String = "",
         val photoBytes: ByteArray? = null,
         val gender: String = "",
-        val nationalId: String = ""
+        val nationalId: String = "",
+        val agentLicenseNumber: String = "",
+        val yearsOfExperience: String = "",
+        val companyName: String = "",
+        val companyRegNumber: String = "",
+        val companyAddress: String = "",
+        val taxId: String = ""
     ) : AuthEvent()
     object Logout : AuthEvent()
 }
@@ -133,7 +140,14 @@ class AuthViewModel(
                             profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: "",
                             createdAt       = doc.get("createdAt")       as? Long   ?: 0L,
                             gender          = doc.get("gender")          as? String ?: "",
-                            nationalId      = doc.get("nationalId")      as? String ?: ""
+                            nationalId      = doc.get("nationalId")      as? String ?: "",
+                            providerSubtype    = doc.get("providerSubtype")    as? String ?: "",
+                            agentLicenseNumber = doc.get("agentLicenseNumber") as? String ?: "",
+                            yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
+                            companyName        = doc.get("companyName")         as? String ?: "",
+                            companyRegNumber   = doc.get("companyRegNumber")    as? String ?: "",
+                            companyAddress     = doc.get("companyAddress")      as? String ?: "",
+                            taxId              = doc.get("taxId")               as? String ?: ""
                         )
                         _rememberMeActive.value = true
                         _authState.value = if (role == "suspended") AuthState.Suspended else AuthState.Success(user)
@@ -152,13 +166,24 @@ class AuthViewModel(
         _selectedRole.value = role
     }
 
+    private val _selectedSubtype = MutableStateFlow("")
+    val selectedSubtype: StateFlow<String> = _selectedSubtype.asStateFlow()
+
+    fun selectSubtype(subtype: String) {
+        _selectedSubtype.value = subtype
+    }
+
     fun onEvent(event: AuthEvent) {
         when (event) {
             is AuthEvent.Login    -> login(event.email, event.password, event.rememberMe)
             is AuthEvent.Register -> register(
                 event.name, event.email, event.password, event.role,
+                event.providerSubtype,
                 event.phoneNumber, event.profilePhotoUrl, event.photoBytes,
-                event.gender, event.nationalId
+                event.gender, event.nationalId,
+                event.agentLicenseNumber, event.yearsOfExperience,
+                event.companyName, event.companyRegNumber,
+                event.companyAddress, event.taxId
             )
             is AuthEvent.Logout   -> logout()
         }
@@ -239,7 +264,14 @@ class AuthViewModel(
                     profilePhotoUrl = doc.get("profilePhotoUrl") as? String ?: "",
                     createdAt       = doc.get("createdAt")       as? Long   ?: 0L,
                     gender          = doc.get("gender")          as? String ?: "",
-                    nationalId      = doc.get("nationalId")      as? String ?: ""
+                    nationalId      = doc.get("nationalId")      as? String ?: "",
+                    providerSubtype    = doc.get("providerSubtype")    as? String ?: "",
+                    agentLicenseNumber = doc.get("agentLicenseNumber") as? String ?: "",
+                    yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
+                    companyName        = doc.get("companyName")         as? String ?: "",
+                    companyRegNumber   = doc.get("companyRegNumber")    as? String ?: "",
+                    companyAddress     = doc.get("companyAddress")      as? String ?: "",
+                    taxId              = doc.get("taxId")               as? String ?: ""
                 )
 
                 // 1. Save rememberMe to LOCAL device storage — device-specific,
@@ -278,11 +310,18 @@ class AuthViewModel(
         email: String,
         password: String,
         role: String,
+        providerSubtype: String = "",
         phoneNumber: String = "",
         profilePhotoUrl: String = "",
         photoBytes: ByteArray? = null,
         gender: String = "",
-        nationalId: String = ""
+        nationalId: String = "",
+        agentLicenseNumber: String = "",
+        yearsOfExperience: String = "",
+        companyName: String = "",
+        companyRegNumber: String = "",
+        companyAddress: String = "",
+        taxId: String = ""
     ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
@@ -324,6 +363,7 @@ class AuthViewModel(
                     name            = name,
                     email           = firebaseUser.email ?: email,
                     role            = role,
+                    providerSubtype = providerSubtype,
                     status          = "active",
                     phoneNumber     = phoneNumber,
                     profilePhotoUrl = finalPhotoUrl,
@@ -342,7 +382,14 @@ class AuthViewModel(
                         "profilePhotoUrl" to user.profilePhotoUrl,
                         "createdAt"       to user.createdAt,
                         "gender"          to user.gender,
-                        "nationalId"      to user.nationalId
+                        "nationalId"      to user.nationalId,
+                        "providerSubtype"    to providerSubtype,
+                        "agentLicenseNumber" to agentLicenseNumber,
+                        "yearsOfExperience"  to yearsOfExperience,
+                        "companyName"        to companyName,
+                        "companyRegNumber"   to companyRegNumber,
+                        "companyAddress"     to companyAddress,
+                        "taxId"              to taxId
                     )
                 )
                 _registrationProgress.value = 0.90f
@@ -401,7 +448,14 @@ class AuthViewModel(
                     profilePhotoUrl = profilePhotoUrl,
                     createdAt       = doc.get("createdAt")   as? Long   ?: 0L,
                     gender          = doc.get("gender")      as? String ?: "",
-                    nationalId      = doc.get("nationalId")  as? String ?: ""
+                    nationalId      = doc.get("nationalId")  as? String ?: "",
+                    providerSubtype    = doc.get("providerSubtype")    as? String ?: "",
+                    agentLicenseNumber = doc.get("agentLicenseNumber") as? String ?: "",
+                    yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
+                    companyName        = doc.get("companyName")         as? String ?: "",
+                    companyRegNumber   = doc.get("companyRegNumber")    as? String ?: "",
+                    companyAddress     = doc.get("companyAddress")      as? String ?: "",
+                    taxId              = doc.get("taxId")               as? String ?: ""
                 )
                 println("[AuthViewModel] refreshUser — profilePhotoUrl=$profilePhotoUrl")
                 if (role != "suspended") {

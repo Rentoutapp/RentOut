@@ -700,7 +700,7 @@
       }
     }
 
-    // ── Load landlord details ──────────────────────────────────────────────────
+    // ── Load landlord details ──────────────────────────────────────────────
     async function loadLandlord(landlordId) {
       try {
         const snap = await getDoc(doc(db, 'users', landlordId));
@@ -721,6 +721,15 @@
           avatarEl.innerHTML = `<img src="${l.profilePhotoUrl}" class="w-full h-full object-cover" alt="${l.name}"/>`;
         } else {
           avatarEl.textContent = (l.name?.[0] || '?').toUpperCase();
+        }
+
+        // Provider subtype badge for agents and brokerages
+        const providerSubtype = l.providerSubtype;
+        const subtypeContainer = $('p-landlord-email').parentElement;
+        if (providerSubtype === 'agent') {
+          subtypeContainer.innerHTML += `<div class="text-xs text-blue-600 font-semibold mt-1">🤝 Freelancer Agent</div>`;
+        } else if (providerSubtype === 'brokerage') {
+          subtypeContainer.innerHTML += `<div class="text-xs text-blue-600 font-semibold mt-1">🏢 Brokerage</div>`;
         }
 
         $('p-landlord-link').href = `users.html`;
@@ -834,6 +843,25 @@
         $('p-verified-badge').innerHTML = p.isVerified
           ? '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-blue-100 text-blue-700 border-blue-200">✓ Verified</span>'
           : '';
+        
+        // Provider subtype badge (Listed by)
+        let listedByBadge = '';
+        const providerSubtype = p.providerSubtype;
+        if (providerSubtype === 'agent') {
+          listedByBadge = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-blue-50 text-blue-700 border-blue-200">🤝 Listed by Agent</span>';
+        } else if (providerSubtype === 'brokerage') {
+          listedByBadge = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-blue-50 text-blue-700 border-blue-200">🏢 Listed by Brokerage</span>';
+        } else {
+          listedByBadge = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold border bg-green-50 text-green-700 border-green-200">🏠 Listed by Landlord</span>';
+        }
+        // Insert the badge after verified badge
+        const verifiedBadge = $('p-verified-badge');
+        if (verifiedBadge && verifiedBadge.innerHTML) {
+          verifiedBadge.insertAdjacentHTML('afterend', listedByBadge);
+        } else {
+          $('p-status-badge').insertAdjacentHTML('afterend', listedByBadge);
+        }
+        
         $('p-type-badge').innerHTML    = `<span>${typeIcon(p.propertyType)}</span><span class="capitalize">${p.propertyType || 'Property'}</span>`;
         $('p-city').textContent        = p.city || '—';
         $('p-date').textContent        = formatDate(p.createdAt);
