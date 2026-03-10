@@ -936,7 +936,7 @@ fun AddPropertyScreen(
                     }
                     Spacer(Modifier.height(24.dp))
 
-                    // â”€â”€ Form completeness indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ── Form completeness indicator ──────────────────────────────────────────
                     FormCompletenessIndicator(
                         hasTitle           = title.isNotBlank(),
                         hasClassification  = classification.isNotBlank() && propType.isNotBlank(),
@@ -946,10 +946,22 @@ fun AddPropertyScreen(
                         hasBathroomType    = !isResidential || bathroomType.isNotBlank(),
                         hasDescription     = description.isNotBlank(),
                         hasAddress         = address.isComplete,
-                        hasContact         = contact.isNotBlank(),
                         hasAvailability    = availabilityDate.isEmpty() || (availabilityDate.isNotBlank() && availabilityDate != "Select Date"),
                         hasTenantReqs      = tenantRequirements.isNotEmpty(),
-                        hasProximity       = proximityFacilities.isNotEmpty()
+                        hasProximity       = proximityFacilities.isNotEmpty(),
+                        // Role-aware contact completeness
+                        providerSubtype    = providerSubtype,
+                        hasContact         = when {
+                            isAgent     -> contact.isNotBlank()
+                            isBrokerage -> brokerageContactNumber.isNotBlank()
+                            else        -> contact.isNotBlank()
+                        },
+                        hasAgentName       = agentName.isNotBlank(),
+                        hasAgentContact    = agentContactNumber.isNotBlank(),
+                        hasLandlordName    = landlordContactName.isNotBlank(),
+                        hasBrokerName      = brokerName.isNotBlank(),
+                        hasBrokerContact   = brokerContactNumber.isNotBlank(),
+                        hasBrokerageAddr   = brokerageAddress.isNotBlank()
                     )
 
                     // â”€â”€ Edit mode: image gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2854,22 +2866,49 @@ private fun FormCompletenessIndicator(
     hasContact: Boolean,
     hasAvailability: Boolean,
     hasTenantReqs: Boolean,
-    hasProximity: Boolean
+    hasProximity: Boolean,
+    // Role-aware fields
+    providerSubtype: String = "landlord",
+    hasAgentName: Boolean = false,
+    hasAgentContact: Boolean = false,
+    hasLandlordName: Boolean = false,
+    hasBrokerName: Boolean = false,
+    hasBrokerContact: Boolean = false,
+    hasBrokerageAddr: Boolean = false,
 ) {
-    val items = listOf(
-        "Title"        to hasTitle,
-        "Type"         to hasClassification,
-        "Location"     to hasLocationType,
-        "Price"        to hasPrice,
-        "Bedrooms"     to hasRooms,
-        "Bathroom"     to hasBathroomType,
-        "Description"  to hasDescription,
-        "Address"      to hasAddress,
-        "Contact"      to hasContact,
-        "Availability" to hasAvailability,
-        "Tenant Type"  to hasTenantReqs,
-        "Proximity"    to hasProximity
-    )
+    val isAgent     = providerSubtype == "agent"
+    val isBrokerage = providerSubtype == "brokerage"
+
+    val items: List<Pair<String, Boolean>> = buildList {
+        add("Title"        to hasTitle)
+        add("Type"         to hasClassification)
+        add("Location"     to hasLocationType)
+        add("Price"        to hasPrice)
+        add("Bedrooms"     to hasRooms)
+        add("Bathroom"     to hasBathroomType)
+        add("Description"  to hasDescription)
+        add("Address"      to hasAddress)
+        add("Availability" to hasAvailability)
+        add("Tenant Type"  to hasTenantReqs)
+        add("Proximity"    to hasProximity)
+        when {
+            isAgent -> {
+                add("Agent Name"    to hasAgentName)
+                add("Agent No."     to hasAgentContact)
+                add("Lndlrd Name"   to hasLandlordName)
+                add("Lndlrd No."    to hasContact)
+            }
+            isBrokerage -> {
+                add("Broker Name"   to hasBrokerName)
+                add("Broker No."    to hasBrokerContact)
+                add("Office Addr."  to hasBrokerageAddr)
+                add("Office No."    to hasContact)
+            }
+            else -> {
+                add("Contact"       to hasContact)
+            }
+        }
+    }
 
     val completed = items.count { it.second }
 
