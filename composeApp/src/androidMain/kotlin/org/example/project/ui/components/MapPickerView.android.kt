@@ -6,7 +6,10 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,26 +20,22 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.maps.android.compose.*
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.maps.android.compose.*
 import kotlinx.coroutines.launch
 import org.example.project.ui.theme.RentOutColors
 
@@ -51,7 +50,6 @@ actual fun MapPickerView(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Default to Harare, Zimbabwe if no coordinates set
     val defaultLat = -17.8252
     val defaultLng = 31.0335
 
@@ -60,8 +58,7 @@ actual fun MapPickerView(
     val initialPos = LatLng(initialLat, initialLng)
 
     var markerPos by remember { mutableStateOf(initialPos) }
-    var isLocating by remember { mutableStateOf(false) }
-    var locationError by remember { mutableStateOf("") }
+    var showDialog by remember { mutableStateOf(false) }
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(
@@ -70,272 +67,42 @@ actual fun MapPickerView(
         )
     }
 
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialPos, if (latitude.isNotBlank()) 15f else 12f)
-    }
-
-    // Permission launcher — after grant, immediately locate if no pin set yet
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { perms ->
         val granted = perms[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                      perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         hasPermission = granted
     }
 
-    // Auto-locate on first open when no pin is set yet
-    LaunchedEffect(Unit) {
-        if (latitude.isBlank()) {
-            if (hasPermission) {
-                // Permission already granted — go straight to GPS
-                isLocating = true
-                locationError = ""
-                val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                val cts = CancellationTokenSource()
-                fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
-                    .addOnSuccessListener { loc ->
-                        isLocating = false
-                        if (loc != null) {
-                            val pos = LatLng(loc.latitude, loc.longitude)
-                            markerPos = pos
-                            onLocationPicked(
-                                "%.6f".format(loc.latitude),
-                                "%.6f".format(loc.longitude)
-                            )
-                            scope.launch {
-                                cameraPositionState.animate(
-                                    CameraUpdateFactory.newLatLngZoom(pos, 16f),
-                                    durationMs = 800
-                                )
-                            }
-                        }
-                    }
-                    .addOnFailureListener {
-                        isLocating = false
-                        // Silent fail — user can tap GPS button manually
-                    }
-            } else {
-                // No permission yet — request it; locateMe() will be called via the GPS button after grant
-                permissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
+    // Sync markerPos when latitude/longitude props change externally
+    LaunchedEffect(latitude, longitude) {
+        val lat = latitude.toDoubleOrNull()
+        val lng = longitude.toDoubleOrNull()
+        if (lat != null && lng != null) {
+            markerPos = LatLng(lat, lng)
         }
     }
-
-    // Auto-locate after permission is freshly granted and no pin is set
-    LaunchedEffect(hasPermission) {
-        if (hasPermission && latitude.isBlank()) {
-            isLocating = true
-            locationError = ""
-            val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-            val cts = CancellationTokenSource()
-            fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
-                .addOnSuccessListener { loc ->
-                    isLocating = false
-                    if (loc != null) {
-                        val pos = LatLng(loc.latitude, loc.longitude)
-                        markerPos = pos
-                        onLocationPicked(
-                            "%.6f".format(loc.latitude),
-                            "%.6f".format(loc.longitude)
-                        )
-                        scope.launch {
-                            cameraPositionState.animate(
-                                CameraUpdateFactory.newLatLngZoom(pos, 16f),
-                                durationMs = 800
-                            )
-                        }
-                    }
-                }
-                .addOnFailureListener {
-                    isLocating = false
-                }
-        }
-    }
-
-    // GPS locate function
-    fun locateMe() {
-        if (!hasPermission) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-            return
-        }
-        isLocating = true
-        locationError = ""
-        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-        val cts = CancellationTokenSource()
-        fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
-            .addOnSuccessListener { loc ->
-                isLocating = false
-                if (loc != null) {
-                    val pos = LatLng(loc.latitude, loc.longitude)
-                    markerPos = pos
-                    onLocationPicked(
-                        "%.6f".format(loc.latitude),
-                        "%.6f".format(loc.longitude)
-                    )
-                    scope.launch {
-                        cameraPositionState.animate(
-                            CameraUpdateFactory.newLatLngZoom(pos, 16f),
-                            durationMs = 800
-                        )
-                    }
-                } else {
-                    locationError = "Could not determine location. Try again."
-                }
-            }
-            .addOnFailureListener {
-                isLocating = false
-                locationError = "GPS error: ${it.message}"
-            }
-    }
-
-    val rootView = LocalView.current
 
     Column(modifier = modifier.fillMaxWidth()) {
 
-        // Nested scroll interceptor — consumes all scroll so parent column doesn't move
-        val mapScrollConsumer = remember {
-            object : NestedScrollConnection {
-                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
-                    available // consume everything — map handles its own panning
-                override suspend fun onPreFling(available: Velocity): Velocity =
-                    available
-            }
-        }
-
-        // Map container
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .nestedScroll(mapScrollConsumer)
-                // Disallow parent scroll from intercepting ANY touch on the map.
-                // When a finger goes down on the map, we tell the parent view hierarchy
-                // to stop intercepting touch events so the map can handle all gestures
-                // (pan, pinch-zoom, drag marker) without the screen scrolling.
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            // As soon as any finger is on the map, lock out the parent scroller
-                            val hasFingerDown = event.changes.any { it.pressed }
-                            rootView.parent?.requestDisallowInterceptTouchEvent(hasFingerDown)
-                        }
-                    }
-                }
-        ) {
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(isMyLocationEnabled = hasPermission),
-                uiSettings = MapUiSettings(
-                    myLocationButtonEnabled = false,
-                    zoomControlsEnabled = false,
-                    compassEnabled = true
-                ),
-                onMapClick = { latLng ->
-                    markerPos = latLng
-                    onLocationPicked(
-                        "%.6f".format(latLng.latitude),
-                        "%.6f".format(latLng.longitude)
-                    )
-                }
-            ) {
-                Marker(
-                    state = MarkerState(position = markerPos),
-                    title = "Property Location",
-                    draggable = true,
-                    onInfoWindowClick = {}
-                )
-            }
-
-            // GPS button — top right corner
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(12.dp)
-            ) {
-                FloatingActionButton(
-                    onClick = { locateMe() },
-                    modifier = Modifier.size(46.dp),
-                    shape = CircleShape,
-                    containerColor = RentOutColors.Primary,
-                    contentColor = Color.White,
-                    elevation = FloatingActionButtonDefaults.elevation(4.dp)
-                ) {
-                    if (isLocating) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.MyLocation,
-                            contentDescription = "Detect my location",
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-            }
-
-            // Tap-to-pin hint overlay — shown when no pin set yet
-            if (latitude.isBlank()) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 12.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.Black.copy(alpha = 0.6f),
-                    tonalElevation = 0.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.TouchApp,
-                            null,
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            "Tap map to pin property location",
-                            color = Color.White,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-        }
+        // ── Tappable preview thumbnail ──────────────────────────────────────
+        MapPreviewCard(
+            latitude = latitude,
+            longitude = longitude,
+            markerPos = markerPos,
+            hasPermission = hasPermission,
+            onClick = { showDialog = true }
+        )
 
         Spacer(Modifier.height(10.dp))
 
-        // Error message
-        AnimatedVisibility(visible = locationError.isNotBlank()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
-            ) {
-                Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(locationError, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-            }
-        }
-
-        // Coordinate display card
-        AnimatedVisibility(visible = latitude.isNotBlank() && longitude.isNotBlank()) {
+        // ── Pinned coordinate chip ──────────────────────────────────────────
+        AnimatedVisibility(
+            visible = latitude.isNotBlank() && longitude.isNotBlank(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
@@ -381,7 +148,10 @@ actual fun MapPickerView(
                         }
                     }
                     IconButton(
-                        onClick = { onLocationPicked("", "") },
+                        onClick = {
+                            onLocationPicked("", "")
+                            markerPos = LatLng(defaultLat, defaultLng)
+                        },
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
@@ -390,6 +160,432 @@ actual fun MapPickerView(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Full-screen map dialog ──────────────────────────────────────────────
+    if (showDialog) {
+        MapPickerDialog(
+            latitude = latitude,
+            longitude = longitude,
+            markerPos = markerPos,
+            hasPermission = hasPermission,
+            onMarkerMoved = { pos ->
+                markerPos = pos
+                onLocationPicked("%.6f".format(pos.latitude), "%.6f".format(pos.longitude))
+            },
+            onLocateMe = {
+                if (!hasPermission) {
+                    permissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            },
+            onDismiss = { showDialog = false },
+            scope = scope
+        )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preview thumbnail card (non-interactive, tap to open dialog)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun MapPreviewCard(
+    latitude: String,
+    longitude: String,
+    markerPos: LatLng,
+    hasPermission: Boolean,
+    onClick: () -> Unit
+) {
+    // Pulse animation for the "tap to open" badge when no pin is set
+    val pulseAnim = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by pulseAnim.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
+    val previewCameraState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            markerPos,
+            if (latitude.isNotBlank()) 14f else 11f
+        )
+    }
+
+    // Keep preview camera in sync when markerPos changes
+    LaunchedEffect(markerPos) {
+        previewCameraState.move(CameraUpdateFactory.newLatLng(markerPos))
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(
+                width = 1.5.dp,
+                color = RentOutColors.Primary.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        // Static non-interactive map (gesture-disabled so it won't fight the scroll)
+        GoogleMap(
+            modifier = Modifier.fillMaxSize(),
+            cameraPositionState = previewCameraState,
+            properties = MapProperties(isMyLocationEnabled = false),
+            uiSettings = MapUiSettings(
+                scrollGesturesEnabled = false,
+                zoomGesturesEnabled = false,
+                tiltGesturesEnabled = false,
+                rotationGesturesEnabled = false,
+                myLocationButtonEnabled = false,
+                zoomControlsEnabled = false,
+                compassEnabled = false,
+                mapToolbarEnabled = false
+            )
+        ) {
+            if (latitude.isNotBlank()) {
+                Marker(
+                    state = MarkerState(position = markerPos),
+                    title = "Property Location"
+                )
+            }
+        }
+
+        // Dark scrim so the tap badge is readable
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.18f))
+        )
+
+        // Tap-to-open badge — pulses when no pin set, static when pin is set
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .scale(if (latitude.isBlank()) pulseScale else 1f)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = if (latitude.isBlank()) RentOutColors.Primary else Color.Black.copy(alpha = 0.65f),
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        if (latitude.isBlank()) Icons.Default.TouchApp else Icons.Default.EditLocationAlt,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (latitude.isBlank()) "Tap to pick location" else "Tap to adjust pin",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+
+        // Small expand icon — top right
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.55f)
+            ) {
+                Icon(
+                    Icons.Default.OpenInFull,
+                    contentDescription = "Open map",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .padding(6.dp)
+                        .size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full-screen animated map dialog
+// ─────────────────────────────────────────────────────────────────────────────
+
+@SuppressLint("MissingPermission")
+@Composable
+private fun MapPickerDialog(
+    latitude: String,
+    longitude: String,
+    markerPos: LatLng,
+    hasPermission: Boolean,
+    onMarkerMoved: (LatLng) -> Unit,
+    onLocateMe: () -> Unit,
+    onDismiss: () -> Unit,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    val context = LocalContext.current
+
+    var dialogMarkerPos by remember { mutableStateOf(markerPos) }
+    var isLocating by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf("") }
+
+    val dialogCameraState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            markerPos,
+            if (latitude.isNotBlank()) 15f else 12f
+        )
+    }
+
+    // GPS locate inside the dialog
+    fun locateMe() {
+        if (!hasPermission) { onLocateMe(); return }
+        isLocating = true
+        locationError = ""
+        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+        val cts = CancellationTokenSource()
+        fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+            .addOnSuccessListener { loc ->
+                isLocating = false
+                if (loc != null) {
+                    val pos = LatLng(loc.latitude, loc.longitude)
+                    dialogMarkerPos = pos
+                    onMarkerMoved(pos)
+                    scope.launch {
+                        dialogCameraState.animate(
+                            CameraUpdateFactory.newLatLngZoom(pos, 16f),
+                            durationMs = 700
+                        )
+                    }
+                } else {
+                    locationError = "Could not determine location. Try again."
+                }
+            }
+            .addOnFailureListener {
+                isLocating = false
+                locationError = "GPS error: ${it.message}"
+            }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false
+        )
+    ) {
+        // Zoom-out entrance animation
+        var visible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { visible = true }
+
+        AnimatedVisibility(
+            visible = visible,
+            enter = scaleIn(
+                initialScale = 0.55f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ) + fadeIn(animationSpec = tween(220)),
+            exit = scaleOut(targetScale = 0.75f, animationSpec = tween(180)) +
+                    fadeOut(animationSpec = tween(160))
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(12.dp),
+                shape = RoundedCornerShape(24.dp),
+                shadowElevation = 24.dp,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+
+                    // Interactive full-screen map
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = dialogCameraState,
+                        properties = MapProperties(isMyLocationEnabled = hasPermission),
+                        uiSettings = MapUiSettings(
+                            myLocationButtonEnabled = false,
+                            zoomControlsEnabled = true,
+                            compassEnabled = true,
+                            mapToolbarEnabled = false
+                        ),
+                        onMapClick = { latLng ->
+                            dialogMarkerPos = latLng
+                            onMarkerMoved(latLng)
+                        }
+                    ) {
+                        Marker(
+                            state = MarkerState(position = dialogMarkerPos),
+                            title = "Property Location",
+                            draggable = true,
+                            onInfoWindowClick = {}
+                        )
+                    }
+
+                    // ── Top bar ──────────────────────────────────────────
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Map,
+                                    contentDescription = null,
+                                    tint = RentOutColors.Primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Pick Property Location",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Button(
+                                onClick = onDismiss,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = RentOutColors.Primary
+                                ),
+                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text("Done", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+
+                    // ── GPS FAB ──────────────────────────────────────────
+                    FloatingActionButton(
+                        onClick = { locateMe() },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 16.dp, bottom = 90.dp)
+                            .size(52.dp),
+                        shape = CircleShape,
+                        containerColor = RentOutColors.Primary,
+                        contentColor = Color.White,
+                        elevation = FloatingActionButtonDefaults.elevation(6.dp)
+                    ) {
+                        if (isLocating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.MyLocation,
+                                contentDescription = "Detect my location",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    // ── Hint banner (no pin yet) ──────────────────────────
+                    AnimatedVisibility(
+                        visible = latitude.isBlank(),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 16.dp),
+                        enter = fadeIn() + slideInVertically { it },
+                        exit = fadeOut() + slideOutVertically { it }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.Black.copy(alpha = 0.65f),
+                            shadowElevation = 4.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.TouchApp,
+                                    null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Tap the map or drag the marker to pin your property",
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // ── Error snackbar ────────────────────────────────────
+                    AnimatedVisibility(
+                        visible = locationError.isNotBlank(),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 16.dp),
+                        enter = fadeIn() + slideInVertically { it },
+                        exit = fadeOut() + slideOutVertically { it }
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(15.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    locationError,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
                     }
                 }
             }
