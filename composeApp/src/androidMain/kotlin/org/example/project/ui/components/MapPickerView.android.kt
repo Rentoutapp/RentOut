@@ -36,6 +36,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.maps.android.compose.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.example.project.ui.theme.RentOutColors
 
@@ -91,7 +92,6 @@ actual fun MapPickerView(
             latitude = latitude,
             longitude = longitude,
             markerPos = markerPos,
-            hasPermission = hasPermission,
             onClick = { showDialog = true }
         )
 
@@ -177,15 +177,13 @@ actual fun MapPickerView(
                 markerPos = pos
                 onLocationPicked("%.6f".format(pos.latitude), "%.6f".format(pos.longitude))
             },
-            onLocateMe = {
-                if (!hasPermission) {
-                    permissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        )
+            onRequestPermission = {
+                permissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
                     )
-                }
+                )
             },
             onDismiss = { showDialog = false },
             scope = scope
@@ -202,7 +200,6 @@ private fun MapPreviewCard(
     latitude: String,
     longitude: String,
     markerPos: LatLng,
-    hasPermission: Boolean,
     onClick: () -> Unit
 ) {
     // Pulse animation for the "tap to open" badge when no pin is set
@@ -224,7 +221,7 @@ private fun MapPreviewCard(
         )
     }
 
-    // Keep preview camera in sync when markerPos changes
+    // Keep preview camera centred on marker when it changes
     LaunchedEffect(markerPos) {
         previewCameraState.move(CameraUpdateFactory.newLatLng(markerPos))
     }
@@ -241,7 +238,7 @@ private fun MapPreviewCard(
             )
             .clickable(onClick = onClick)
     ) {
-        // Static non-interactive map (gesture-disabled so it won't fight the scroll)
+        // Static non-interactive map — all gestures disabled so it never fights the scroll
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = previewCameraState,
@@ -265,14 +262,14 @@ private fun MapPreviewCard(
             }
         }
 
-        // Dark scrim so the tap badge is readable
+        // Dark scrim so the badge is readable
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.18f))
         )
 
-        // Tap-to-open badge — pulses when no pin set, static when pin is set
+        // Centre badge — pulses when no pin, static when pinned
         Box(
             modifier = Modifier
                 .align(Alignment.Center)
@@ -305,7 +302,7 @@ private fun MapPreviewCard(
             }
         }
 
-        // Small expand icon — top right
+        // Expand icon — top right
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -340,26 +337,67 @@ private fun MapPickerDialog(
     markerPos: LatLng,
     hasPermission: Boolean,
     onMarkerMoved: (LatLng) -> Unit,
-    onLocateMe: () -> Unit,
+    onRequestPermission: () -> Unit,
     onDismiss: () -> Unit,
     scope: kotlinx.coroutines.CoroutineScope
 ) {
     val context = LocalContext.current
 
     var dialogMarkerPos by remember { mutableStateOf(markerPos) }
+    var hasPinBeenSet by remember { mutableStateOf(latitude.isNotBlank()) }
     var isLocating by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf("") }
+
+    // ── Guard: ignore map clicks for the first 400 ms after the dialog opens.
+    // The tap that opened the dialog can propagate through to onMapClick;
+    // this window swallows it so the pin is never placed by the opening tap.
+    var mapClicksEnabled by remember { mutableStateOf(false) }
 
     val dialogCameraState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(
             markerPos,
-            if (latitude.isNotBlank()) 15f else 12f
+            if (latitude.isNotBlank()) 15f else 5f   // wide zoom until we fly to user
         )
     }
 
-    // GPS locate inside the dialog
+    // On first open: enable click guard after delay, then auto-locate if no pin set
+    LaunchedEffect(Unit) {
+        // 1. Wait for the dialog open animation + touch-up before enabling map clicks
+        delay(450)
+        mapClicksEnabled = true
+
+        // 2. If no pin is set yet, fly to the user's current location
+        if (latitude.isBlank()) {
+            if (hasPermission) {
+                isLocating = true
+                val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                val cts = CancellationTokenSource()
+                fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+                    .addOnSuccessListener { loc ->
+                        isLocating = false
+                        if (loc != null) {
+                            val pos = LatLng(loc.latitude, loc.longitude)
+                            // Move camera to user location but do NOT set/move the pin yet
+                            scope.launch {
+                                dialogCameraState.animate(
+                                    CameraUpdateFactory.newLatLngZoom(pos, 15f),
+                                    durationMs = 900
+                                )
+                            }
+                        }
+                    }
+                    .addOnFailureListener {
+                        isLocating = false
+                    }
+            } else {
+                onRequestPermission()
+            }
+        }
+    }
+
+    // GPS locate button function — moves camera AND sets the pin
     fun locateMe() {
-        if (!hasPermission) { onLocateMe(); return }
+        if (!hasPermission) { onRequestPermission(); return }
         isLocating = true
         locationError = ""
         val fusedClient = LocationServices.getFusedLocationProviderClient(context)
@@ -370,6 +408,7 @@ private fun MapPickerDialog(
                 if (loc != null) {
                     val pos = LatLng(loc.latitude, loc.longitude)
                     dialogMarkerPos = pos
+                    hasPinBeenSet = true
                     onMarkerMoved(pos)
                     scope.launch {
                         dialogCameraState.animate(
@@ -433,16 +472,22 @@ private fun MapPickerDialog(
                             mapToolbarEnabled = false
                         ),
                         onMapClick = { latLng ->
+                            // Ignore taps during the opening guard window
+                            if (!mapClicksEnabled) return@GoogleMap
                             dialogMarkerPos = latLng
+                            hasPinBeenSet = true
                             onMarkerMoved(latLng)
                         }
                     ) {
-                        Marker(
-                            state = MarkerState(position = dialogMarkerPos),
-                            title = "Property Location",
-                            draggable = true,
-                            onInfoWindowClick = {}
-                        )
+                        // Only show marker once the user has actually pinned a location
+                        if (hasPinBeenSet) {
+                            Marker(
+                                state = MarkerState(position = dialogMarkerPos),
+                                title = "Property Location",
+                                draggable = true,
+                                onInfoWindowClick = {}
+                            )
+                        }
                     }
 
                     // ── Top bar ──────────────────────────────────────────
@@ -494,6 +539,37 @@ private fun MapPickerDialog(
                         }
                     }
 
+                    // ── Locating spinner overlay ──────────────────────────
+                    AnimatedVisibility(
+                        visible = isLocating,
+                        modifier = Modifier.align(Alignment.Center),
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.Black.copy(alpha = 0.65f),
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    "Finding your location…",
+                                    color = Color.White,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+
                     // ── GPS FAB ──────────────────────────────────────────
                     FloatingActionButton(
                         onClick = { locateMe() },
@@ -515,15 +591,15 @@ private fun MapPickerDialog(
                         } else {
                             Icon(
                                 Icons.Default.MyLocation,
-                                contentDescription = "Detect my location",
+                                contentDescription = "Use my location",
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     }
 
-                    // ── Hint banner (no pin yet) ──────────────────────────
+                    // ── Hint banner ───────────────────────────────────────
                     AnimatedVisibility(
-                        visible = latitude.isBlank(),
+                        visible = !hasPinBeenSet && !isLocating,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .padding(bottom = 16.dp),
