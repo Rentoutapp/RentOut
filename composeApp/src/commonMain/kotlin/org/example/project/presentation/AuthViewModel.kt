@@ -27,7 +27,13 @@ sealed class AuthState {
 }
 
 sealed class AuthEvent {
-    data class Login(val email: String, val password: String, val rememberMe: Boolean = false) : AuthEvent()
+    data class Login(
+        val email: String,
+        val password: String,
+        val rememberMe: Boolean = false,
+        val expectedRole: String = "",
+        val expectedSubtype: String = ""
+    ) : AuthEvent()
     data class Register(
         val name: String,
         val email: String,
@@ -175,7 +181,7 @@ class AuthViewModel(
 
     fun onEvent(event: AuthEvent) {
         when (event) {
-            is AuthEvent.Login    -> login(event.email, event.password, event.rememberMe)
+            is AuthEvent.Login    -> login(event.email, event.password, event.rememberMe, event.expectedRole, event.expectedSubtype)
             is AuthEvent.Register -> register(
                 event.name, event.email, event.password, event.role,
                 event.providerSubtype,
@@ -241,7 +247,13 @@ class AuthViewModel(
 
     // ─── Login ─────────────────────────────────────────────────────────────────
 
-    private fun login(email: String, password: String, rememberMe: Boolean) {
+    private fun login(
+        email: String,
+        password: String,
+        rememberMe: Boolean,
+        expectedRole: String = "",
+        expectedSubtype: String = ""
+    ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
@@ -251,8 +263,42 @@ class AuthViewModel(
 
                 // Fetch user profile from Firestore
                 val doc = firestore.collection("users").document(firebaseUser.uid).get()
-                val role = doc.get("role") as? String ?: "tenant"
-                val name = doc.get("name") as? String ?: firebaseUser.displayName ?: email
+                val role           = doc.get("role")            as? String ?: "tenant"
+                val providerSubtype = doc.get("providerSubtype") as? String ?: ""
+                val name           = doc.get("name")            as? String ?: firebaseUser.displayName ?: email
+
+                // ── Role / subtype gate ───────────────────────────────────────
+                // Validate that this account's actual role & subtype match the
+                // screen the user selected. Sign them out immediately if not.
+                if (expectedRole.isNotBlank()) {
+                    val roleMatches = role == expectedRole
+                    // For landlord accounts the subtype must also match:
+                    //   - "landlord" screen → providerSubtype must be "" or "landlord"
+                    //   - "agent" screen    → providerSubtype must be "agent"
+                    //   - "brokerage" screen→ providerSubtype must be "brokerage"
+                    val subtypeMatches = when {
+                        expectedRole != "landlord" -> true  // tenants have no subtype
+                        expectedSubtype.isBlank() || expectedSubtype == "landlord" ->
+                            providerSubtype.isBlank() || providerSubtype == "landlord"
+                        else -> providerSubtype == expectedSubtype
+                    }
+
+                    if (!roleMatches || !subtypeMatches) {
+                        // Sign out from Firebase immediately — credentials must not persist
+                        auth.signOut()
+                        val friendlyName = when {
+                            expectedRole == "tenant"          -> "Tenant"
+                            expectedSubtype == "agent"        -> "Freelancer Agent"
+                            expectedSubtype == "brokerage"    -> "Brokerage"
+                            else                              -> "Landlord"
+                        }
+                        _authState.value = AuthState.Error(
+                            "These credentials don't belong to a $friendlyName account. " +
+                            "Please go back and select the correct role."
+                        )
+                        return@launch
+                    }
+                }
 
                 val user = User(
                     uid             = firebaseUser.uid,
@@ -265,7 +311,7 @@ class AuthViewModel(
                     createdAt       = doc.get("createdAt")       as? Long   ?: 0L,
                     gender          = doc.get("gender")          as? String ?: "",
                     nationalId      = doc.get("nationalId")      as? String ?: "",
-                    providerSubtype    = doc.get("providerSubtype")    as? String ?: "",
+                    providerSubtype    = providerSubtype,
                     agentLicenseNumber = doc.get("agentLicenseNumber") as? String ?: "",
                     yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
                     companyName        = doc.get("companyName")         as? String ?: "",

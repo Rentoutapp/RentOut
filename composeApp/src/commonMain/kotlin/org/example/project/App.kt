@@ -2,7 +2,12 @@ package org.example.project
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -56,14 +61,13 @@ fun App() {
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
 
-        // Wait for session check before rendering navigation — prevents a
-        // flash of IntroScreen for users with an active rememberMe session.
+        // While the session check is in-flight, show a plain black screen —
+        // no text, no logo, no flash before the intro video starts.
         if (!sessionChecked) {
-            SplashScreen(
-                currentUserRole = null,
-                onNavigateToRole = {},
-                onNavigateToLandlord = {},
-                onNavigateToTenant = {}
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
             )
             return@RentOutTheme
         }
@@ -77,17 +81,13 @@ fun App() {
             popExitTransition = { slideOutHorizontally(tween(300)) { it } + fadeOut(tween(300)) }
         ) {
             // -- INTRO ---------------------------------------------------------
+            // Plays intro_vid.mp4 full-screen. After video ends, always goes to
+            // Role Selection — no button, no rememberMe branching here.
             composable(NavRoutes.INTRO) {
                 IntroScreen(
                     onGetStarted = {
-                        if (rememberMeActive) {
-                            // Short path: Intro ? Splash ? Dashboard
-                            navController.navigate(NavRoutes.SPLASH) {
-                                popUpTo(NavRoutes.INTRO) { inclusive = false }
-                            }
-                        } else {
-                            // Normal path: Intro ? Role Selection ? Auth ? Splash ? Dashboard
-                            navController.navigate(NavRoutes.ROLE_SELECTION)
+                        navController.navigate(NavRoutes.ROLE_SELECTION) {
+                            popUpTo(NavRoutes.INTRO) { inclusive = true }
                         }
                     }
                 )
@@ -125,7 +125,13 @@ fun App() {
                     selectedSubtype = selectedSubtype,
                     authState = authState,
                     onLogin = { email, password, rememberMe ->
-                        authViewModel.onEvent(AuthEvent.Login(email, password, rememberMe))
+                        authViewModel.onEvent(AuthEvent.Login(
+                            email           = email,
+                            password        = password,
+                            rememberMe      = rememberMe,
+                            expectedRole    = selectedRole,
+                            expectedSubtype = selectedSubtype
+                        ))
                     },
                     onNavigateAfterLogin = {
                         navController.navigate(NavRoutes.SPLASH) {
@@ -176,10 +182,7 @@ fun App() {
 
             // -- SPLASH --------------------------------------------------------
             composable(NavRoutes.SPLASH) {
-                // Preload full user profile (including profilePhotoUrl) during the
                 // splash animation window. By the time the dashboard renders, the
-                // authState already contains the correct profilePhotoUrl and Coil
-                // will have had time to begin fetching the image into its cache.
                 LaunchedEffect(Unit) { authViewModel.refreshUser() }
                 val user = currentUser
                 SplashScreen(
@@ -190,14 +193,12 @@ fun App() {
                         }
                     },
                     onNavigateToLandlord = {
-                        // Load from Firestore
                         user?.let { propertyViewModel.loadLandlordPropertiesFromFirestore(it.uid) }
                         navController.navigate(NavRoutes.LANDLORD_DASHBOARD) {
                             popUpTo(NavRoutes.SPLASH) { inclusive = true }
                         }
                     },
                     onNavigateToTenant = {
-                        // Load from Firestore
                         propertyViewModel.loadTenantPropertiesFromFirestore()
                         navController.navigate(NavRoutes.TENANT_HOME) {
                             popUpTo(NavRoutes.SPLASH) { inclusive = true }
@@ -212,7 +213,7 @@ fun App() {
                     onContactSupport = {},
                     onLogout = {
                         authViewModel.onEvent(AuthEvent.Logout)
-                        navController.navigate(NavRoutes.INTRO) {
+                        navController.navigate(NavRoutes.ROLE_SELECTION) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
@@ -247,7 +248,7 @@ fun App() {
                     onLogout = {
                         propertyViewModel.stopAllListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
-                        navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                        navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
                     onAnimationDemo = { navController.navigate(NavRoutes.BUTTON_ANIMATION_DEMO) }
                 )
@@ -319,7 +320,7 @@ fun App() {
                     onLogout = {
                         propertyViewModel.stopAllListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
-                        navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                        navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
                     onDeleteAccount = {
                         authViewModel.deleteAccount(
@@ -363,6 +364,8 @@ fun App() {
                         navController.navigate(NavRoutes.PROPERTY_IMAGES)
                     },
                     landlordPhoneNumber = currentUser?.phoneNumber ?: "",
+                    landlordName        = currentUser?.name ?: "",
+                    providerSubtype     = currentUser?.providerSubtype ?: "landlord",
                     draft = propertyDraft,
                     onSaveDraft = { propertyViewModel.saveDraft(it) }
                 )
@@ -507,6 +510,8 @@ fun App() {
                             navController.navigate(NavRoutes.editPropertyImages(property.id))
                         },
                         landlordPhoneNumber  = currentUser?.phoneNumber ?: "",
+                        landlordName         = currentUser?.name ?: "",
+                        providerSubtype      = currentUser?.providerSubtype ?: "landlord",
                         draft                = editDraft,
                         onSaveDraft          = { propertyViewModel.saveDraft(it) },
                         isEditMode           = true,
@@ -549,7 +554,7 @@ fun App() {
                         propertyViewModel.stopAllListeners()
                         tenantViewModel.stopListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
-                        navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                        navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
                     applyFilters = { props, query, city, filter ->
                         propertyViewModel.applyFilters(props, query, city, filter)
@@ -641,7 +646,7 @@ fun App() {
                         propertyViewModel.stopAllListeners()
                         tenantViewModel.stopListeners()
                         authViewModel.onEvent(AuthEvent.Logout)
-                        navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
+                        navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
                     onDeleteAccount = {
                         authViewModel.deleteAccount(

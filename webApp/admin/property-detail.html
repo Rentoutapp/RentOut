@@ -313,12 +313,14 @@
           <!-- Right: landlord + metadata (1/3) -->
           <div class="space-y-6">
 
-            <!-- Landlord card -->
+            <!-- Lister card — adapts to landlord / agent / brokerage -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold text-gray-800">👤 Landlord</h2>
+                <h2 class="text-lg font-bold text-gray-800" id="lister-card-title">👤 Landlord</h2>
                 <span id="p-provider-badge" class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-700">🏠 Listed by Landlord</span>
               </div>
+
+              <!-- Landlord profile row (always shown) -->
               <div class="flex items-center gap-3 mb-4">
                 <div id="p-landlord-avatar" class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl font-bold text-primary overflow-hidden flex-shrink-0"></div>
                 <div>
@@ -326,7 +328,9 @@
                   <div id="p-landlord-email" class="text-xs text-gray-400 mt-0.5"></div>
                 </div>
               </div>
-              <div class="space-y-2 text-sm">
+
+              <!-- Landlord contact (shown for landlord + agent; hidden for brokerage) -->
+              <div id="landlord-contact-row" class="space-y-2 text-sm mb-3">
                 <div class="flex items-center gap-2 text-gray-600">
                   <span>📞</span><span id="p-contact"></span>
                 </div>
@@ -334,6 +338,77 @@
                   <span>🆔</span><span class="font-mono" id="p-landlord-id"></span>
                 </div>
               </div>
+
+              <!-- Agent extras (shown only when providerSubtype == 'agent') -->
+              <div id="agent-details-section" class="hidden border-t border-gray-100 pt-3 mt-1 space-y-2 text-sm">
+                <p class="text-xs font-bold text-teal-700 uppercase tracking-wide mb-1">🤝 Freelance Agent</p>
+                <div class="flex items-center gap-2 text-gray-700">
+                  <span>👤</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Agent Name</div>
+                    <div class="font-semibold" id="p-agent-name">—</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-gray-600">
+                  <span>📞</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Agent Contact</div>
+                    <div id="p-agent-contact">—</div>
+                  </div>
+                </div>
+                <!-- Landlord details entered by agent -->
+                <div class="border-t border-gray-100 pt-2 mt-1">
+                  <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">🏠 Landlord (via Agent)</p>
+                  <div class="flex items-center gap-2 text-gray-700">
+                    <span>👤</span>
+                    <div>
+                      <div class="text-xs text-gray-400">Landlord Name</div>
+                      <div class="font-semibold" id="p-landlord-name-agent">—</div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2 text-gray-600 mt-1">
+                    <span>📞</span>
+                    <div>
+                      <div class="text-xs text-gray-400">Landlord Contact</div>
+                      <div id="p-landlord-contact-agent">—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Brokerage extras (shown only when providerSubtype == 'brokerage') -->
+              <div id="brokerage-details-section" class="hidden border-t border-gray-100 pt-3 mt-1 space-y-2 text-sm">
+                <p class="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">🏢 Brokerage</p>
+                <div class="flex items-center gap-2 text-gray-700">
+                  <span>👤</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Broker</div>
+                    <div class="font-semibold" id="p-broker-name">—</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-gray-600">
+                  <span>📞</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Broker Contact</div>
+                    <div id="p-broker-contact">—</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-gray-600">
+                  <span>🏢</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Brokerage Address</div>
+                    <div id="p-brokerage-address">—</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-gray-600">
+                  <span>📞</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Brokerage Contact</div>
+                    <div id="p-brokerage-contact">—</div>
+                  </div>
+                </div>
+              </div>
+
               <a id="p-landlord-link" href="#" class="mt-4 btn w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-primary text-sm font-semibold rounded-xl transition-colors">
                 View Landlord Profile →
               </a>
@@ -708,8 +783,8 @@
       try {
         const snap = await getDoc(doc(db, 'users', landlordId));
         if (!snap.exists()) {
-          $('p-landlord-name').textContent  = 'Unknown';
-          $('p-landlord-email').textContent = '';
+          $('p-landlord-name').textContent   = 'Unknown';
+          $('p-landlord-email').textContent  = '';
           $('p-landlord-avatar').textContent = '?';
           return;
         }
@@ -717,6 +792,7 @@
         $('p-landlord-name').textContent  = l.name  || '—';
         $('p-landlord-email').textContent = l.email || '';
         $('p-landlord-id').textContent    = landlordId.substring(0, 14) + '…';
+        $('p-contact').textContent        = l.phoneNumber || l.phone || '—';
 
         // Avatar: photo or initial
         const avatarEl = $('p-landlord-avatar');
@@ -726,38 +802,76 @@
           avatarEl.textContent = (l.name?.[0] || '?').toUpperCase();
         }
 
-        // Provider subtype badge for agents and brokerages
-        const providerSubtype = l.providerSubtype;
-        const subtypeContainer = $('p-landlord-email').parentElement;
+        // Determine provider subtype — prefer value from the user doc
+        const providerSubtype = l.providerSubtype || null;
+
+        // ── Update card title ────────────────────────────────────────────────
+        const cardTitles = {
+          agent:     '🤝 Freelancer Agent',
+          brokerage: '🏢 Brokerage',
+        };
+        $('lister-card-title').textContent = cardTitles[providerSubtype] || '👤 Landlord';
+
+        // ── Update the "View … Profile" link text ────────────────────────────
+        const linkLabels = {
+          agent:     'View Agent Profile →',
+          brokerage: 'View Brokerage Profile →',
+        };
+        $('p-landlord-link').textContent = linkLabels[providerSubtype] || 'View Landlord Profile →';
+        $('p-landlord-link').href = `user-detail.html?id=${landlordId}`;
+
+        // ── Show/hide agent or brokerage extra sections ──────────────────────
         if (providerSubtype === 'agent') {
-          subtypeContainer.innerHTML += `<div class="text-xs text-blue-600 font-semibold mt-1">🤝 Freelancer Agent</div>`;
+          // Show agent section with the agent's own name + contact
+          $('agent-details-section').classList.remove('hidden');
+          $('brokerage-details-section').classList.add('hidden');
+          $('p-agent-name').textContent    = l.name || '—';
+          $('p-agent-contact').textContent = l.phoneNumber || l.phone || '—';
+          // Landlord details recorded by the agent — stored on the property doc
+          $('p-landlord-name-agent').textContent    = currentProperty.landlordName    || '—';
+          $('p-landlord-contact-agent').textContent = currentProperty.contactNumber   || '—';
+          // Hide the generic landlord contact row (it duplicates agent info)
+          $('landlord-contact-row').classList.add('hidden');
         } else if (providerSubtype === 'brokerage') {
-          subtypeContainer.innerHTML += `<div class="text-xs text-blue-600 font-semibold mt-1">🏢 Brokerage</div>`;
+          // Show brokerage section
+          $('brokerage-details-section').classList.remove('hidden');
+          $('agent-details-section').classList.add('hidden');
+          $('p-broker-name').textContent      = l.name          || '—';
+          $('p-broker-contact').textContent   = l.phoneNumber   || l.phone || '—';
+          $('p-brokerage-address').textContent = l.companyAddress || '—';
+          $('p-brokerage-contact').textContent = l.companyPhone  || '—';
+          // Hide the generic landlord contact row (it duplicates broker info)
+          $('landlord-contact-row').classList.add('hidden');
+        } else {
+          // Plain landlord — hide both extras, show contact
+          $('agent-details-section').classList.add('hidden');
+          $('brokerage-details-section').classList.add('hidden');
+          $('landlord-contact-row').classList.remove('hidden');
         }
 
-        // Update the provider badge in the landlord card header
+        // ── Update the header provider badge ────────────────────────────────
         updateProviderBadge(providerSubtype);
 
-        $('p-landlord-link').href = `users.html`;
       } catch (e) {
+        console.error('loadLandlord error:', e);
         $('p-landlord-name').textContent = 'Could not load';
       }
     }
 
     // ── Provider subtype badge ─────────────────────────────────────────────────
     function updateProviderBadge(providerSubtype) {
-      const providerSubtype_normalized = providerSubtype || 'landlord';
-      const providerLabels = { 
-        landlord: '🏠 Listed by Landlord', 
-        agent: '🤝 Listed by Agent', 
-        brokerage: '🏢 Listed by Brokerage' 
+      const subtype = providerSubtype || 'landlord';
+      const providerLabels = {
+        landlord:  '🏠 Listed by Landlord',
+        agent:     '🤝 Listed by Freelancer Agent',
+        brokerage: '🏢 Listed by Brokerage',
       };
       const providerBadgeEl = $('p-provider-badge');
       if (providerBadgeEl) {
-        providerBadgeEl.textContent = providerLabels[providerSubtype_normalized] || '🏠 Listed by Landlord';
+        providerBadgeEl.textContent = providerLabels[subtype] || '🏠 Listed by Landlord';
         providerBadgeEl.className = `text-xs font-semibold px-3 py-1 rounded-full ${
-          providerSubtype_normalized === 'agent' ? 'bg-teal-100 text-teal-700' :
-          providerSubtype_normalized === 'brokerage' ? 'bg-purple-100 text-purple-700' :
+          subtype === 'agent'     ? 'bg-teal-100 text-teal-700'   :
+          subtype === 'brokerage' ? 'bg-purple-100 text-purple-700' :
           'bg-blue-100 text-blue-700'
         }`;
       }
@@ -908,7 +1022,8 @@
           $('p-coords').textContent = `${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}`;
         }
 
-        $('p-contact').textContent = p.contactNumber || '—';
+        // Note: lister card title, provider badge, agent/brokerage sections, and contact
+        // are all populated by loadLandlord() below using the authoritative user document.
 
         // Classification & type badges
         if (p.classification) {

@@ -407,6 +407,17 @@ fun TenantHomeScreen(
                                 activeFilter.propertyTypes.forEach { type -> item { ActiveFilterChip(type.replaceFirstChar { it.uppercase() }, onRemove = { onFilterChange(activeFilter.copy(propertyTypes = activeFilter.propertyTypes - type)) }) } }
                                 activeFilter.classifications.forEach { c -> item { ActiveFilterChip(c, onRemove = { onFilterChange(activeFilter.copy(classifications = activeFilter.classifications - c)) }) } }
                                 activeFilter.locationTypes.forEach { lt -> item { ActiveFilterChip(lt, onRemove = { onFilterChange(activeFilter.copy(locationTypes = activeFilter.locationTypes - lt)) }) } }
+                                activeFilter.providerTypes.forEach { pt ->
+                                    item {
+                                        val label = when (pt) {
+                                            "landlord"  -> "🏠 Landlord"
+                                            "agent"     -> "🤝 Agent"
+                                            "brokerage" -> "🏢 Brokerage"
+                                            else        -> pt.replaceFirstChar { it.uppercase() }
+                                        }
+                                        ActiveFilterChip(label, onRemove = { onFilterChange(activeFilter.copy(providerTypes = activeFilter.providerTypes - pt)) })
+                                    }
+                                }
                                 if (activeFilter.minBedrooms != null) item {
                                     ActiveFilterChip(if (activeFilter.maxBedrooms != null) "${activeFilter.minBedrooms}–${activeFilter.maxBedrooms} beds" else "${activeFilter.minBedrooms}+ beds", onRemove = { onFilterChange(activeFilter.copy(minBedrooms = null, maxBedrooms = null)) })
                                 }
@@ -952,54 +963,289 @@ private fun PropertyFilterSheet(
 
                 Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
-                // ── 1. Sort By ────────────────────────────────────────────────
+                // ── 1. Sort By — collapsible branded dropdown ────────────────────
                 FilterSection(title = "Sort By", icon = Icons.Default.Sort) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SortOption.entries.forEach { option ->
-                            FilterRadioRow(
-                                label = option.label,
-                                selected = draft.sortBy == option,
-                                onClick = { draft = draft.copy(sortBy = option) }
+                    var sortDropdownExpanded by remember { mutableStateOf(false) }
+                    val dropdownRotation by animateFloatAsState(
+                        targetValue = if (sortDropdownExpanded) 180f else 0f,
+                        animationSpec = tween(250, easing = FastOutSlowInEasing),
+                        label = "dropdown_arrow"
+                    )
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // Trigger button
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(
+                                    if (draft.sortBy != SortOption.NEWEST)
+                                        RentOutColors.Primary.copy(alpha = 0.10f)
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .border(
+                                    width = if (draft.sortBy != SortOption.NEWEST) 1.5.dp else 1.dp,
+                                    color = if (draft.sortBy != SortOption.NEWEST)
+                                        RentOutColors.Primary
+                                    else MaterialTheme.colorScheme.outline.copy(0.3f),
+                                    shape = RoundedCornerShape(14.dp)
+                                )
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { sortDropdownExpanded = !sortDropdownExpanded }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Sort, null,
+                                    tint = if (draft.sortBy != SortOption.NEWEST)
+                                        RentOutColors.Primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    draft.sortBy.label,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (draft.sortBy != SortOption.NEWEST)
+                                        FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (draft.sortBy != SortOption.NEWEST)
+                                        RentOutColors.Primary
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            Icon(
+                                Icons.Default.KeyboardArrowDown, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .graphicsLayer { rotationZ = dropdownRotation }
                             )
+                        }
+
+                        // Dropdown menu
+                        DropdownMenu(
+                            expanded = sortDropdownExpanded,
+                            onDismissRequest = { sortDropdownExpanded = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .background(
+                                    MaterialTheme.colorScheme.surface,
+                                    RoundedCornerShape(14.dp)
+                                )
+                        ) {
+                            SortOption.entries.forEachIndexed { index, option ->
+                                val isSelected = draft.sortBy == option
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) RentOutColors.Primary
+                                                        else MaterialTheme.colorScheme.surfaceVariant
+                                                    )
+                                                    .border(
+                                                        width = if (isSelected) 0.dp else 1.5.dp,
+                                                        color = if (isSelected) Color.Transparent
+                                                        else MaterialTheme.colorScheme.outline.copy(0.4f),
+                                                        shape = CircleShape
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isSelected) {
+                                                    Icon(
+                                                        Icons.Default.Check, null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(12.dp)
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                option.label,
+                                                fontSize = 14.sp,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold
+                                                else FontWeight.Normal,
+                                                color = if (isSelected) RentOutColors.Primary
+                                                else MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                    },
+                                    onClick = {
+                                        draft = draft.copy(sortBy = option)
+                                        sortDropdownExpanded = false
+                                    },
+                                    modifier = Modifier.background(
+                                        if (isSelected) RentOutColors.Primary.copy(alpha = 0.06f)
+                                        else Color.Transparent
+                                    )
+                                )
+                                if (index < SortOption.entries.size - 1) {
+                                    Divider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = MaterialTheme.colorScheme.outline.copy(0.12f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
                 Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
 
-                // ── 2. Price Range ────────────────────────────────────────────
+                // ── 2. Monthly Rent — chips + interactive range slider ────────────
                 FilterSection(title = "Monthly Rent (USD)", icon = Icons.Default.AttachMoney) {
-                    val priceOptions = listOf(null, 50.0, 100.0, 150.0, 200.0, 300.0, 400.0, 500.0, 750.0, 1000.0, 1500.0, 2000.0)
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            // Min price
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Min Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.height(6.dp))
-                                FilterDropdownButton(
-                                    label = draft.minPrice?.let { "$${it.toInt()}" } ?: "No min",
-                                    onClick = {}
-                                )
-                                // Quick select chips for min
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(top = 8.dp)) {
-                                    items(priceOptions.take(8)) { price ->
-                                        SmallSelectChip(
-                                            label = price?.let { "$${it.toInt()}" } ?: "Any",
-                                            selected = draft.minPrice == price,
-                                            onClick = { draft = draft.copy(minPrice = price) }
-                                        )
+                    // Local text state for manual input — kept as strings so the
+                    // user can type freely; parsed to Double on change.
+                    var minText by remember(draft.minPrice) {
+                        mutableStateOf(draft.minPrice?.toInt()?.toString() ?: "")
+                    }
+                    var maxText by remember(draft.maxPrice) {
+                        mutableStateOf(draft.maxPrice?.toInt()?.toString() ?: "")
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+
+                        // ── Minimum Price ────────────────────────────────────
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Minimum Price",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // "Any" button
+                                SmallSelectChip(
+                                    label = "Any",
+                                    selected = draft.minPrice == null,
+                                    onClick = {
+                                        minText = ""
+                                        draft = draft.copy(minPrice = null)
                                     }
-                                }
+                                )
+                                // Manual input field
+                                OutlinedTextField(
+                                    value = minText,
+                                    onValueChange = { input ->
+                                        val digits = input.filter { it.isDigit() }
+                                        minText = digits
+                                        val parsed = digits.toDoubleOrNull()
+                                        draft = draft.copy(minPrice = if (parsed != null && parsed > 0) parsed else null)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    placeholder = {
+                                        Text("e.g. 200", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    },
+                                    prefix = { Text("$", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = RentOutColors.Primary) },
+                                    singleLine = true,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor   = RentOutColors.Primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(0.5f),
+                                        focusedLabelColor    = RentOutColors.Primary
+                                    ),
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
                             }
                         }
-                        // Max price chips
-                        Text("Max Price", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            items(listOf(null, 100.0, 200.0, 300.0, 500.0, 750.0, 1000.0, 1500.0, 2000.0)) { price ->
+
+                        // ── Maximum Price ────────────────────────────────────
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Maximum Price",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // "Any" button
                                 SmallSelectChip(
-                                    label = price?.let { "$${it.toInt()}" } ?: "Any",
-                                    selected = draft.maxPrice == price,
-                                    onClick = { draft = draft.copy(maxPrice = price) }
+                                    label = "Any",
+                                    selected = draft.maxPrice == null,
+                                    onClick = {
+                                        maxText = ""
+                                        draft = draft.copy(maxPrice = null)
+                                    }
+                                )
+                                // Manual input field
+                                OutlinedTextField(
+                                    value = maxText,
+                                    onValueChange = { input ->
+                                        val digits = input.filter { it.isDigit() }
+                                        maxText = digits
+                                        val parsed = digits.toDoubleOrNull()
+                                        draft = draft.copy(maxPrice = if (parsed != null && parsed > 0) parsed else null)
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    placeholder = {
+                                        Text("e.g. 1000", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    },
+                                    prefix = { Text("$", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = RentOutColors.Primary) },
+                                    singleLine = true,
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor   = RentOutColors.Primary,
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(0.5f),
+                                        focusedLabelColor    = RentOutColors.Primary
+                                    ),
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+
+                        // ── Summary display ──────────────────────────────────
+                        if (draft.minPrice != null || draft.maxPrice != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(RentOutColors.Primary.copy(alpha = 0.08f))
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = buildString {
+                                        append("Range: ")
+                                        append(draft.minPrice?.let { "$${ it.toInt() }" } ?: "Any")
+                                        append("  →  ")
+                                        append(draft.maxPrice?.let { "$${ it.toInt() }" } ?: "Any")
+                                    },
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = RentOutColors.Primary
                                 )
                             }
                         }
@@ -1158,6 +1404,109 @@ private fun PropertyFilterSheet(
                                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                     color = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.outline.copy(0.15f))
+
+                // ── 5b. Property Provider / Lister ───────────────────────────
+                FilterSection(title = "Property Provider", icon = Icons.Default.Person) {
+                    val providers = listOf(
+                        Triple("landlord",  "🏠", "Landlord"),
+                        Triple("agent",     "🤝", "Freelancer Agent"),
+                        Triple("brokerage", "🏢", "Brokerage")
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            "Filter by who listed the property",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        providers.forEach { (key, emoji, label) ->
+                            val selected = key in draft.providerTypes
+                            val bgColor by animateColorAsState(
+                                if (selected) RentOutColors.Primary.copy(alpha = 0.10f)
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                animationSpec = tween(200),
+                                label = "provider_bg_$key"
+                            )
+                            val borderColor by animateColorAsState(
+                                if (selected) RentOutColors.Primary else Color.Transparent,
+                                animationSpec = tween(200),
+                                label = "provider_border_$key"
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(bgColor)
+                                    .border(
+                                        width = if (selected) 1.5.dp else 0.dp,
+                                        color = borderColor,
+                                        shape = RoundedCornerShape(14.dp)
+                                    )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        draft = draft.copy(
+                                            providerTypes = if (selected)
+                                                draft.providerTypes - key
+                                            else
+                                                draft.providerTypes + key
+                                        )
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 13.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Emoji icon box
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            if (selected) RentOutColors.Primary.copy(alpha = 0.15f)
+                                            else MaterialTheme.colorScheme.surface
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(emoji, fontSize = 16.sp)
+                                }
+                                // Label + subtitle
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        label,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) RentOutColors.Primary
+                                                else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        when (key) {
+                                            "landlord"  -> "Direct owner-listed properties"
+                                            "agent"     -> "Independent property agents"
+                                            "brokerage" -> "Professional real estate firms"
+                                            else        -> ""
+                                        },
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                // Animated check indicator
+                                AnimatedVisibility(
+                                    visible = selected,
+                                    enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                                    exit  = scaleOut(tween(150)) + fadeOut(tween(150))
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle, null,
+                                        tint = RentOutColors.Primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1413,10 +1762,21 @@ private fun FilterToggleRow(label: String, subtitle: String, checked: Boolean, o
             Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Text(subtitle, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        val isDark = isSystemInDarkTheme()
         Switch(
             checked = checked,
             onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = RentOutColors.Primary)
+            colors = SwitchDefaults.colors(
+                // ON state
+                checkedThumbColor        = Color.White,
+                checkedTrackColor        = RentOutColors.Primary,
+                checkedBorderColor       = RentOutColors.Primary,
+                checkedIconColor         = RentOutColors.Primary,
+                // OFF state — clearly visible in both light & dark
+                uncheckedThumbColor      = if (isDark) Color(0xFFB0B8C8) else Color(0xFF6B7280),
+                uncheckedTrackColor      = if (isDark) Color(0xFF2D3748) else Color(0xFFD1D5DB),
+                uncheckedBorderColor     = if (isDark) Color(0xFF4A5568) else Color(0xFF9CA3AF),
+            )
         )
     }
 }

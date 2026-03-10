@@ -178,16 +178,22 @@ fun PropertyCard(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                // Bottom-left city
-                Text(
-                    text = property.city,
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                // Bottom-left city pill
+                Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(12.dp)
-                )
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        text = property.city,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             // ── Details ────────────────────────────────────────────────────────
@@ -268,24 +274,15 @@ fun PropertyCard(
                     if (property.bathrooms > 0) PropertyStat(icon = Icons.Default.Bathtub, label = "${property.bathrooms} Bath", tint = RentOutColors.IconTeal)
                     if (property.locationType.isNotBlank()) PropertyStat(icon = Icons.Default.LocationCity, label = property.locationType, tint = RentOutColors.IconPurple)
                 }
-                // Bills row
-                if (property.billsInclusive.isNotEmpty() || property.billsExclusive.isNotEmpty()) {
+                // Bills row — inclusive only
+                if (property.billsInclusive.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                        if (property.billsInclusive.isNotEmpty()) {
-                            PropertyStat(
-                                icon = Icons.Default.CheckCircle,
-                                label = "Incl: ${property.billsInclusive.joinToString(", ")}",
-                                tint = RentOutColors.Tertiary
-                            )
-                        }
-                        if (property.billsExclusive.isNotEmpty()) {
-                            PropertyStat(
-                                icon = Icons.Default.Cancel,
-                                label = "Excl: ${property.billsExclusive.joinToString(", ")}",
-                                tint = RentOutColors.IconAmber
-                            )
-                        }
+                        PropertyStat(
+                            icon = Icons.Default.CheckCircle,
+                            label = "Incl: ${property.billsInclusive.joinToString(", ")}",
+                            tint = RentOutColors.Tertiary
+                        )
                     }
                 }
                 Spacer(Modifier.height(10.dp))

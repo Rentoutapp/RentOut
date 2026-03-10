@@ -1,6 +1,5 @@
 package org.example.project.ui.screens.auth
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -54,7 +53,7 @@ fun IntroScreen(onGetStarted: () -> Unit) {
         // 4. Hold so the user can read everything comfortably
         delay(3_200)
 
-        // 5. Auto-navigate
+        // 5. Auto-navigate to Role Selection
         onGetStarted()
     }
 
@@ -99,15 +98,15 @@ fun IntroScreen(onGetStarted: () -> Unit) {
         ) {
 
             // ── Pills — each pops in with a spring scale ──────────────────
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = showPills,
-                enter   = scaleIn(
+                enter   = androidx.compose.animation.scaleIn(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness    = Spring.StiffnessMedium
                     ),
                     initialScale  = 0.6f
-                ) + fadeIn(tween(400))
+                ) + androidx.compose.animation.fadeIn(tween(400))
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -122,9 +121,9 @@ fun IntroScreen(onGetStarted: () -> Unit) {
             Spacer(Modifier.height(24.dp))
 
             // ── Trust line — gentle fade in last ─────────────────────────
-            AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = showTrustLine,
-                enter   = fadeIn(tween(800))
+                enter   = androidx.compose.animation.fadeIn(tween(800))
             ) {
                 Text(
                     text      = "Trusted by landlords & tenants across Zimbabwe",

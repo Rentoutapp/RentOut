@@ -126,6 +126,8 @@ fun AddPropertyScreen(
     onBack: () -> Unit,
     onNavigateToImages: (Property) -> Unit = {},
     landlordPhoneNumber: String = "",
+    landlordName: String = "",
+    providerSubtype: String = "landlord",   // "landlord" | "agent" | "brokerage"
     draft: PropertyDraft = PropertyDraft(),
     onSaveDraft: (PropertyDraft) -> Unit = {},
     isEditMode: Boolean = false,
@@ -164,10 +166,33 @@ fun AddPropertyScreen(
             )
         )
     }
+    // For agents: landlord contact is entered manually — never auto-fill from agent's own phone
+    val isAgent     = providerSubtype == "agent"
+    val isBrokerage = providerSubtype == "brokerage"
     var contact by remember {
-        mutableStateOf(draft.contact.ifEmpty { landlordPhoneNumber })
+        mutableStateOf(if (isAgent) draft.contact else draft.contact.ifEmpty { landlordPhoneNumber })
     }
-    val isContactAutoFilled = landlordPhoneNumber.isNotBlank()
+    // Auto-fill badge shown only for plain landlords/brokerages, not for agents
+    val isContactAutoFilled = !isAgent && landlordPhoneNumber.isNotBlank()
+
+    // ── Agent / Brokerage extra contact fields ────────────────────────────────
+    var agentName            by remember { mutableStateOf(draft.agentName.ifEmpty { landlordName }) }
+    var agentContactNumber   by remember { mutableStateOf(draft.agentContactNumber.ifEmpty { landlordPhoneNumber }) }
+    val isAgentNameAutoFilled    = landlordName.isNotBlank()
+    val isAgentContactAutoFilled = landlordPhoneNumber.isNotBlank()
+    // Landlord details entered manually by agent (always blank — never auto-filled)
+    var landlordContactName  by remember { mutableStateOf(draft.landlordContactName) }
+    var brokerName           by remember { mutableStateOf(draft.brokerName) }
+    var brokerContactNumber  by remember { mutableStateOf(draft.brokerContactNumber.ifEmpty { landlordPhoneNumber }) }
+    var brokerageAddress     by remember { mutableStateOf(draft.brokerageAddress) }
+    var brokerageContactNumber by remember { mutableStateOf(draft.brokerageContactNumber) }
+    var agentNameErr            by remember { mutableStateOf("") }
+    var agentContactErr         by remember { mutableStateOf("") }
+    var landlordContactNameErr  by remember { mutableStateOf("") }
+    var brokerNameErr           by remember { mutableStateOf("") }
+    var brokerContactErr        by remember { mutableStateOf("") }
+    var brokerageAddressErr     by remember { mutableStateOf("") }
+    var brokerageContactErr     by remember { mutableStateOf("") }
 
     // â”€â”€ Amenity selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var selectedAmenityKeys by remember { mutableStateOf<Set<String>>(draft.amenityKeys) }
@@ -233,7 +258,26 @@ fun AddPropertyScreen(
         }
         if (description.isBlank())                             { descErr    = "Description is required";    valid = false }
         if (!address.isComplete)                               { addressErr = "Please complete all 4 address fields"; valid = false }
-        if (contact.isBlank())                                 { contactErr = "Contact number is required"; valid = false }
+
+        // Role-specific contact validation
+        when {
+            isAgent -> {
+                if (agentName.isBlank())             { agentNameErr           = "Agent full name is required";       valid = false }
+                if (agentContactNumber.isBlank())    { agentContactErr        = "Agent contact number is required";  valid = false }
+                if (landlordContactName.isBlank())   { landlordContactNameErr = "Landlord full name is required";    valid = false }
+                if (contact.isBlank())               { contactErr             = "Landlord contact number is required"; valid = false }
+            }
+            isBrokerage -> {
+                if (brokerName.isBlank())             { brokerNameErr      = "Broker full name is required";      valid = false }
+                if (brokerContactNumber.isBlank())    { brokerContactErr   = "Broker contact number is required"; valid = false }
+                if (brokerageAddress.isBlank())       { brokerageAddressErr = "Brokerage address is required";    valid = false }
+                if (brokerageContactNumber.isBlank()) { brokerageContactErr = "Brokerage contact is required";   valid = false }
+            }
+            else -> {
+                if (contact.isBlank())            { contactErr = "Contact number is required"; valid = false }
+            }
+        }
+
         if (valid) {
             val fullLocation = buildString {
                 if (address.houseAndStreet.isNotBlank()) append(address.houseAndStreet)
@@ -243,34 +287,43 @@ fun AddPropertyScreen(
             }
             onValid(
                 Property(
-                    title                = titleWithSuburb.ifEmpty { title.trim() },
-                    city                 = address.townOrCity.trim(),
-                    location             = fullLocation,
-                    price                = price.toDoubleOrNull() ?: 0.0,
-                    securityDeposit      = securityDeposit.toDoubleOrNull() ?: 0.0,
-                    depositNotApplicable = depositNotApplicable,
-                    rooms                = rooms.toIntOrNull() ?: 0,
-                    customBedroomDetails = "",
-                    bathrooms            = bathrooms.toIntOrNull() ?: 0,
-                    bathroomType         = bathroomType,
-                    customBathroomDetails = customBathroomDetails.trim(),
-                    hasSharedKitchen     = hasSharedKitchen,
-                    kitchenCount         = kitchenCount.toIntOrNull() ?: 0,
-                    description          = description.trim(),
-                    contactNumber        = contact.trim(),
-                    classification       = classification,
-                    propertyType         = propType,
-                    locationType         = locationType,
-                    billsInclusive       = billsInclusive.toList(),
-                    billsExclusive       = billsExclusive.toList(),
-                    roomQuantity         = roomQuantity,
-                    proximityFacilities  = proximityFacilities.toList(),
-                    latitude             = latitude.toDoubleOrNull() ?: 0.0,
-                    longitude            = longitude.toDoubleOrNull() ?: 0.0,
-                    availabilityDate     = availabilityDate,
-                    tenantRequirements   = tenantRequirements.toList(),
-                    amenities            = selectedAmenityKeys.toList(),
-                    status               = "pending"
+                    title                  = titleWithSuburb.ifEmpty { title.trim() },
+                    city                   = address.townOrCity.trim(),
+                    location               = fullLocation,
+                    price                  = price.toDoubleOrNull() ?: 0.0,
+                    securityDeposit        = securityDeposit.toDoubleOrNull() ?: 0.0,
+                    depositNotApplicable   = depositNotApplicable,
+                    rooms                  = rooms.toIntOrNull() ?: 0,
+                    customBedroomDetails   = "",
+                    bathrooms              = bathrooms.toIntOrNull() ?: 0,
+                    bathroomType           = bathroomType,
+                    customBathroomDetails  = customBathroomDetails.trim(),
+                    hasSharedKitchen       = hasSharedKitchen,
+                    kitchenCount           = kitchenCount.toIntOrNull() ?: 0,
+                    description            = description.trim(),
+                    contactNumber          = contact.trim(),
+                    // Agent fields
+                    agentName              = if (isAgent) agentName.trim() else "",
+                    agentContactNumber     = if (isAgent) agentContactNumber.trim() else "",
+                    landlordName           = if (isAgent) landlordContactName.trim() else "",
+                    // Brokerage fields
+                    brokerName             = if (isBrokerage) brokerName.trim() else "",
+                    brokerContactNumber    = if (isBrokerage) brokerContactNumber.trim() else "",
+                    brokerageAddress       = if (isBrokerage) brokerageAddress.trim() else "",
+                    brokerageContactNumber = if (isBrokerage) brokerageContactNumber.trim() else "",
+                    classification         = classification,
+                    propertyType           = propType,
+                    locationType           = locationType,
+                    billsInclusive         = billsInclusive.toList(),
+                    billsExclusive         = billsExclusive.toList(),
+                    roomQuantity           = roomQuantity,
+                    proximityFacilities    = proximityFacilities.toList(),
+                    latitude               = latitude.toDoubleOrNull() ?: 0.0,
+                    longitude              = longitude.toDoubleOrNull() ?: 0.0,
+                    availabilityDate       = availabilityDate,
+                    tenantRequirements     = tenantRequirements.toList(),
+                    amenities              = selectedAmenityKeys.toList(),
+                    status                 = "pending"
                 )
             )
         }
@@ -720,7 +773,7 @@ fun AddPropertyScreen(
                     )
                     Spacer(Modifier.height(20.dp))
 
-                    // â”€â”€ Contact Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+                    // ── Contact Details (role-aware) ────────────────────────
                     AddPropertySectionLabel(Icons.Default.Phone, "Contact Details")
                     Spacer(Modifier.height(4.dp))
                     Text(
@@ -729,12 +782,158 @@ fun AddPropertyScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                     Spacer(Modifier.height(12.dp))
-                    ContactDetailsSection(
-                        contact      = contact,
-                        onContact    = { contact = it; contactErr = "" },
-                        contactErr   = contactErr,
-                        isAutoFilled = isContactAutoFilled
-                    )
+
+                    when {
+                        isAgent -> {
+                            // Agent: agent name + agent contact + landlord contact
+                            Text("Agent Details", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF00897B))
+                            Spacer(Modifier.height(8.dp))
+
+                            // Auto-filled indicator for agent name
+                            if (isAgentNameAutoFilled) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF00897B).copy(alpha = 0.08f))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF00897B), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Auto-filled from your profile", fontSize = 11.sp, color = Color(0xFF00897B), fontWeight = FontWeight.Medium)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            RentOutTextField(
+                                value         = agentName,
+                                onValueChange = { agentName = it; agentNameErr = "" },
+                                label         = "Agent Full Name",
+                                leadingIcon   = Icons.Default.Person,
+                                leadingIconTint = Color(0xFF00897B),
+                                isError       = agentNameErr.isNotEmpty(),
+                                errorMessage  = agentNameErr
+                            )
+                            Spacer(Modifier.height(10.dp))
+
+                            // Auto-filled indicator for agent contact
+                            if (isAgentContactAutoFilled) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF00897B).copy(alpha = 0.08f))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF00897B), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Auto-filled from your profile", fontSize = 11.sp, color = Color(0xFF00897B), fontWeight = FontWeight.Medium)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            RentOutTextField(
+                                value           = agentContactNumber,
+                                onValueChange   = { agentContactNumber = it; agentContactErr = "" },
+                                label           = "Agent Contact Number",
+                                leadingIcon     = Icons.Default.Phone,
+                                leadingIconTint = Color(0xFF00897B),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                isError         = agentContactErr.isNotEmpty(),
+                                errorMessage    = agentContactErr
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text("Landlord Details", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Enter the landlord's details manually.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            RentOutTextField(
+                                value           = landlordContactName,
+                                onValueChange   = { landlordContactName = it; landlordContactNameErr = "" },
+                                label           = "Landlord Full Name",
+                                leadingIcon     = Icons.Default.Person,
+                                leadingIconTint = RentOutColors.IconGreen,
+                                isError         = landlordContactNameErr.isNotEmpty(),
+                                errorMessage    = landlordContactNameErr
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            RentOutTextField(
+                                value           = contact,
+                                onValueChange   = { contact = it; contactErr = "" },
+                                label           = "Landlord Contact Number",
+                                leadingIcon     = Icons.Default.Phone,
+                                leadingIconTint = RentOutColors.IconGreen,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                isError         = contactErr.isNotEmpty(),
+                                errorMessage    = contactErr
+                            )
+                        }
+                        isBrokerage -> {
+                            // Brokerage: broker name + broker contact + brokerage address + brokerage contact
+                            Text("Broker Details", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF7C5CBF))
+                            Spacer(Modifier.height(8.dp))
+                            RentOutTextField(
+                                value         = brokerName,
+                                onValueChange = { brokerName = it; brokerNameErr = "" },
+                                label         = "Broker Full Name",
+                                leadingIcon   = Icons.Default.Person,
+                                leadingIconTint = Color(0xFF7C5CBF),
+                                isError       = brokerNameErr.isNotEmpty(),
+                                errorMessage  = brokerNameErr
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            RentOutTextField(
+                                value           = brokerContactNumber,
+                                onValueChange   = { brokerContactNumber = it; brokerContactErr = "" },
+                                label           = "Broker Contact Number",
+                                leadingIcon     = Icons.Default.Phone,
+                                leadingIconTint = Color(0xFF7C5CBF),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                isError         = brokerContactErr.isNotEmpty(),
+                                errorMessage    = brokerContactErr
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text("Brokerage Office Details", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF7C5CBF))
+                            Spacer(Modifier.height(8.dp))
+                            RentOutTextField(
+                                value         = brokerageAddress,
+                                onValueChange = { brokerageAddress = it; brokerageAddressErr = "" },
+                                label         = "Brokerage Office Address",
+                                leadingIcon   = Icons.Default.Business,
+                                leadingIconTint = Color(0xFF7C5CBF),
+                                isError       = brokerageAddressErr.isNotEmpty(),
+                                errorMessage  = brokerageAddressErr
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            RentOutTextField(
+                                value           = brokerageContactNumber,
+                                onValueChange   = { brokerageContactNumber = it; brokerageContactErr = "" },
+                                label           = "Brokerage Contact Number",
+                                leadingIcon     = Icons.Default.Phone,
+                                leadingIconTint = Color(0xFF7C5CBF),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                isError         = brokerageContactErr.isNotEmpty(),
+                                errorMessage    = brokerageContactErr
+                            )
+                        }
+                        else -> {
+                            // Standard landlord contact
+                            ContactDetailsSection(
+                                contact      = contact,
+                                onContact    = { contact = it; contactErr = "" },
+                                contactErr   = contactErr,
+                                isAutoFilled = isContactAutoFilled
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(24.dp))
 
                     // â”€â”€ Form completeness indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -779,34 +978,41 @@ fun AddPropertyScreen(
                                 buildAndValidate { builtProperty ->
                                     onSaveDraft(
                                         PropertyDraft(
-                                            title                = title,
-                                            price                = price,
-                                            securityDeposit      = securityDeposit,
-                                            depositNotApplicable = depositNotApplicable,
-                                            rooms                = rooms,
-                                            bathrooms            = bathrooms,
-                                            bathroomType         = bathroomType,
-                                            customBathroomDetails = customBathroomDetails,
-                                            hasSharedKitchen     = hasSharedKitchen,
-                                            kitchenCount         = kitchenCount,
-                                            description          = description,
-                                            classification       = classification,
-                                            propType             = propType,
-                                            locationType         = locationType,
-                                            billsInclusive       = billsInclusive,
-                                            billsExclusive       = billsExclusive,
-                                            roomQuantity         = roomQuantity,
-                                            proximityFacilities  = proximityFacilities,
-                                            latitude             = latitude,
-                                            longitude            = longitude,
-                                            availabilityDate     = availabilityDate,
-                                            tenantRequirements   = tenantRequirements,
-                                            houseAndStreet       = address.houseAndStreet,
-                                            townOrCity           = address.townOrCity,
-                                            suburb               = address.suburb,
-                                            country              = address.country,
-                                            contact              = contact,
-                                            amenityKeys          = selectedAmenityKeys
+                                            title                  = title,
+                                            price                  = price,
+                                            securityDeposit        = securityDeposit,
+                                            depositNotApplicable   = depositNotApplicable,
+                                            rooms                  = rooms,
+                                            bathrooms              = bathrooms,
+                                            bathroomType           = bathroomType,
+                                            customBathroomDetails  = customBathroomDetails,
+                                            hasSharedKitchen       = hasSharedKitchen,
+                                            kitchenCount           = kitchenCount,
+                                            description            = description,
+                                            classification         = classification,
+                                            propType               = propType,
+                                            locationType           = locationType,
+                                            billsInclusive         = billsInclusive,
+                                            billsExclusive         = billsExclusive,
+                                            roomQuantity           = roomQuantity,
+                                            proximityFacilities    = proximityFacilities,
+                                            latitude               = latitude,
+                                            longitude              = longitude,
+                                            availabilityDate       = availabilityDate,
+                                            tenantRequirements     = tenantRequirements,
+                                            houseAndStreet         = address.houseAndStreet,
+                                            townOrCity             = address.townOrCity,
+                                            suburb                 = address.suburb,
+                                            country                = address.country,
+                                            contact                = contact,
+                                            amenityKeys            = selectedAmenityKeys,
+                                            agentName              = agentName,
+                                            agentContactNumber     = agentContactNumber,
+                                            landlordContactName    = landlordContactName,
+                                            brokerName             = brokerName,
+                                            brokerContactNumber    = brokerContactNumber,
+                                            brokerageAddress       = brokerageAddress,
+                                            brokerageContactNumber = brokerageContactNumber
                                         )
                                     )
                                     onNavigateToImages(builtProperty)

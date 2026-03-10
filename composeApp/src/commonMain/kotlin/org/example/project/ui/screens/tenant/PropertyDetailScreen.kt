@@ -6,6 +6,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -53,7 +54,7 @@ import androidx.compose.ui.graphics.SolidColor
 private val DetailNavy = Color(0xFF0F2A4A)
 private val DetailNavyLight = Color(0xFF1A3F6F)
 
-private enum class TenantDetailTab { OVERVIEW, AMENITIES, CONTACT }
+private enum class TenantDetailTab { OVERVIEW, AMENITIES, CONTACT, DIRECTIONS }
 
 // WhatsApp Icon using official WhatsApp logo path
 @Composable
@@ -370,11 +371,16 @@ fun PropertyDetailScreen(
                                 TenantDetailTab.OVERVIEW  -> TenantOverviewContent(property)
                                 TenantDetailTab.AMENITIES -> TenantAmenitiesContent(property)
                                 TenantDetailTab.CONTACT   -> TenantContactContent(
-                                    property  = property,
+                                    property   = property,
                                     isUnlocked = isUnlocked,
-                                    onUnlock  = onUnlock,
-                                    onCall    = onCall,
+                                    onUnlock   = onUnlock,
+                                    onCall     = onCall,
                                     onWhatsApp = onWhatsApp
+                                )
+                                TenantDetailTab.DIRECTIONS -> TenantDirectionsContent(
+                                    property   = property,
+                                    isUnlocked = isUnlocked,
+                                    onUnlock   = onUnlock
                                 )
                             }
                         }
@@ -462,7 +468,7 @@ fun PropertyDetailScreen(
                 // Action button — hidden on the Contact tab (the tab has its own unlock button,
                 // so showing it here too is redundant). Animates in/out smoothly.
                 AnimatedVisibility(
-                    visible = selectedTab != TenantDetailTab.CONTACT,
+                    visible = selectedTab != TenantDetailTab.CONTACT && selectedTab != TenantDetailTab.DIRECTIONS,
                     enter = fadeIn(tween(250)) + slideInHorizontally(
                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
                         initialOffsetX = { it }
@@ -577,9 +583,10 @@ private fun TenantDetailTabBar(
     val activeColor = if (isDark) MaterialTheme.colorScheme.primary else DetailNavy
 
     val tabs = listOf(
-        TenantDetailTab.OVERVIEW  to "Overview",
-        TenantDetailTab.AMENITIES to "Amenities",
-        TenantDetailTab.CONTACT   to "Contact"
+        TenantDetailTab.OVERVIEW   to "Overview",
+        TenantDetailTab.AMENITIES  to "Amenities",
+        TenantDetailTab.CONTACT    to "Contact",
+        TenantDetailTab.DIRECTIONS to "Directions"
     )
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
         tabs.forEach { (tab, label) ->
@@ -657,9 +664,28 @@ private fun TenantOverviewContent(property: Property) {
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
-        // Classification & Location Type row
+        // ── Property Details & Location heading ──────────────────────────────
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp).height(18.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(RentOutColors.Primary)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Property Details & Location",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Classification & Location Type chips
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -696,24 +722,47 @@ private fun TenantOverviewContent(property: Property) {
             }
         }
 
-        // Room quantity (if set)
+        Spacer(Modifier.height(10.dp))
+
+        // Detail rows — room quantity, bathroom type, kitchen
+        // Each shows: icon  |  value (no redundant label prefix)
         if (property.roomQuantity.isNotBlank()) {
-            Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.MeetingRoom, null, tint = RentOutColors.IconBlue, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Room Quantity: ${property.roomQuantity}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                Text("${property.roomQuantity} Room(s)", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             }
+            Spacer(Modifier.height(6.dp))
         }
 
-        // Bathroom type (if set)
+        // Bathroom type — icon only, no "Bathroom:" label prefix
         if (property.bathroomType.isNotBlank()) {
-            Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Bathtub, null, tint = RentOutColors.IconTeal, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Bathroom: ${property.bathroomType}", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+                Text(property.bathroomType, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             }
+            Spacer(Modifier.height(6.dp))
+        }
+
+        // Kitchen details — derived from hasSharedKitchen + kitchenCount
+        val kitchenDetail: String? = when {
+            property.kitchenCount > 0 && property.hasSharedKitchen ->
+                "${property.kitchenCount} Shared Kitchen${if (property.kitchenCount > 1) "s" else ""}"
+            property.kitchenCount > 0 ->
+                "${property.kitchenCount} Kitchen${if (property.kitchenCount > 1) "s" else ""}"
+            property.hasSharedKitchen -> "Shared Kitchen"
+            property.amenities.any { it.contains("kitchen", ignoreCase = true) } ->
+                property.amenities.first { it.contains("kitchen", ignoreCase = true) }
+            else -> null
+        }
+        if (kitchenDetail != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Kitchen, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(kitchenDetail, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
+            }
+            Spacer(Modifier.height(6.dp))
         }
 
         // Bills inclusive / exclusive
@@ -788,6 +837,11 @@ private fun TenantOverviewContent(property: Property) {
             Spacer(Modifier.height(16.dp))
             Text("Nearby", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(Modifier.height(8.dp))
+            val isDark = isSystemInDarkTheme()
+            // Use theme-aware colors so dots and text are visible in both light & dark mode
+            val nearbyDotColor = if (isDark) RentOutColors.PrimaryLight else RentOutColors.Primary
+            val nearbyBgColor  = if (isDark) RentOutColors.Primary.copy(alpha = 0.18f)
+                                 else        RentOutColors.Primary.copy(alpha = 0.07f)
             val chunked = property.proximityFacilities.chunked(2)
             chunked.forEach { rowItems ->
                 Row(
@@ -799,13 +853,24 @@ private fun TenantOverviewContent(property: Property) {
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(DetailNavy.copy(alpha = 0.06f))
+                                .background(nearbyBgColor)
                                 .padding(horizontal = 10.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Place, null, tint = DetailNavy, modifier = Modifier.size(12.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text(facility, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
+                            // Filled dot — clearly visible in both light and dark mode
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(nearbyDotColor)
+                            )
+                            Spacer(Modifier.width(7.dp))
+                            Text(
+                                facility,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                     if (rowItems.size == 1) Spacer(Modifier.weight(1f))
@@ -987,6 +1052,11 @@ private fun TenantContactContent(
         label = "contact_reveal"
     )
 
+    val isAgent     = property.providerSubtype == "agent"
+    val isBrokerage = property.providerSubtype == "brokerage"
+    val agentColor     = Color(0xFF00897B)
+    val brokerageColor = Color(0xFF7C5CBF)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -1000,66 +1070,193 @@ private fun TenantContactContent(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             if (isUnlocked) {
-                // ── Landlord name (revealed) ──────────────────────────────────
-                if (property.landlordName.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier.size(42.dp).clip(CircleShape)
-                                .background(DetailNavy.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Person, null, tint = DetailNavy, modifier = Modifier.size(22.dp))
+                when {
+                    // ── BROKERAGE: broker name + contact, then brokerage address + contact ──
+                    isBrokerage -> {
+                        // Broker name
+                        ContactRevealRow(
+                            label = "Broker",
+                            value = property.brokerName.ifBlank { property.landlordName },
+                            icon = Icons.Default.Person,
+                            iconBg = brokerageColor.copy(alpha = 0.12f),
+                            iconTint = brokerageColor,
+                            alpha = contactAlpha
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(Modifier.height(14.dp))
+                        // Broker contact
+                        ContactRevealRow(
+                            label = "Broker Contact",
+                            value = property.brokerContactNumber,
+                            icon = Icons.Default.Call,
+                            iconBg = brokerageColor.copy(alpha = 0.15f),
+                            iconTint = brokerageColor,
+                            alpha = contactAlpha,
+                            isPhone = true
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(Modifier.height(14.dp))
+                        // Brokerage address
+                        if (property.brokerageAddress.isNotBlank()) {
+                            ContactRevealRow(
+                                label = "Brokerage Address",
+                                value = property.brokerageAddress,
+                                icon = Icons.Default.Business,
+                                iconBg = brokerageColor.copy(alpha = 0.12f),
+                                iconTint = brokerageColor,
+                                alpha = contactAlpha
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
                         }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text("Landlord", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                property.landlordName,
-                                fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.graphicsLayer { alpha = contactAlpha }
+                        // Brokerage contact
+                        ContactRevealRow(
+                            label = "Brokerage Contact",
+                            value = property.brokerageContactNumber,
+                            icon = Icons.Default.Call,
+                            iconBg = brokerageColor.copy(alpha = 0.15f),
+                            iconTint = brokerageColor,
+                            alpha = contactAlpha,
+                            isPhone = true
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            RentOutPrimaryButton(
+                                text = "📞 Call Broker",
+                                onClick = { onCall(property.brokerContactNumber) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            RentOutSecondaryButton(
+                                text = "💬 WhatsApp",
+                                onClick = { onWhatsApp(property.brokerContactNumber) },
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
-                    Spacer(Modifier.height(14.dp))
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                    Spacer(Modifier.height(14.dp))
-                }
-                // ── Phone number (revealed) ───────────────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(42.dp).clip(CircleShape)
-                            .background(RentOutColors.StatusApproved.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Call, null, tint = RentOutColors.StatusApproved, modifier = Modifier.size(22.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("Contact Number", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            property.contactNumber,
-                            fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.graphicsLayer { alpha = contactAlpha }
+
+                    // ── AGENT: agent name + contact, then landlord address + contact ──
+                    isAgent -> {
+                        // Agent name
+                        ContactRevealRow(
+                            label = "Agent",
+                            value = property.agentName.ifBlank { property.landlordName },
+                            icon = Icons.Default.Person,
+                            iconBg = agentColor.copy(alpha = 0.12f),
+                            iconTint = agentColor,
+                            alpha = contactAlpha
                         )
+                        Spacer(Modifier.height(14.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(Modifier.height(14.dp))
+                        // Agent contact
+                        ContactRevealRow(
+                            label = "Agent Contact",
+                            value = property.agentContactNumber,
+                            icon = Icons.Default.Call,
+                            iconBg = agentColor.copy(alpha = 0.15f),
+                            iconTint = agentColor,
+                            alpha = contactAlpha,
+                            isPhone = true
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(Modifier.height(14.dp))
+                        // Property address (landlord's)
+                        if (property.location.isNotBlank()) {
+                            ContactRevealRow(
+                                label = "Property Address",
+                                value = property.location,
+                                icon = Icons.Default.LocationOn,
+                                iconBg = DetailNavy.copy(alpha = 0.10f),
+                                iconTint = DetailNavy,
+                                alpha = contactAlpha
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
+                        }
+                        // Landlord contact
+                        ContactRevealRow(
+                            label = "Landlord Contact",
+                            value = property.contactNumber,
+                            icon = Icons.Default.Call,
+                            iconBg = RentOutColors.StatusApproved.copy(alpha = 0.15f),
+                            iconTint = RentOutColors.StatusApproved,
+                            alpha = contactAlpha,
+                            isPhone = true
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            RentOutPrimaryButton(
+                                text = "📞 Call Agent",
+                                onClick = { onCall(property.agentContactNumber) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            RentOutSecondaryButton(
+                                text = "💬 WhatsApp",
+                                onClick = { onWhatsApp(property.agentContactNumber) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
-                }
-                Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    RentOutPrimaryButton(
-                        text = "📞 Call",
-                        onClick = { onCall(property.contactNumber) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    RentOutSecondaryButton(
-                        text = "💬 WhatsApp",
-                        onClick = { onWhatsApp(property.contactNumber) },
-                        modifier = Modifier.weight(1f)
-                    )
+
+                    // ── LANDLORD: landlord name + property address + contact ──
+                    else -> {
+                        if (property.landlordName.isNotBlank()) {
+                            ContactRevealRow(
+                                label = "Landlord",
+                                value = property.landlordName,
+                                icon = Icons.Default.Person,
+                                iconBg = DetailNavy.copy(alpha = 0.12f),
+                                iconTint = DetailNavy,
+                                alpha = contactAlpha
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
+                        }
+                        if (property.location.isNotBlank()) {
+                            ContactRevealRow(
+                                label = "Property Address",
+                                value = property.location,
+                                icon = Icons.Default.LocationOn,
+                                iconBg = DetailNavy.copy(alpha = 0.10f),
+                                iconTint = DetailNavy,
+                                alpha = contactAlpha
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
+                        }
+                        ContactRevealRow(
+                            label = "Contact Number",
+                            value = property.contactNumber,
+                            icon = Icons.Default.Call,
+                            iconBg = RentOutColors.StatusApproved.copy(alpha = 0.15f),
+                            iconTint = RentOutColors.StatusApproved,
+                            alpha = contactAlpha,
+                            isPhone = true
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            RentOutPrimaryButton(
+                                text = "📞 Call",
+                                onClick = { onCall(property.contactNumber) },
+                                modifier = Modifier.weight(1f)
+                            )
+                            RentOutSecondaryButton(
+                                text = "💬 WhatsApp",
+                                onClick = { onWhatsApp(property.contactNumber) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             } else {
-                // ── Landlord name (locked) ────────────────────────────────────
+                // ── LOCKED state — generic masked rows ────────────────────────
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier.size(42.dp).clip(CircleShape)
@@ -1070,7 +1267,14 @@ private fun TenantContactContent(
                     }
                     Spacer(Modifier.width(12.dp))
                     Column {
-                        Text("Landlord", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            when {
+                                isBrokerage -> "Broker"
+                                isAgent     -> "Agent"
+                                else        -> "Landlord"
+                            },
+                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         Text(
                             "••••••••••••",
                             fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
@@ -1081,7 +1285,6 @@ private fun TenantContactContent(
                 Spacer(Modifier.height(14.dp))
                 Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 Spacer(Modifier.height(14.dp))
-                // ── Phone number (locked) ─────────────────────────────────────
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier.size(42.dp).clip(CircleShape)
@@ -1103,7 +1306,7 @@ private fun TenantContactContent(
                 Spacer(Modifier.height(16.dp))
                 if (property.isAvailable) {
                     RentOutPrimaryButton(
-                        text = "🔓 Unlock Contact — \$10",
+                        text = "🔓 Unlock Contact — $10",
                         onClick = onUnlock,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -1119,6 +1322,390 @@ private fun TenantContactContent(
                             color = RentOutColors.StatusRejected,
                             fontSize = 14.sp, fontWeight = FontWeight.Medium
                         )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Reusable contact reveal row ───────────────────────────────────────────────
+@Composable
+private fun ContactRevealRow(
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconBg: Color,
+    iconTint: Color,
+    alpha: Float,
+    isPhone: Boolean = false
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.size(42.dp).clip(CircleShape).background(iconBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = iconTint, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                value.ifBlank { "—" },
+                fontSize = if (isPhone) 20.sp else 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.graphicsLayer { this.alpha = alpha }
+            )
+        }
+    }
+}
+
+// ── Directions tab ────────────────────────────────────────────────────────────
+@Composable
+private fun TenantDirectionsContent(
+    property: Property,
+    isUnlocked: Boolean,
+    onUnlock: () -> Unit
+) {
+    val hasCoords = property.latitude != 0.0 || property.longitude != 0.0
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // ── Section header ────────────────────────────────────────────────────
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp).height(18.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(RentOutColors.Primary)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Directions to Property",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        Text(
+            "Navigate from your current location to this property using GPS coordinates logged by the landlord.",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 19.sp
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        if (!isUnlocked) {
+            // ── Locked state ──────────────────────────────────────────────────
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shadowElevation = 0.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Pulsing lock icon
+                    var pulse by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { pulse = true }
+                    val lockScale by animateFloatAsState(
+                        targetValue = if (pulse) 1.08f else 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(900, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "lock_pulse"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .scale(lockScale)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(
+                                        RentOutColors.IconAmber.copy(alpha = 0.25f),
+                                        RentOutColors.IconAmber.copy(alpha = 0.05f)
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = RentOutColors.IconAmber,
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Text(
+                        "Directions Locked",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "Unlock this property for ${'$'}10 to access GPS coordinates and get turn-by-turn directions from your current location.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // What's included chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+                    ) {
+                        listOf(
+                            Icons.Default.LocationOn to "GPS Coords",
+                            Icons.Default.Map        to "Live Map",
+                            Icons.Default.Navigation to "Navigation"
+                        ).forEach { (icon, label) ->
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = RentOutColors.Primary.copy(alpha = 0.10f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(icon, null, tint = RentOutColors.Primary, modifier = Modifier.size(13.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = RentOutColors.Primary)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
+                    // Unlock button with press animation
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isPressed by interactionSource.collectIsPressedAsState()
+                    val btnScale by animateFloatAsState(
+                        targetValue = if (isPressed) 0.95f else 1f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "unlock_btn_scale"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .scale(btnScale)
+                            .shadow(8.dp, RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(RentOutColors.Primary, RentOutColors.Secondary)
+                                )
+                            )
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null,
+                                enabled = property.isAvailable
+                            ) { if (property.isAvailable) onUnlock() }
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(Icons.Default.LockOpen, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Text(
+                                "Unlock Directions — ${'$'}10",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        "One-time payment · Unlocks contacts & directions",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+            }
+
+        } else {
+            // ── Unlocked state ────────────────────────────────────────────────
+
+            // Unlocked badge
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = RentOutColors.StatusApproved.copy(alpha = 0.10f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        null,
+                        tint = RentOutColors.StatusApproved,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Property unlocked · Full directions available",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = RentOutColors.StatusApproved
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            if (hasCoords) {
+                // Coordinates info card
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shadowElevation = 2.dp
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.MyLocation,
+                                null,
+                                tint = RentOutColors.Primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "GPS Coordinates",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                color = RentOutColors.Primary.copy(alpha = 0.08f)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("Latitude", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "%.6f".format(property.latitude),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = RentOutColors.Primary
+                                    )
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                color = RentOutColors.IconTeal.copy(alpha = 0.08f)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("Longitude", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        "%.6f".format(property.longitude),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = RentOutColors.IconTeal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Map section heading
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Map, null, tint = RentOutColors.Primary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Interactive Map",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = RentOutColors.Primary.copy(alpha = 0.10f)
+                    ) {
+                        Text(
+                            "Tap to expand",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = RentOutColors.Primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // DirectionsMapView — Android: full Google Maps + expandable dialog; iOS: placeholder + navigate button
+                DirectionsMapView(
+                    propertyLat      = property.latitude,
+                    propertyLng      = property.longitude,
+                    propertyTitle    = property.title,
+                    modifier         = Modifier.fillMaxWidth(),
+                    onOpenNavigation = { /* navigation launched inside the component */ }
+                )
+
+            } else {
+                // No coordinates stored for this property
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = RentOutColors.IconAmber.copy(alpha = 0.08f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.LocationOff, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "No coordinates available",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "The landlord has not yet logged GPS coordinates for this property.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 18.sp
+                            )
+                        }
                     }
                 }
             }

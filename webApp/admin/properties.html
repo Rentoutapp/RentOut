@@ -90,7 +90,7 @@
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">City</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Classification</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Price</th>
-            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Landlord</th>
+            <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Listed By</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
             <th class="px-4 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Actions</th>
           </tr>
@@ -240,6 +240,38 @@
       return m[t] || '🏠';
     }
 
+    function providerBadge(p) {
+      const subtype = (p.providerSubtype || '').toLowerCase();
+      if (subtype === 'agent') {
+        return `
+          <div class="flex items-center gap-1.5">
+            <div class="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">🤝</div>
+            <div>
+              <div class="text-sm text-gray-700 font-medium leading-tight">${p.landlordName || '—'}</div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">Agent</span>
+            </div>
+          </div>`;
+      } else if (subtype === 'brokerage') {
+        return `
+          <div class="flex items-center gap-1.5">
+            <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">🏢</div>
+            <div>
+              <div class="text-sm text-gray-700 font-medium leading-tight">${p.landlordName || '—'}</div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Brokerage</span>
+            </div>
+          </div>`;
+      } else {
+        return `
+          <div class="flex items-center gap-1.5">
+            <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs flex-shrink-0">👤</div>
+            <div>
+              <div class="text-sm text-gray-700 font-medium leading-tight">${p.landlordName || '—'}</div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Landlord</span>
+            </div>
+          </div>`;
+      }
+    }
+
     function formatDate(ts) {
       if (!ts) return '�';
       const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
@@ -266,8 +298,8 @@
           <td class="px-4 py-3">
             <div class="flex items-center gap-3">
               <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-200">
-                ${p.imageUrl
-                  ? `<img src="${p.imageUrl}" alt="${p.title}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-2xl\\'>${typeIcon(p.propertyType)}</div>'">`
+                ${(p.imageUrls && p.imageUrls[0]) || p.imageUrl
+                  ? `<img src="${(p.imageUrls && p.imageUrls[0]) || p.imageUrl}" alt="${p.title}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-2xl\\'>${typeIcon(p.propertyType)}</div>'">`
                   : `<div class="w-full h-full flex items-center justify-center text-2xl">${typeIcon(p.propertyType)}</div>`
                 }
               </div>
@@ -296,12 +328,7 @@
             <div class="font-bold text-gray-800 text-sm">$${Number(p.price || 0).toLocaleString()}<span class="font-normal text-gray-400 text-xs">/mo</span></div>
             ${p.securityDeposit ? `<div class="text-xs text-amber-600 mt-0.5">🔒 $${Number(p.securityDeposit).toLocaleString()} deposit</div>` : ''}
           </td>
-          <td class="px-4 py-3 text-sm text-gray-600">
-            <div class="flex items-center gap-1.5">
-              <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-xs">👤</div>
-              ${p.landlordName || '�'}
-            </div>
-          </td>
+          <td class="px-4 py-3">${providerBadge(p)}</td>
           <td class="px-4 py-3">${statusBadge(p.status)}</td>
           <td class="px-4 py-3" onclick="event.stopPropagation()">
             <div class="flex gap-1.5 flex-wrap">

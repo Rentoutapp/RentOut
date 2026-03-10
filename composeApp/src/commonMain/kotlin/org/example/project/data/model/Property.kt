@@ -23,6 +23,14 @@ data class Property(
     val kitchenCount: Int = 0,
     val description: String = "",
     val contactNumber: String = "",       // NEVER returned in list queries — only post-unlock
+    // Agent-specific fields (providerSubtype == "agent")
+    val agentName: String = "",           // Freelance agent's full name
+    val agentContactNumber: String = "",  // Freelance agent's contact number
+    // Brokerage-specific fields (providerSubtype == "brokerage")
+    val brokerName: String = "",          // Individual broker's full name
+    val brokerContactNumber: String = "", // Individual broker's contact number
+    val brokerageAddress: String = "",    // Company office address
+    val brokerageContactNumber: String = "", // Company contact number
     val imageUrl: String = "",            // primary / cover image (backward compat)
     val imageUrls: List<String> = emptyList(), // all uploaded images
     // Classification hierarchy

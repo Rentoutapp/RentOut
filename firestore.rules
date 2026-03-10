@@ -201,7 +201,26 @@ service cloud.firestore {
         // providerSubtype: copied from the lister's profile at submit time.
         // Validates the value if present.
         && (!('providerSubtype' in request.resource.data)
-            || isValidProviderSubtype(request.resource.data.providerSubtype));
+            || isValidProviderSubtype(request.resource.data.providerSubtype))
+        // Agent-specific optional fields — strings only
+        && (!('agentName' in request.resource.data)
+            || request.resource.data.agentName is string)
+        && (!('agentContactNumber' in request.resource.data)
+            || request.resource.data.agentContactNumber is string)
+        // landlordName: for agent-listed properties, stores the landlord's full
+        // name as entered by the agent. Also used as the lister's display name
+        // for landlord/brokerage listings (populated from the user doc at submit).
+        && (!('landlordName' in request.resource.data)
+            || request.resource.data.landlordName is string)
+        // Brokerage-specific optional fields — strings only
+        && (!('brokerName' in request.resource.data)
+            || request.resource.data.brokerName is string)
+        && (!('brokerContactNumber' in request.resource.data)
+            || request.resource.data.brokerContactNumber is string)
+        && (!('brokerageAddress' in request.resource.data)
+            || request.resource.data.brokerageAddress is string)
+        && (!('brokerageContactNumber' in request.resource.data)
+            || request.resource.data.brokerageContactNumber is string);
 
       // Provider can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).

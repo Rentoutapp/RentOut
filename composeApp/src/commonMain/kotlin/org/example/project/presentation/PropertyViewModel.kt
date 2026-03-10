@@ -39,6 +39,7 @@ data class PropertyFilter(
     val propertyTypes: Set<String> = emptySet(),   // fine-grained property types
     val classifications: Set<String> = emptySet(), // "Residential"|"Commercial"|etc.
     val locationTypes: Set<String> = emptySet(),   // "Low Density"|"High Density"|etc.
+    val providerTypes: Set<String> = emptySet(),   // "landlord"|"agent"|"brokerage"
     val minBedrooms: Int? = null,           // null = any
     val maxBedrooms: Int? = null,
     val minBathrooms: Int? = null,          // null = any
@@ -52,6 +53,7 @@ data class PropertyFilter(
         propertyTypes.isNotEmpty() ||
         classifications.isNotEmpty() ||
         locationTypes.isNotEmpty() ||
+        providerTypes.isNotEmpty() ||
         minBedrooms != null || maxBedrooms != null ||
         minBathrooms != null ||
         availableOnly || verifiedOnly ||
@@ -63,6 +65,7 @@ data class PropertyFilter(
         if (propertyTypes.isNotEmpty()) "type" else null,
         if (classifications.isNotEmpty()) "class" else null,
         if (locationTypes.isNotEmpty()) "loctype" else null,
+        if (providerTypes.isNotEmpty()) "provider" else null,
         if (minBedrooms != null || maxBedrooms != null) "beds" else null,
         if (minBathrooms != null) "baths" else null,
         if (availableOnly) "available" else null,
@@ -112,6 +115,15 @@ data class PropertyDraft(
     val country:              String = "Zimbabwe",
     val contact:              String = "",
     val amenityKeys:          Set<String> = emptySet(),
+    // Agent-specific
+    val agentName:            String = "",
+    val agentContactNumber:   String = "",
+    val landlordContactName:  String = "",   // landlord's full name entered by agent
+    // Brokerage-specific
+    val brokerName:           String = "",
+    val brokerContactNumber:  String = "",
+    val brokerageAddress:     String = "",
+    val brokerageContactNumber: String = "",
     // Temporarily holds picked images so they survive back-navigation
     val pickedImages:         List<PickedImage> = emptyList()
 )
@@ -186,6 +198,13 @@ class PropertyViewModel : ViewModel() {
         // Location type
         if (filter.locationTypes.isNotEmpty()) {
             result = result.filter { it.locationType in filter.locationTypes }
+        }
+
+        // Provider type (landlord | agent | brokerage)
+        if (filter.providerTypes.isNotEmpty()) {
+            result = result.filter { p ->
+                filter.providerTypes.any { it.equals(p.providerSubtype, ignoreCase = true) }
+            }
         }
 
         // Bedrooms
