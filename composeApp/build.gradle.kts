@@ -34,6 +34,11 @@ kotlin {
             implementation(libs.compose.material.icons.extended)
             // Ktor HTTP engine for Coil network image loading on Android
             implementation(libs.ktor.client.okhttp)
+            // Google Maps Compose
+            implementation("com.google.maps.android:maps-compose:4.3.3")
+            // Google Play Services — Maps + Location
+            implementation("com.google.android.gms:play-services-maps:18.2.0")
+            implementation("com.google.android.gms:play-services-location:21.2.0")
         }
         iosMain.dependencies {
             // Ktor HTTP engine for Coil network image loading on iOS

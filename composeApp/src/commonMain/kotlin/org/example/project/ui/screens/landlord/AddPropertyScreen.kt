@@ -435,11 +435,13 @@ fun AddPropertyScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                     Spacer(Modifier.height(12.dp))
-                    MapPlaceholderSection(
+                    MapPickerView(
                         latitude  = latitude,
                         longitude = longitude,
-                        onLatChange = { latitude = it },
-                        onLonChange = { longitude = it }
+                        onLocationPicked = { lat, lng ->
+                            latitude  = lat
+                            longitude = lng
+                        }
                     )
                     Spacer(Modifier.height(20.dp))
 
@@ -3037,14 +3039,56 @@ private fun ExistingImagesGallery(
             }
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 4.dp)) {
-                items(imageUrls) { url ->
+                items(imageUrls.withIndex().toList()) { (index, url) ->
                     Box(
                         modifier = Modifier
                             .size(90.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(
+                                1.5.dp,
+                                if (index == 0) RentOutColors.Primary.copy(alpha = 0.6f)
+                                else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                RoundedCornerShape(10.dp)
+                            )
                     ) {
-                        Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.Center).size(32.dp))
+                        coil3.compose.AsyncImage(
+                            model = url,
+                            contentDescription = "Photo ${index + 1}",
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                            error = null,
+                            placeholder = null
+                        )
+                        // Shimmer placeholder while loading
+                        if (url.isBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Image,
+                                    null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f),
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        // Cover badge on first image
+                        if (index == 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(4.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(RentOutColors.Primary)
+                                    .padding(horizontal = 5.dp, vertical = 2.dp)
+                            ) {
+                                Text("Cover", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }

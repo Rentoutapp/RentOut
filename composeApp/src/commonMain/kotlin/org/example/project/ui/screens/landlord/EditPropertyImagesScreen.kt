@@ -2,12 +2,16 @@ package org.example.project.ui.screens.landlord
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -51,6 +55,12 @@ import org.example.project.ui.components.RemoveImageConfirmationDialog
 // On save: passes kept remote URLs + new byte arrays to updateProperty().
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Sealed type representing a previewable image (remote URL or local bytes) ──
+private sealed class PreviewImage {
+    data class Remote(val url: String) : PreviewImage()
+    data class Local(val bytes: ByteArray) : PreviewImage()
+}
+
 @Composable
 fun EditPropertyImagesScreen(
     property: Property,
@@ -85,6 +95,253 @@ fun EditPropertyImagesScreen(
     var showSourceDialog by remember { mutableStateOf(false) }
     var showRemoveDialog by remember { mutableStateOf(false) }
     var imageToRemove by remember { mutableStateOf<Pair<Boolean, Int>?>(null) } // (isRemote, index)
+
+    // Preview state — index into combined [keptRemoteUrls + newImages] list
+    var previewIndex by remember { mutableStateOf<Int?>(null) }
+
+    // Full-screen preview dialog
+    val allPreviewImages: List<PreviewImage> = remember(keptRemoteUrls, newImages) {
+        keptRemoteUrls.map { PreviewImage.Remote(it) } +
+        newImages.map { PreviewImage.Local(it.bytes) }
+    }
+
+    if (previewIndex != null) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { previewIndex = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            var currentIdx by remember { mutableStateOf(previewIndex!!) }
+            val total = allPreviewImages.size
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.96f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // ── Top bar ───────────────────────────────────────────────
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = if (currentIdx == 0) "Cover Photo" else "Photo ${currentIdx + 1} of $total",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            val label = when (allPreviewImages.getOrNull(currentIdx)) {
+                                is PreviewImage.Remote -> "Saved"
+                                is PreviewImage.Local  -> "New — not saved yet"
+                                else                   -> ""
+                            }
+                            Text(label, fontSize = 11.sp, color = Color.White.copy(0.6f))
+                        }
+                        IconButton(onClick = { previewIndex = null }) {
+                            Icon(Icons.Default.Close, "Close", tint = Color.White, modifier = Modifier.size(24.dp))
+                        }
+                    }
+
+                    // ── Main image with swipe gesture ─────────────────────────
+                    var dragOffsetX by remember { mutableStateOf(0f) }
+                    var swipeDirection by remember { mutableStateOf(1) } // 1=left, -1=right
+
+                    val animatedOffsetX by animateFloatAsState(
+                        targetValue = dragOffsetX,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        ),
+                        label = "swipe_offset"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                            .pointerInput(currentIdx, total) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = {
+                                        when {
+                                            dragOffsetX < -80f && currentIdx < total - 1 -> {
+                                                swipeDirection = 1
+                                                currentIdx++
+                                            }
+                                            dragOffsetX > 80f && currentIdx > 0 -> {
+                                                swipeDirection = -1
+                                                currentIdx--
+                                            }
+                                        }
+                                        dragOffsetX = 0f
+                                    },
+                                    onDragCancel = { dragOffsetX = 0f },
+                                    onHorizontalDrag = { _, dragAmount ->
+                                        dragOffsetX = (dragOffsetX + dragAmount).coerceIn(-200f, 200f)
+                                    }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedContent(
+                            targetState = currentIdx,
+                            transitionSpec = {
+                                if (targetState > initialState) {
+                                    // Swiping forward
+                                    (slideInHorizontally { it } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { -it } + fadeOut())
+                                } else {
+                                    // Swiping backward
+                                    (slideInHorizontally { -it } + fadeIn()) togetherWith
+                                    (slideOutHorizontally { it } + fadeOut())
+                                }
+                            },
+                            label = "image_transition"
+                        ) { idx ->
+                            when (val img = allPreviewImages.getOrNull(idx)) {
+                                is PreviewImage.Remote -> AsyncImage(
+                                    model = img.url,
+                                    contentDescription = "Preview",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight(0.78f)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .graphicsLayer {
+                                            translationX = animatedOffsetX
+                                            alpha = 1f - (kotlin.math.abs(animatedOffsetX) / 400f)
+                                                .coerceIn(0f, 0.4f)
+                                        }
+                                )
+                                is PreviewImage.Local -> AsyncImage(
+                                    model = img.bytes,
+                                    contentDescription = "Preview",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight(0.78f)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .graphicsLayer {
+                                            translationX = animatedOffsetX
+                                            alpha = 1f - (kotlin.math.abs(animatedOffsetX) / 400f)
+                                                .coerceIn(0f, 0.4f)
+                                        }
+                                )
+                                else -> {}
+                            }
+                        }
+
+                        // Swipe hint indicators
+                        if (currentIdx > 0) {
+                            Icon(
+                                Icons.Default.ChevronLeft,
+                                null,
+                                tint = Color.White.copy(
+                                    alpha = (kotlin.math.abs(dragOffsetX) / 200f).coerceIn(0f, 0.8f)
+                                        .let { if (dragOffsetX > 0) it else 0f }
+                                ),
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .size(40.dp)
+                                    .padding(start = 4.dp)
+                            )
+                        }
+                        if (currentIdx < total - 1) {
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                null,
+                                tint = Color.White.copy(
+                                    alpha = (kotlin.math.abs(dragOffsetX) / 200f).coerceIn(0f, 0.8f)
+                                        .let { if (dragOffsetX < 0) it else 0f }
+                                ),
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .size(40.dp)
+                                    .padding(end = 4.dp)
+                            )
+                        }
+                    }
+
+                    // ── Thumbnail strip + arrows ───────────────────────────────
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        IconButton(
+                            onClick = { if (currentIdx > 0) currentIdx-- },
+                            enabled = currentIdx > 0
+                        ) {
+                            Icon(
+                                Icons.Default.ChevronLeft, "Previous",
+                                tint = if (currentIdx > 0) Color.White else Color.White.copy(0.3f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        LazyRow(
+                            modifier = Modifier.weight(1f),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+                        ) {
+                            items(allPreviewImages) { img ->
+                                val i = allPreviewImages.indexOf(img)
+                                val isActive = i == currentIdx
+                                val isRemote = img is PreviewImage.Remote
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (isActive) 54.dp else 44.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(
+                                            2.dp,
+                                            if (isActive) RentOutColors.Primary
+                                            else if (isRemote) RentOutColors.IconBlue.copy(0.5f)
+                                            else RentOutColors.StatusApproved.copy(0.5f),
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable { currentIdx = i }
+                                ) {
+                                    when (img) {
+                                        is PreviewImage.Remote -> AsyncImage(
+                                            model = img.url,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        is PreviewImage.Local -> AsyncImage(
+                                            model = img.bytes,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        IconButton(
+                            onClick = { if (currentIdx < total - 1) currentIdx++ },
+                            enabled = currentIdx < total - 1
+                        ) {
+                            Icon(
+                                Icons.Default.ChevronRight, "Next",
+                                tint = if (currentIdx < total - 1) Color.White else Color.White.copy(0.3f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+    }
     val isLoading = formState is PropertyFormState.Uploading
 
     // Back button animation
@@ -246,6 +503,7 @@ fun EditPropertyImagesScreen(
                                     url      = url,
                                     index    = index,
                                     isCover  = index == 0,
+                                    onPreview = { previewIndex = index },
                                     onRemove = {
                                         imageToRemove = Pair(true, index)
                                         showRemoveDialog = true
@@ -258,6 +516,7 @@ fun EditPropertyImagesScreen(
                                 NewImageCard(
                                     image    = image,
                                     index    = keptRemoteUrls.size + index,
+                                    onPreview = { previewIndex = keptRemoteUrls.size + index },
                                     onRemove = {
                                         imageToRemove = Pair(false, index)
                                         showRemoveDialog = true
@@ -337,6 +596,7 @@ private fun RemoteImageCard(
     url: String,
     index: Int,
     isCover: Boolean,
+    onPreview: () -> Unit = {},
     onRemove: () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -356,6 +616,7 @@ private fun RemoteImageCard(
                     RentOutColors.IconBlue.copy(alpha = 0.5f),
                     RoundedCornerShape(16.dp)
                 )
+                .clickable { onPreview() }
         ) {
             AsyncImage(
                 model = url,
@@ -402,6 +663,7 @@ private fun RemoteImageCard(
 private fun NewImageCard(
     image: PickedImage,
     index: Int,
+    onPreview: () -> Unit = {},
     onRemove: () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -421,6 +683,7 @@ private fun NewImageCard(
                     RentOutColors.StatusApproved.copy(alpha = 0.6f),
                     RoundedCornerShape(16.dp)
                 )
+                .clickable { onPreview() }
         ) {
             coil3.compose.AsyncImage(
                 model = image.bytes,

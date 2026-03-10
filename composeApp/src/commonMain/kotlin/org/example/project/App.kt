@@ -399,30 +399,60 @@ fun App() {
                         // Parse address back into components (stored as "street, suburb, city, country")
                         val parts = property.location.split(", ")
                         PropertyDraft(
-                            title           = property.title
+                            // ── Basic info ────────────────────────────────────────────────────
+                            title                = property.title
                                 .replace(" in ${property.city}", "")
                                 .let { t ->
-                                    // Strip suburb suffix: "Title in SuburbName" → "Title"
                                     val suburbPart = if (parts.size >= 2) parts.getOrNull(1) ?: "" else ""
                                     if (suburbPart.isNotBlank() && t.endsWith(" in $suburbPart"))
                                         t.removeSuffix(" in $suburbPart") else t
                                 },
-                            price           = property.price.let {
+                            description          = property.description,
+                            // ── Classification ────────────────────────────────────────────────
+                            classification       = property.classification.ifBlank { "Residential" },
+                            propType             = property.propertyType.ifBlank { "Apartment" },
+                            locationType         = property.locationType,
+                            // ── Pricing ───────────────────────────────────────────────────────
+                            price                = property.price.let {
                                 if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
                             },
-                            securityDeposit = property.securityDeposit.let {
+                            securityDeposit      = property.securityDeposit.let {
                                 if (it == 0.0) "" else if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
                             },
-                            rooms           = property.rooms.toString(),
-                            bathrooms       = property.bathrooms.toString(),
-                            description     = property.description,
-                            propType        = property.propertyType,
-                            houseAndStreet  = parts.getOrNull(0) ?: "",
-                            suburb          = parts.getOrNull(1) ?: "",
-                            townOrCity      = parts.getOrNull(2) ?: property.city,
-                            country         = parts.getOrNull(3) ?: "Zimbabwe",
-                            contact         = property.contactNumber,
-                            amenityKeys     = property.amenities.toSet()
+                            depositNotApplicable = property.depositNotApplicable,
+                            // ── Bills ─────────────────────────────────────────────────────────
+                            billsInclusive       = property.billsInclusive.toSet(),
+                            billsExclusive       = property.billsExclusive.toSet(),
+                            // ── Rooms & bathrooms ─────────────────────────────────────────────
+                            rooms                = if (property.rooms == 0 && property.customBedroomDetails.isNotBlank())
+                                                       "other"
+                                                   else
+                                                       property.rooms.let { if (it == 0) "" else it.toString() },
+                            customBedroomDetails = property.customBedroomDetails,
+                            bathrooms            = property.bathrooms.let { if (it == 0) "" else it.toString() },
+                            bathroomType         = property.bathroomType,
+                            customBathroomDetails = property.customBathroomDetails,
+                            // ── Kitchen ───────────────────────────────────────────────────────
+                            hasSharedKitchen     = property.hasSharedKitchen,
+                            kitchenCount         = property.kitchenCount.let { if (it == 0) "" else it.toString() },
+                            // ── Room quantity ─────────────────────────────────────────────────
+                            roomQuantity         = property.roomQuantity,
+                            // ── Proximity & amenities ─────────────────────────────────────────
+                            proximityFacilities  = property.proximityFacilities.toSet(),
+                            amenityKeys          = property.amenities.toSet(),
+                            // ── Location / GPS ────────────────────────────────────────────────
+                            latitude             = if (property.latitude == 0.0) "" else property.latitude.toString(),
+                            longitude            = if (property.longitude == 0.0) "" else property.longitude.toString(),
+                            // ── Address ───────────────────────────────────────────────────────
+                            houseAndStreet       = parts.getOrNull(0) ?: "",
+                            suburb               = parts.getOrNull(1) ?: "",
+                            townOrCity           = parts.getOrNull(2) ?: property.city,
+                            country              = parts.getOrNull(3) ?: "Zimbabwe",
+                            // ── Contact ───────────────────────────────────────────────────────
+                            contact              = property.contactNumber,
+                            // ── Availability & tenant prefs ───────────────────────────────────
+                            availabilityDate     = property.availabilityDate,
+                            tenantRequirements   = property.tenantRequirements.toSet()
                         )
                     }
                     // Collect ALL uploaded images — prefer imageUrls list, fall back to imageUrl
