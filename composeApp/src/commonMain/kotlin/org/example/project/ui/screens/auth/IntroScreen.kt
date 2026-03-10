@@ -9,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -22,103 +21,150 @@ import org.example.project.ui.components.IntroVideoPlayer
 
 @Composable
 fun IntroScreen(onGetStarted: () -> Unit) {
-    var videoEnded   by remember { mutableStateOf(false) }
-    var overlayReady by remember { mutableStateOf(false) }
 
-    // Safety timeout — navigate regardless after 6 s if video never fires onVideoEnded
+    // ── Animation stage flags ─────────────────────────────────────────────
+    var videoEnded     by remember { mutableStateOf(false) }
+    var showTagline    by remember { mutableStateOf(false) }
+    var showPills      by remember { mutableStateOf(false) }
+    var showTrustLine  by remember { mutableStateOf(false) }
+    var showScrim      by remember { mutableStateOf(false) }
+
+    // Safety timeout — if the video never fires onVideoEnded (e.g. codec issue),
+    // we still start the sequence after 7 seconds so the user is never stuck.
     LaunchedEffect(Unit) {
-        delay(6_000)
-        videoEnded = true
+        delay(7_000)
+        if (!videoEnded) videoEnded = true
     }
 
-    // Once video ends: show overlay briefly, then auto-navigate
+    // Sequenced reveal: wait for the video's own animated logo to finish,
+    // then stagger each element in one by one before auto-navigating.
     LaunchedEffect(videoEnded) {
-        if (videoEnded) {
-            delay(150)   // tiny pause so overlay animates in cleanly
-            overlayReady = true
-            delay(2_200) // let the user read the overlay, then navigate
-            onGetStarted()
-        }
+        if (!videoEnded) return@LaunchedEffect
+
+        // 1. Fade in the gradient scrim so text becomes readable
+        showScrim = true
+        delay(300)
+
+        // 2. Tagline slides up
+        showTagline = true
+        delay(700)
+
+        // 3. Pills pop in
+        showPills = true
+        delay(600)
+
+        // 4. Trust line fades in
+        showTrustLine = true
+
+        // 5. Hold so the user can read everything comfortably
+        delay(3_000)
+
+        // 6. Auto-navigate
+        onGetStarted()
     }
 
-    val contentAlpha by animateFloatAsState(
-        targetValue   = if (overlayReady) 1f else 0f,
-        animationSpec = tween(800, easing = FastOutSlowInEasing),
-        label = "content_alpha"
+    // Scrim alpha animation
+    val scrimAlpha by animateFloatAsState(
+        targetValue   = if (showScrim) 1f else 0f,
+        animationSpec = tween(600, easing = FastOutSlowInEasing),
+        label = "scrim_alpha"
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Full-screen video ─────────────────────────────────────────────
+        // ── Full-screen video (plays uninterrupted) ───────────────────────
         IntroVideoPlayer(
             modifier     = Modifier.fillMaxSize(),
             onVideoEnded = { videoEnded = true }
         )
 
-        // ── Gradient scrim (always visible for readability) ───────────────
+        // ── Gradient scrim — fades in gently after video ends ─────────────
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.00f to Color.Black.copy(alpha = 0.20f),
-                            0.45f to Color.Black.copy(alpha = 0.10f),
-                            0.72f to Color.Black.copy(alpha = 0.50f),
-                            1.00f to Color.Black.copy(alpha = 0.88f)
+                            0.00f to Color.Black.copy(alpha = 0.10f * scrimAlpha),
+                            0.50f to Color.Black.copy(alpha = 0.20f * scrimAlpha),
+                            0.72f to Color.Black.copy(alpha = 0.60f * scrimAlpha),
+                            1.00f to Color.Black.copy(alpha = 0.92f * scrimAlpha)
                         )
                     )
                 )
         )
 
-        // ── Overlay content ───────────────────────────────────────────────
+        // ── Staggered content overlay ─────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp)
-                .alpha(contentAlpha),
+                .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
-            // Logo image (already contains the RentOut name — no duplicate text)
-            // The logo is displayed by the parent screen/splash; here we show
-            // only the tagline, pills, and trust line below the video overlay.
 
-            // ── Tagline ───────────────────────────────────────────────────
-            Text(
-                text      = "Zimbabwe's Premier\nRental Marketplace",
-                color     = Color.White.copy(alpha = 0.95f),
-                textAlign = TextAlign.Center,
-                style     = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight   = FontWeight.Bold,
-                    fontSize     = 22.sp,
-                    lineHeight   = 30.sp
-                )
-            )
-
-            Spacer(Modifier.height(18.dp))
-
-            // ── Feature pills ─────────────────────────────────────────────
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.wrapContentWidth()
+            // ── Tagline — slides up + fades in ────────────────────────────
+            AnimatedVisibility(
+                visible = showTagline,
+                enter   = slideInVertically(
+                    animationSpec  = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness    = Spring.StiffnessMedium
+                    ),
+                    initialOffsetY = { it / 2 }
+                ) + fadeIn(tween(600))
             ) {
-                IntroPill("🏠 List Properties")
-                IntroPill("🔑 Find Rentals")
-                IntroPill("✅ Verified")
+                Text(
+                    text      = "Zimbabwe's Premier\nRental Marketplace",
+                    color     = Color.White.copy(alpha = 0.97f),
+                    textAlign = TextAlign.Center,
+                    style     = MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 24.sp,
+                        lineHeight = 32.sp
+                    )
+                )
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // ── Trust line ────────────────────────────────────────────────
-            Text(
-                text      = "Trusted by landlords & tenants across Zimbabwe",
-                fontSize  = 12.sp,
-                color     = Color.White.copy(alpha = 0.58f),
-                textAlign = TextAlign.Center
-            )
+            // ── Pills — each pops in with a spring scale ──────────────────
+            AnimatedVisibility(
+                visible = showPills,
+                enter   = scaleIn(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness    = Spring.StiffnessMedium
+                    ),
+                    initialScale  = 0.6f
+                ) + fadeIn(tween(400))
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.wrapContentWidth()
+                ) {
+                    IntroPill("🏠 List Properties")
+                    IntroPill("🔑 Find Rentals")
+                    IntroPill("✅ Verified")
+                }
+            }
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(24.dp))
+
+            // ── Trust line — gentle fade in last ─────────────────────────
+            AnimatedVisibility(
+                visible = showTrustLine,
+                enter   = fadeIn(tween(800))
+            ) {
+                Text(
+                    text      = "Trusted by landlords & tenants across Zimbabwe",
+                    fontSize  = 12.sp,
+                    color     = Color.White.copy(alpha = 0.60f),
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Spacer(Modifier.height(52.dp))
         }
     }
 }
