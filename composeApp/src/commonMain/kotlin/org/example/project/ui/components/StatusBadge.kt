@@ -37,11 +37,6 @@ fun StatusBadge(status: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun VerifiedBadge(providerSubtype: String = "", modifier: Modifier = Modifier) {
-    val label = when (providerSubtype) {
-        "agent"     -> "✓ Verified by Agent"
-        "brokerage" -> "✓ Verified by Brokerage"
-        else        -> "✓ Verified by Landlord"
-    }
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
@@ -50,7 +45,7 @@ fun VerifiedBadge(providerSubtype: String = "", modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            label,
+            "✓ Verified by RentOut",
             color = RentOutColors.StatusApproved,
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold
