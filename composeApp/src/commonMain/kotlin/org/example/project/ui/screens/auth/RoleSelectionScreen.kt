@@ -1,13 +1,7 @@
 package org.example.project.ui.screens.auth
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -232,7 +226,20 @@ fun RoleSelectionScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Property Provider card — 3 directly-tappable subtype badges inside the card
+// Provider card data
+// ─────────────────────────────────────────────────────────────────────────────
+
+private data class ProviderTileData(
+    val subtype:  String,
+    val emoji:    String,
+    val label:    String,
+    val sublabel: String,
+    val greeting: String,
+    val color:    Color
+)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Property Provider card — morphing header + size-shifting tappable tiles
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -240,159 +247,209 @@ private fun ProviderRoleCard(
     selectedSubtype: String,
     onSubtypeSelected: (String) -> Unit
 ) {
-    val isDark   = isSystemInDarkTheme()
+    val isDark        = isSystemInDarkTheme()
     val isAnySelected = selectedSubtype.isNotBlank()
 
+    val tiles = remember {
+        listOf(
+            ProviderTileData("landlord",  "🏠", "Landlord",         "I own the\nproperties I list",    "👋 Welcome, Landlord!",          Color(0xFF2196F3)),
+            ProviderTileData("agent",     "🤝", "Freelancer Agent", "I list on behalf\nof owners",     "👋 Welcome, Freelancer Agent!",   Color(0xFF00897B)),
+            ProviderTileData("brokerage", "🏢", "Brokerage",        "I represent\na company",          "👋 Welcome, Brokerage!",          Color(0xFF7C5CBF))
+        )
+    }
+
+    val selectedTile = tiles.find { it.subtype == selectedSubtype }
+
+    // Header morphing: title & subtitle animate between default & selected values
+    val headerTitle    = if (isAnySelected) selectedTile?.label    ?: "Property Provider" else "Property Provider"
+    val headerSubtitle = if (isAnySelected) selectedTile?.sublabel ?: "List properties & earn — choose your type below"
+                         else "List properties & earn — choose your type below"
+    val headerEmoji    = if (isAnySelected) selectedTile?.emoji    ?: "🏘️" else "🏘️"
+    val headerColor    = selectedTile?.color ?: RentOutColors.IconBlue
+
     val haloWidth by animateDpAsState(
-        targetValue = if (isAnySelected) 3.dp else 1.dp,
-        animationSpec = tween(300), label = "provider_halo_width"
+        targetValue = if (isAnySelected) 2.5.dp else 1.dp,
+        animationSpec = tween(300), label = "halo_w"
     )
     val haloColor by animateColorAsState(
-        targetValue = if (isAnySelected) RentOutColors.Primary
+        targetValue = if (isAnySelected) headerColor
                       else if (isDark) MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
                       else Color(0xFFE0E5ED),
-        animationSpec = tween(300), label = "provider_halo_color"
+        animationSpec = tween(350), label = "halo_c"
     )
-    val cardBg = if (isDark) MaterialTheme.colorScheme.surface else Color.White
-
-    // Greeting text shown when a subtype is selected
-    val greetingText = when (selectedSubtype) {
-        "landlord"  -> "👋 Welcome, Landlord!"
-        "agent"     -> "👋 Welcome, Freelancer Agent!"
-        "brokerage" -> "👋 Welcome, Brokerage!"
-        else        -> ""
-    }
+    val iconBgColor by animateColorAsState(
+        targetValue = headerColor.copy(alpha = if (isDark) 0.28f else 0.13f),
+        animationSpec = tween(350), label = "icon_bg"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .border(haloWidth, haloColor, RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
-            .background(cardBg)
-            .padding(22.dp)
+            .background(if (isDark) MaterialTheme.colorScheme.surface else Color.White)
+            .padding(20.dp)
     ) {
         Column {
-            // ── Header row ────────────────────────────────────────────────
+
+            // ── Morphing header ───────────────────────────────────────────
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(58.dp)
+                        .size(56.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(RentOutColors.IconBlue.copy(alpha = if (isDark) 0.25f else 0.12f)),
+                        .background(iconBgColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "🏘️",
-                        fontSize = 28.sp,
-                        modifier = Modifier.graphicsLayer {
-                            rotationZ = if (isAnySelected) 8f else 0f
-                            scaleX    = if (isAnySelected) 1.1f else 1f
-                            scaleY    = if (isAnySelected) 1.1f else 1f
-                        }
-                    )
+                    // AnimatedContent swaps the emoji smoothly
+                    AnimatedContent(
+                        targetState = headerEmoji,
+                        transitionSpec = {
+                            (fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.7f))
+                                .togetherWith(fadeOut(tween(150)) + scaleOut(tween(150), targetScale = 0.7f))
+                        },
+                        label = "header_emoji"
+                    ) { emoji ->
+                        Text(text = emoji, fontSize = 26.sp)
+                    }
                 }
-                Spacer(Modifier.width(16.dp))
+
+                Spacer(Modifier.width(14.dp))
+
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Property Provider",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = "List properties & earn — choose your type below",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                            alpha = if (isDark) 0.85f else 0.65f
-                        ),
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    // Title morphs between "Property Provider" and selected role name
+                    AnimatedContent(
+                        targetState = headerTitle,
+                        transitionSpec = {
+                            (fadeIn(tween(250)) + slideInVertically(tween(250)) { -it / 3 })
+                                .togetherWith(fadeOut(tween(180)) + slideOutVertically(tween(180)) { it / 3 })
+                        },
+                        label = "header_title"
+                    ) { title ->
+                        Text(
+                            text = title,
+                            color = if (isAnySelected) headerColor else MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    // Subtitle morphs too
+                    AnimatedContent(
+                        targetState = headerSubtitle,
+                        transitionSpec = {
+                            (fadeIn(tween(280, delayMillis = 60)))
+                                .togetherWith(fadeOut(tween(150)))
+                        },
+                        label = "header_subtitle"
+                    ) { subtitle ->
+                        Text(
+                            text = subtitle.replace("\n", " "),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = if (isDark) 0.80f else 0.62f
+                            ),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
+
+                // Outer checkmark when any subtype is selected
+                val outerCheckScale by animateFloatAsState(
+                    targetValue = if (isAnySelected) 1f else 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness    = Spring.StiffnessMedium
+                    ),
+                    label = "outer_check"
+                )
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint     = headerColor,
+                    modifier = Modifier.size(24.dp).scale(outerCheckScale)
+                )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // ── 3 clickable subtype tiles ─────────────────────────────────
+            // ── 3 size-morphing tiles ─────────────────────────────────────
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                ProviderSubtypeTile(
-                    emoji    = "🏠",
-                    label    = "Landlord",
-                    sublabel = "I own the\nproperties I list",
-                    color    = RentOutColors.IconBlue,
-                    isSelected = selectedSubtype == "landlord",
-                    modifier = Modifier.weight(1f),
-                    onClick  = { onSubtypeSelected("landlord") }
-                )
-                ProviderSubtypeTile(
-                    emoji    = "🤝",
-                    label    = "Agent",
-                    sublabel = "I list on behalf\nof owners",
-                    color    = RentOutColors.IconTeal,
-                    isSelected = selectedSubtype == "agent",
-                    modifier = Modifier.weight(1f),
-                    onClick  = { onSubtypeSelected("agent") }
-                )
-                ProviderSubtypeTile(
-                    emoji    = "🏢",
-                    label    = "Brokerage",
-                    sublabel = "I represent\na company",
-                    color    = Color(0xFF7C5CBF),
-                    isSelected = selectedSubtype == "brokerage",
-                    modifier = Modifier.weight(1f),
-                    onClick  = { onSubtypeSelected("brokerage") }
-                )
+                tiles.forEach { tile ->
+                    val isTileSelected  = selectedSubtype == tile.subtype
+                    val isSomeSelected  = isAnySelected
+                    // Selected tile gets weight 1.8, unselected tiles share 0.6 each
+                    val tileWeight by animateFloatAsState(
+                        targetValue = when {
+                            isTileSelected -> 1.8f
+                            isSomeSelected -> 0.6f
+                            else           -> 1f
+                        },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness    = Spring.StiffnessMedium
+                        ),
+                        label = "tile_weight_${tile.subtype}"
+                    )
+                    ProviderSubtypeTile(
+                        tile       = tile,
+                        isSelected = isTileSelected,
+                        anySelected = isSomeSelected,
+                        modifier   = Modifier.weight(tileWeight),
+                        onClick    = { onSubtypeSelected(tile.subtype) }
+                    )
+                }
             }
 
-            // ── Greeting / hint row ───────────────────────────────────────
+            // ── Bottom greeting (centred) / hint ──────────────────────────
             Spacer(Modifier.height(14.dp))
-            AnimatedVisibility(
-                visible = isAnySelected,
-                enter   = fadeIn(tween(300)) + expandVertically(),
-                exit    = fadeOut(tween(200)) + shrinkVertically()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                // Hint — shown when nothing is selected
+                AnimatedVisibility(
+                    visible = !isAnySelected,
+                    enter   = fadeIn(tween(220)),
+                    exit    = fadeOut(tween(180))
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = RentOutColors.Primary.copy(alpha = 0.10f)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.TouchApp,
+                            contentDescription = null,
+                            tint     = RentOutColors.Primary.copy(alpha = 0.55f),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(Modifier.width(5.dp))
                         Text(
-                            text = greetingText,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = RentOutColors.Primary,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                            text  = "Tap a tile to select your provider type",
+                            fontSize = 11.sp,
+                            color = RentOutColors.Primary.copy(alpha = 0.65f),
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
-            }
-            AnimatedVisibility(
-                visible = !isAnySelected,
-                enter   = fadeIn(),
-                exit    = fadeOut()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxWidth()
+
+                // Greeting — shown when a tile is selected, centred inside the card
+                AnimatedVisibility(
+                    visible = isAnySelected,
+                    enter   = fadeIn(tween(280)) + expandVertically(tween(260)),
+                    exit    = fadeOut(tween(180)) + shrinkVertically(tween(200))
                 ) {
-                    Icon(
-                        Icons.Default.TouchApp,
-                        contentDescription = null,
-                        tint   = RentOutColors.Primary.copy(alpha = 0.55f),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        text = "Tap a tile to select your provider type",
-                        fontSize = 11.sp,
-                        color = RentOutColors.Primary.copy(alpha = 0.65f),
-                        fontWeight = FontWeight.Medium
-                    )
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = headerColor.copy(alpha = 0.11f)
+                    ) {
+                        Text(
+                            text      = selectedTile?.greeting ?: "",
+                            fontSize  = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color     = headerColor,
+                            textAlign = TextAlign.Center,
+                            modifier  = Modifier
+                                .padding(horizontal = 18.dp, vertical = 7.dp)
+                                .fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
@@ -400,110 +457,119 @@ private fun ProviderRoleCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Individual subtype tile — tappable, animated checkmark, colour glow on select
+// Individual subtype tile — enlarges when selected, shrinks when not
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun ProviderSubtypeTile(
-    emoji:      String,
-    label:      String,
-    sublabel:   String,
-    color:      Color,
-    isSelected: Boolean,
-    modifier:   Modifier = Modifier,
-    onClick:    () -> Unit
+    tile:        ProviderTileData,
+    isSelected:  Boolean,
+    anySelected: Boolean,
+    modifier:    Modifier = Modifier,
+    onClick:     () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.93f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "tile_scale"
+        label = "press_${tile.subtype}"
     )
     val bgAlpha by animateFloatAsState(
-        targetValue = if (isSelected) (if (isDark) 0.30f else 0.13f) else (if (isDark) 0.12f else 0.06f),
-        animationSpec = tween(250), label = "tile_bg"
+        targetValue = if (isSelected) (if (isDark) 0.32f else 0.14f)
+                      else            (if (isDark) 0.09f else 0.05f),
+        animationSpec = tween(280), label = "bg_${tile.subtype}"
     )
     val borderWidth by animateDpAsState(
-        targetValue = if (isSelected) 2.dp else 1.dp,
-        animationSpec = tween(200), label = "tile_border_w"
+        targetValue = if (isSelected) 2.dp else 0.8.dp,
+        animationSpec = tween(220), label = "bw_${tile.subtype}"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (isSelected) color else color.copy(alpha = 0.25f),
-        animationSpec = tween(250), label = "tile_border_c"
+        targetValue = if (isSelected) tile.color else tile.color.copy(alpha = 0.20f),
+        animationSpec = tween(260), label = "bc_${tile.subtype}"
     )
     val checkScale by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-        label = "tile_check"
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness    = Spring.StiffnessMedium
+        ),
+        label = "check_${tile.subtype}"
     )
-    val emojiScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.18f else 1f,
+    val emojiSize by animateFloatAsState(
+        targetValue = if (isSelected) 28f else if (anySelected) 18f else 24f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "tile_emoji_scale"
+        label = "emoji_sz_${tile.subtype}"
+    )
+    val labelAlpha by animateFloatAsState(
+        targetValue = if (!anySelected || isSelected) 1f else 0.45f,
+        animationSpec = tween(220), label = "lbl_alpha_${tile.subtype}"
+    )
+    val labelSize by animateFloatAsState(
+        targetValue = if (isSelected) 11f else if (anySelected) 8f else 10f,
+        animationSpec = tween(220), label = "lbl_sz_${tile.subtype}"
     )
 
     Box(
         modifier = modifier
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .border(borderWidth, borderColor, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
-            .background(color.copy(alpha = bgAlpha))
+            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+            .border(borderWidth, borderColor, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(tile.color.copy(alpha = bgAlpha))
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 8.dp)
+            .padding(vertical = 11.dp, horizontal = 6.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Checkmark — top right corner
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Spacer(Modifier.fillMaxWidth())
+            // Checkmark — top right, springs in on select
+            Box(modifier = Modifier.fillMaxWidth().height(16.dp)) {
                 Icon(
                     Icons.Default.CheckCircle,
                     contentDescription = "Selected",
-                    tint     = color,
+                    tint     = tile.color,
                     modifier = Modifier
-                        .size(16.dp)
+                        .size(15.dp)
                         .scale(checkScale)
                         .align(Alignment.TopEnd)
                 )
             }
 
-            Spacer(Modifier.height(2.dp))
-
-            // Emoji
+            // Emoji — size-animates
             Text(
-                text = emoji,
-                fontSize = 26.sp,
-                modifier = Modifier.graphicsLayer {
-                    scaleX = emojiScale; scaleY = emojiScale
-                }
+                text     = tile.emoji,
+                fontSize = emojiSize.sp
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(5.dp))
 
-            // Label
+            // Label — fades/shrinks on unselected when another is active
             Text(
-                text = label,
-                fontSize = 11.sp,
+                text       = tile.label,
+                fontSize   = labelSize.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (isSelected) color else MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
+                color      = (if (isSelected) tile.color
+                              else MaterialTheme.colorScheme.onSurface).copy(alpha = labelAlpha),
+                textAlign  = TextAlign.Center
             )
 
-            Spacer(Modifier.height(3.dp))
-
-            // Sublabel
-            Text(
-                text = sublabel,
-                fontSize = 9.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isDark) 0.7f else 0.6f),
-                textAlign = TextAlign.Center,
-                lineHeight = 12.sp
-            )
+            // Sublabel — only show on selected tile
+            AnimatedVisibility(
+                visible = isSelected,
+                enter   = fadeIn(tween(200)) + expandVertically(tween(200)),
+                exit    = fadeOut(tween(150)) + shrinkVertically(tween(150))
+            ) {
+                Text(
+                    text      = tile.sublabel.replace("\n", " "),
+                    fontSize  = 9.sp,
+                    color     = tile.color.copy(alpha = 0.75f),
+                    textAlign = TextAlign.Center,
+                    modifier  = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
 }
