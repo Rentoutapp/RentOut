@@ -39,6 +39,9 @@ kotlin {
             // Google Play Services — Maps + Location
             implementation("com.google.android.gms:play-services-maps:18.2.0")
             implementation("com.google.android.gms:play-services-location:21.2.0")
+            // Media3 ExoPlayer — video playback for intro screen
+            implementation("androidx.media3:media3-exoplayer:1.3.1")
+            implementation("androidx.media3:media3-ui:1.3.1")
         }
         iosMain.dependencies {
             // Ktor HTTP engine for Coil network image loading on iOS

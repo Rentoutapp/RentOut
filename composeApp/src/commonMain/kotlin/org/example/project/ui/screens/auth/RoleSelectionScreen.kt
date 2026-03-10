@@ -262,8 +262,8 @@ private fun ProviderRoleCard(
 
     // Header morphing: title & subtitle animate between default & selected values
     val headerTitle    = if (isAnySelected) selectedTile?.label    ?: "Property Provider" else "Property Provider"
-    val headerSubtitle = if (isAnySelected) selectedTile?.sublabel ?: "List properties & earn — choose your type below"
-                         else "List properties & earn — choose your type below"
+    val headerSubtitle = if (isAnySelected) selectedTile?.sublabel ?: "List properties & earn money"
+                         else "List properties & earn money"
     val headerEmoji    = if (isAnySelected) selectedTile?.emoji    ?: "🏘️" else "🏘️"
     val headerColor    = selectedTile?.color ?: RentOutColors.IconBlue
 
