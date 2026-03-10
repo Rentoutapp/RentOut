@@ -172,7 +172,7 @@ service cloud.firestore {
       allow list: if isAuthenticated() && isActiveUser()
         && (isAdmin() || isLandlord() || isTenant());
 
-      // Only active landlords can create properties for themselves.
+      // Only active providers (landlord/agent/brokerage) can create properties.
       // New listings always start as 'pending' — only admin can approve.
       // securityDeposit is optional (defaults to 0 if omitted).
       // Additional optional fields are allowed (but not required):
@@ -180,7 +180,7 @@ service cloud.firestore {
       // proximityFacilities, amenities, billsInclusive, billsExclusive,
       // latitude, longitude, depositNotApplicable. Type validation is enforced
       // for optional fields to ensure data integrity.
-      allow create: if isLandlord() && isActiveUser()
+      allow create: if isProvider() && isActiveUser()
         && request.resource.data.landlordId == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.keys().hasAll([
@@ -203,18 +203,18 @@ service cloud.firestore {
         && (!('providerSubtype' in request.resource.data)
             || isValidProviderSubtype(request.resource.data.providerSubtype));
 
-      // Landlord can update their own property details but NOT status or isVerified.
+      // Provider can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).
       allow update: if isActiveUser() && (
-        (isLandlord() && resource.data.landlordId == request.auth.uid
+        (isProvider() && resource.data.landlordId == request.auth.uid
           && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['status', 'isVerified', 'landlordId']))
         || isAdmin()
       );
 
-      // Only admin or the owning landlord can delete a property.
+      // Only admin or the owning provider can delete a property.
       allow delete: if isAdmin()
-        || (isLandlord() && isActiveUser() && resource.data.landlordId == request.auth.uid);
+        || (isProvider() && isActiveUser() && resource.data.landlordId == request.auth.uid);
 
       // ── Contact Reveal Subcollection ───────────────────────────────────────
       // Contact number is only revealed after the tenant has unlocked the property.
@@ -294,11 +294,11 @@ service cloud.firestore {
     // Path: properties/{propertyId}/images/{imageId}
     match /properties/{propertyId}/images/{imageId} {
       allow read: if isAuthenticated() && isActiveUser();
-      allow write: if isLandlord() && isActiveUser()
+      allow write: if isProvider() && isActiveUser()
         && get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId
            == request.auth.uid;
       allow delete: if isAdmin()
-        || (isLandlord() && isActiveUser()
+        || (isProvider() && isActiveUser()
             && get(/databases/$(database)/documents/properties/$(propertyId)).data.landlordId
                == request.auth.uid);
     }
