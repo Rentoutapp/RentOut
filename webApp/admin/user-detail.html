@@ -360,7 +360,7 @@
           genderEl.textContent = genderVal;
         } else {
           // Empty string (landlord) or undefined (old account) — show role-appropriate hint
-          genderEl.innerHTML = `<span style="color:#9CA3AF;font-style:italic;">${u.role === 'tenant' ? 'Not provided' : 'N/A — Landlord account'}</span>`;
+          genderEl.innerHTML = `<span style="color:#9CA3AF;font-style:italic;">${u.role === 'tenant' ? 'Not provided' : 'N/A — Provider account'}</span>`;
         }
       }
 
@@ -372,7 +372,7 @@
           natIdEl.textContent = natIdVal;
           natIdEl.style.letterSpacing = '0.05em';
         } else {
-          natIdEl.innerHTML = `<span style="color:#9CA3AF;font-style:italic;">${u.role === 'tenant' ? 'Not provided' : 'N/A — Landlord account'}</span>`;
+          natIdEl.innerHTML = `<span style="color:#9CA3AF;font-style:italic;">${u.role === 'tenant' ? 'Not provided' : 'N/A — Provider account'}</span>`;
         }
       }
 

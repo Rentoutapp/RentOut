@@ -248,7 +248,8 @@
         if (subtype === 'brokerage') return 'Brokerage';
         return 'Landlord';
       }
-      return role.charAt(0).toUpperCase() + role.slice(1);
+      const labels = { tenant: 'Tenant', admin: 'Admin' };
+      return labels[role] || role.charAt(0).toUpperCase() + role.slice(1);
     }
 
     function roleBadge(u) {

@@ -315,7 +315,10 @@
 
             <!-- Landlord card -->
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 class="text-lg font-bold text-gray-800 mb-4">👤 Landlord</h2>
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-gray-800">👤 Landlord</h2>
+                <span id="p-provider-badge" class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-700">🏠 Listed by Landlord</span>
+              </div>
               <div class="flex items-center gap-3 mb-4">
                 <div id="p-landlord-avatar" class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl font-bold text-primary overflow-hidden flex-shrink-0"></div>
                 <div>
@@ -732,9 +735,31 @@
           subtypeContainer.innerHTML += `<div class="text-xs text-blue-600 font-semibold mt-1">🏢 Brokerage</div>`;
         }
 
+        // Update the provider badge in the landlord card header
+        updateProviderBadge(providerSubtype);
+
         $('p-landlord-link').href = `users.html`;
       } catch (e) {
         $('p-landlord-name').textContent = 'Could not load';
+      }
+    }
+
+    // ── Provider subtype badge ─────────────────────────────────────────────────
+    function updateProviderBadge(providerSubtype) {
+      const providerSubtype_normalized = providerSubtype || 'landlord';
+      const providerLabels = { 
+        landlord: '🏠 Listed by Landlord', 
+        agent: '🤝 Listed by Agent', 
+        brokerage: '🏢 Listed by Brokerage' 
+      };
+      const providerBadgeEl = $('p-provider-badge');
+      if (providerBadgeEl) {
+        providerBadgeEl.textContent = providerLabels[providerSubtype_normalized] || '🏠 Listed by Landlord';
+        providerBadgeEl.className = `text-xs font-semibold px-3 py-1 rounded-full ${
+          providerSubtype_normalized === 'agent' ? 'bg-teal-100 text-teal-700' :
+          providerSubtype_normalized === 'brokerage' ? 'bg-purple-100 text-purple-700' :
+          'bg-blue-100 text-blue-700'
+        }`;
       }
     }
 
