@@ -405,7 +405,10 @@ private fun ProviderRoleCard(
 
             // ── Bottom greeting (centred) / hint ──────────────────────────
             Spacer(Modifier.height(14.dp))
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 // Hint — shown when nothing is selected
                 AnimatedVisibility(
                     visible = !isAnySelected,
