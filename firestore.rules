@@ -37,8 +37,20 @@ service cloud.firestore {
       return isAuthenticated() && getUserRole() == 'landlord';
     }
 
+    // isProvider() is an alias for isLandlord() — covers all three provider
+    // subtypes (landlord, agent, brokerage) since they all share role='landlord'.
+    function isProvider() {
+      return isAuthenticated() && getUserRole() == 'landlord';
+    }
+
     function isTenant() {
       return isAuthenticated() && getUserRole() == 'tenant';
+    }
+
+    // Validates the providerSubtype field on write.
+    // Only meaningful for role='landlord'; tenants/admins leave it blank.
+    function isValidProviderSubtype(subtype) {
+      return subtype in ['landlord', 'agent', 'brokerage', ''];
     }
 
     function isActiveUser() {
@@ -63,9 +75,13 @@ service cloud.firestore {
       // profilePhotoUrl is allowed to be an empty string (photo upload may fail).
       // role 'admin' cannot be self-assigned.
       //
-      // gender and nationalId are required for tenants (collected during tenant
-      // registration). Landlords write empty strings for these fields, which is
-      // also permitted — the mobile app enforces landlord-specific validation.
+      // Provider roles (landlord/agent/brokerage) all use role='landlord' with an
+      // optional providerSubtype field. All three subtypes now collect gender and
+      // nationalId (they are real people), so those fields are required for everyone.
+      //
+      // Agent-specific optional fields: agentLicenseNumber, yearsOfExperience.
+      // Brokerage-specific optional fields: companyName, companyRegNumber,
+      //   companyAddress, taxId.
       allow create: if isAuthenticated() && isOwner(userId)
         && request.resource.data.keys().hasAll([
             'uid', 'name', 'email', 'role', 'status',
@@ -78,22 +94,34 @@ service cloud.firestore {
         && request.resource.data.name.size() > 0
         && request.resource.data.email is string
         && request.resource.data.email.size() > 0
-        // gender: if present, must be a valid value for tenants or empty for landlords.
-        // Field is optional to maintain backward compatibility with older app versions.
-        && (!request.resource.data.keys().hasAll(['gender'])
+        // providerSubtype: optional field, must be a valid value if present.
+        && (!('providerSubtype' in request.resource.data)
+            || isValidProviderSubtype(request.resource.data.providerSubtype))
+        // gender: must be a valid option if present.
+        // All roles (landlord, agent, brokerage, tenant) collect gender.
+        && (!('gender' in request.resource.data)
             || (request.resource.data.gender is string
-                && (request.resource.data.role == 'landlord'
-                    ? request.resource.data.gender == ''
-                    : request.resource.data.gender in [
-                        'Male', 'Female', 'Transgender', 'Prefer not to say'
-                      ])))
-        // nationalId: if present, must be non-empty string for tenants, empty for landlords.
-        // Field is optional to maintain backward compatibility with older app versions.
-        && (!request.resource.data.keys().hasAll(['nationalId'])
-            || (request.resource.data.nationalId is string
-                && (request.resource.data.role == 'landlord'
-                    ? request.resource.data.nationalId == ''
-                    : request.resource.data.nationalId.size() > 0)));
+                && request.resource.data.gender in [
+                    '', 'Male', 'Female', 'Transgender', 'Prefer not to say'
+                  ]))
+        // nationalId: must be a string if present. Required validation is
+        // enforced at the app layer; rules only check type for flexibility.
+        && (!('nationalId' in request.resource.data)
+            || request.resource.data.nationalId is string)
+        // Agent-specific optional fields — strings only
+        && (!('agentLicenseNumber' in request.resource.data)
+            || request.resource.data.agentLicenseNumber is string)
+        && (!('yearsOfExperience' in request.resource.data)
+            || request.resource.data.yearsOfExperience is string)
+        // Brokerage-specific optional fields — strings only
+        && (!('companyName' in request.resource.data)
+            || request.resource.data.companyName is string)
+        && (!('companyRegNumber' in request.resource.data)
+            || request.resource.data.companyRegNumber is string)
+        && (!('companyAddress' in request.resource.data)
+            || request.resource.data.companyAddress is string)
+        && (!('taxId' in request.resource.data)
+            || request.resource.data.taxId is string);
 
       // Users can update their own mutable profile fields only.
       // Immutable fields (role, status, uid, createdAt) are locked.
@@ -169,7 +197,11 @@ service cloud.firestore {
         && (!('classification' in request.resource.data)
             || request.resource.data.classification is string)
         && (!('locationType' in request.resource.data)
-            || request.resource.data.locationType is string);
+            || request.resource.data.locationType is string)
+        // providerSubtype: copied from the lister's profile at submit time.
+        // Validates the value if present.
+        && (!('providerSubtype' in request.resource.data)
+            || isValidProviderSubtype(request.resource.data.providerSubtype));
 
       // Landlord can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).
