@@ -377,12 +377,23 @@
               </div>
 
               <!-- Brokerage extras (shown only when providerSubtype == 'brokerage') -->
-              <div id="brokerage-details-section" class="hidden border-t border-gray-100 pt-3 mt-1 space-y-2 text-sm">
-                <p class="text-xs font-bold text-purple-700 uppercase tracking-wide mb-1">🏢 Brokerage</p>
+              <div id="brokerage-details-section" class="hidden border-t border-gray-100 pt-3 mt-1 space-y-3 text-sm">
+                <!-- Company logo + name header -->
+                <div class="flex items-center gap-3 p-3 bg-purple-50 rounded-xl border border-purple-100">
+                  <div id="p-brokerage-logo-wrap" class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    <span class="text-2xl">🏢</span>
+                  </div>
+                  <div>
+                    <div class="font-bold text-purple-800 text-sm" id="p-brokerage-name">—</div>
+                    <div class="text-xs text-purple-500 font-semibold uppercase tracking-wide">🏢 Brokerage</div>
+                  </div>
+                </div>
+                <!-- Broker details -->
+                <p class="text-xs font-bold text-purple-700 uppercase tracking-wide">Broker</p>
                 <div class="flex items-center gap-2 text-gray-700">
                   <span>👤</span>
                   <div>
-                    <div class="text-xs text-gray-400">Broker</div>
+                    <div class="text-xs text-gray-400">Broker Name</div>
                     <div class="font-semibold" id="p-broker-name">—</div>
                   </div>
                 </div>
@@ -393,18 +404,27 @@
                     <div id="p-broker-contact">—</div>
                   </div>
                 </div>
+                <!-- Office details -->
+                <p class="text-xs font-bold text-purple-700 uppercase tracking-wide pt-1 border-t border-purple-100">Office</p>
                 <div class="flex items-center gap-2 text-gray-600">
-                  <span>🏢</span>
+                  <span>📍</span>
                   <div>
-                    <div class="text-xs text-gray-400">Brokerage Address</div>
+                    <div class="text-xs text-gray-400">Office Address</div>
                     <div id="p-brokerage-address">—</div>
                   </div>
                 </div>
                 <div class="flex items-center gap-2 text-gray-600">
                   <span>📞</span>
                   <div>
-                    <div class="text-xs text-gray-400">Brokerage Contact</div>
+                    <div class="text-xs text-gray-400">Office Contact</div>
                     <div id="p-brokerage-contact">—</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 text-gray-600" id="p-brokerage-email-row">
+                  <span>✉️</span>
+                  <div>
+                    <div class="text-xs text-gray-400">Office Email</div>
+                    <div id="p-brokerage-email">—</div>
                   </div>
                 </div>
               </div>
@@ -833,13 +853,30 @@
           // Hide the generic landlord contact row (it duplicates agent info)
           $('landlord-contact-row').classList.add('hidden');
         } else if (providerSubtype === 'brokerage') {
-          // Show brokerage section
+          // Show brokerage section — use property doc fields (stamped at submit time)
           $('brokerage-details-section').classList.remove('hidden');
           $('agent-details-section').classList.add('hidden');
-          $('p-broker-name').textContent      = l.name          || '—';
-          $('p-broker-contact').textContent   = l.phoneNumber   || l.phone || '—';
-          $('p-brokerage-address').textContent = l.companyAddress || '—';
-          $('p-brokerage-contact').textContent = l.companyPhone  || '—';
+
+          // Company logo
+          const logoWrap = $('p-brokerage-logo-wrap');
+          const logoUrl  = currentProperty.brokerageLogoUrl || '';
+          if (logoUrl) {
+            logoWrap.innerHTML = `<img src="${logoUrl}" class="w-full h-full object-cover" alt="Brokerage Logo" onerror="this.parentElement.innerHTML='<span class=\\'text-2xl\\'>🏢</span>'"/>`;
+          }
+
+          // Company name — from property.brokerageName
+          $('p-brokerage-name').textContent    = currentProperty.brokerageName    || l.companyName    || '—';
+          // Broker individual details
+          $('p-broker-name').textContent       = currentProperty.brokerName       || l.name           || '—';
+          $('p-broker-contact').textContent    = currentProperty.brokerContactNumber || l.phoneNumber || l.phone || '—';
+          // Office details
+          $('p-brokerage-address').textContent = currentProperty.brokerageAddress || l.companyStreet  || '—';
+          $('p-brokerage-contact').textContent = currentProperty.brokerageContactNumber || l.companyPhone || '—';
+          // Office email
+          const emailVal = currentProperty.brokerageEmail || l.companyEmail || '';
+          $('p-brokerage-email').textContent = emailVal || '—';
+          if (!emailVal) $('p-brokerage-email-row').classList.add('hidden');
+
           // Hide the generic landlord contact row (it duplicates broker info)
           $('landlord-contact-row').classList.add('hidden');
         } else {

@@ -122,8 +122,10 @@ data class PropertyDraft(
     // Brokerage-specific
     val brokerName:           String = "",
     val brokerContactNumber:  String = "",
+    val brokerageName:        String = "",
     val brokerageAddress:     String = "",
     val brokerageContactNumber: String = "",
+    val brokerageEmail:       String = "",
     // Temporarily holds picked images so they survive back-navigation
     val pickedImages:         List<PickedImage> = emptyList()
 )
@@ -328,17 +330,19 @@ class PropertyViewModel : ViewModel() {
                 val userDoc         = db.collection("users").document(uid).get()
                 val landlordName    = userDoc.get("name") as? String ?: ""
                 val providerSubtype = userDoc.get("providerSubtype") as? String ?: ""
+                val companyLogoUrl  = userDoc.get("companyLogoUrl") as? String ?: ""
 
                 val finalProperty = property.copy(
-                    id              = docRef.id,
-                    landlordId      = uid,
-                    landlordName    = landlordName,
-                    providerSubtype = providerSubtype,
-                    imageUrl        = imageUrls.firstOrNull() ?: "",
-                    imageUrls       = imageUrls,
-                    status          = "pending",
-                    isVerified      = false,
-                    createdAt       = System.currentTimeMillis()
+                    id                = docRef.id,
+                    landlordId        = uid,
+                    landlordName      = landlordName,
+                    providerSubtype   = providerSubtype,
+                    brokerageLogoUrl  = if (providerSubtype == "brokerage") companyLogoUrl else "",
+                    imageUrl          = imageUrls.firstOrNull() ?: "",
+                    imageUrls         = imageUrls,
+                    status            = "pending",
+                    isVerified        = false,
+                    createdAt         = System.currentTimeMillis()
                 )
 
                 docRef.set(finalProperty)

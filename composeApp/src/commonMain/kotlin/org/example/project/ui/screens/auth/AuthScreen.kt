@@ -10,11 +10,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import org.example.project.data.model.SADC_COUNTRIES
+import org.example.project.data.model.ZIMBABWE_TOWNS
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -166,7 +170,10 @@ fun AuthScreen(
         providerSubtype: String,
         agentLicenseNumber: String, yearsOfExperience: String,
         companyName: String, companyRegNumber: String,
-        companyAddress: String, taxId: String
+        companyStreet: String, companyCity: String, companyCountry: String,
+        taxId: String,
+        companyPhone: String, companyEmail: String,
+        companyLogoUrl: String, logoBytes: ByteArray?
     ) -> Unit,
     onBack: () -> Unit,
     onClearError: () -> Unit,
@@ -213,11 +220,28 @@ fun AuthScreen(
     // Brokerage-specific fields
     var regCompanyName    by remember { mutableStateOf("") }
     var regCompanyReg     by remember { mutableStateOf("") }
-    var regCompanyAddress by remember { mutableStateOf("") }
+    var regCompanyStreet  by remember { mutableStateOf("") }
+    var regCompanyCity    by remember { mutableStateOf("") }
+    var regCompanyCountry by remember { mutableStateOf("Zimbabwe") }
     var regTaxId          by remember { mutableStateOf("") }
+    var regCompanyPhone   by remember { mutableStateOf("") }
+    var regCompanyEmail   by remember { mutableStateOf("") }
     var companyNameError  by remember { mutableStateOf("") }
     var companyRegError   by remember { mutableStateOf("") }
-    var companyAddrError  by remember { mutableStateOf("") }
+    var companyStreetError by remember { mutableStateOf("") }
+    var companyCityError  by remember { mutableStateOf("") }
+    var companyCountryError by remember { mutableStateOf("") }
+    // City & Country picker state (brokerage company address)
+    var showCompanyCityPicker    by remember { mutableStateOf(false) }
+    var showCompanyCountryPicker by remember { mutableStateOf(false) }
+    var citySearchQuery          by remember { mutableStateOf("") }
+    var companyPhoneError by remember { mutableStateOf("") }
+    var companyEmailError by remember { mutableStateOf("") }
+    var companyLogoError  by remember { mutableStateOf("") }
+    // Company logo (brokerage only)
+    var regLogoUri        by remember { mutableStateOf("") }
+    var regLogoBytes      by remember { mutableStateOf<ByteArray?>(null) }
+    var showLogoDialog    by remember { mutableStateOf(false) }
 
     // Validation errors — declared BEFORE imagePicker so the lambda can reference them
     var nameError      by remember { mutableStateOf("") }
@@ -229,12 +253,21 @@ fun AuthScreen(
     var genderError    by remember { mutableStateOf("") }
     var nationalIdError by remember { mutableStateOf("") }
 
-    // Real platform image picker
+    // Real platform image picker — profile photo
     val imagePicker = rememberImagePickerLauncher { picked: PickedImage? ->
         if (picked != null) {
             regPhotoUri   = picked.uri
             regPhotoBytes = picked.bytes
             photoError    = ""
+        }
+    }
+
+    // Company logo image picker (brokerage only)
+    val logoPicker = rememberImagePickerLauncher { picked: PickedImage? ->
+        if (picked != null) {
+            regLogoUri      = picked.uri
+            regLogoBytes    = picked.bytes
+            companyLogoError = ""
         }
     }
 
@@ -948,7 +981,138 @@ fun AuthScreen(
                         }
                         Spacer(Modifier.height(14.dp))
 
-                        // ── 6. Profile Photo ──────────────────────────────────
+                        // ── 6. Profile Photo (shown for all roles, placed just below National ID) ──
+                        run {
+                        val photoShape6 = RoundedCornerShape(20.dp)
+                        val photoWidth6  = 120.dp
+                        val photoHeight6 = 150.dp
+                        val haloTrans6 = rememberInfiniteTransition(label = "halo6")
+                        val haloAlphaRaw6 by haloTrans6.animateFloat(
+                            initialValue = 0.35f, targetValue = 0.85f,
+                            animationSpec = infiniteRepeatable(tween(1400, easing = EaseInOutSine), RepeatMode.Reverse),
+                            label = "halo_alpha6"
+                        )
+                        val haloSpreadRaw6 by haloTrans6.animateFloat(
+                            initialValue = 0f, targetValue = 6f,
+                            animationSpec = infiniteRepeatable(tween(1400, easing = EaseInOutSine), RepeatMode.Reverse),
+                            label = "halo_spread6"
+                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "Profile Photo",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center,
+                                color = if (photoError.isNotEmpty()) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 10.dp)
+                            )
+                            Box(contentAlignment = Alignment.BottomEnd) {
+                                if (regPhotoUri.isNotEmpty()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(photoWidth6 + haloSpreadRaw6.dp * 2)
+                                            .height(photoHeight6 + haloSpreadRaw6.dp * 2)
+                                            .border(
+                                                width = 1.dp,
+                                                color = RentOutColors.Secondary.copy(alpha = haloAlphaRaw6),
+                                                shape = RoundedCornerShape(20.dp + haloSpreadRaw6.dp)
+                                            )
+                                    )
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .width(photoWidth6)
+                                        .height(photoHeight6)
+                                        .clip(photoShape6)
+                                        .background(
+                                            if (regPhotoUri.isNotEmpty())
+                                                Brush.linearGradient(listOf(RentOutColors.Secondary, RentOutColors.SecondaryLight))
+                                            else
+                                                Brush.linearGradient(listOf(
+                                                    MaterialTheme.colorScheme.surfaceVariant,
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                                ))
+                                        )
+                                        .border(
+                                            width = if (photoError.isNotEmpty()) 2.dp else 1.dp,
+                                            color = if (photoError.isNotEmpty()) MaterialTheme.colorScheme.error
+                                                    else if (regPhotoUri.isNotEmpty()) RentOutColors.Secondary
+                                                    else MaterialTheme.colorScheme.outline,
+                                            shape = photoShape6
+                                        )
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { showPhotoDialog = true; photoError = "" },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (regPhotoUri.isNotEmpty()) {
+                                        AsyncImage(
+                                            model = regPhotoUri,
+                                            contentDescription = "Profile photo",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .width(photoWidth6).height(photoHeight6).clip(photoShape6)
+                                        )
+                                    } else {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Person, null,
+                                                modifier = Modifier.size(44.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                            Text(
+                                                "Tap to add\nphoto",
+                                                fontSize = 11.sp,
+                                                textAlign = TextAlign.Center,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                        }
+                                    }
+                                }
+                                // Camera badge
+                                val camInt6 = remember { MutableInteractionSource() }
+                                val isCamPressed6 by camInt6.collectIsPressedAsState()
+                                val camScale6 by animateFloatAsState(
+                                    targetValue = if (isCamPressed6) 0.85f else 1f,
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                    label = "cam_scale6"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .offset(x = 8.dp, y = 8.dp)
+                                        .size(36.dp)
+                                        .scale(camScale6)
+                                        .clip(CircleShape)
+                                        .background(RentOutColors.Primary)
+                                        .clickable(interactionSource = camInt6, indication = null)
+                                        { showPhotoDialog = true; photoError = "" },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.CameraAlt, null,
+                                        modifier = Modifier.size(18.dp), tint = Color.White)
+                                }
+                            }
+                            AnimatedVisibility(visible = photoError.isNotEmpty()) {
+                                Text(
+                                    photoError,
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontSize = 11.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 6.dp)
+                                )
+                            }
+                        }
+                        } // end run block
+                        Spacer(Modifier.height(14.dp))
+
                         // ── 5b. Agent fields ─────────────────────────────────
                         AnimatedVisibility(
                             visible = selectedRole == "landlord" && selectedSubtype == "agent",
@@ -1009,212 +1173,209 @@ fun AuthScreen(
                                     leadingIcon = Icons.Default.Numbers, leadingIconTint = RentOutColors.IconTeal,
                                     isError = companyRegError.isNotEmpty(), errorMessage = companyRegError
                                 )
+                                // ── Street / Number ───────────────────────────
                                 RentOutTextField(
-                                    value = regCompanyAddress, onValueChange = { regCompanyAddress = it; companyAddrError = "" },
-                                    label = "Company / Office Address",
-                                    leadingIcon = Icons.Default.LocationCity, leadingIconTint = RentOutColors.IconGreen,
-                                    isError = companyAddrError.isNotEmpty(), errorMessage = companyAddrError
+                                    value = regCompanyStreet,
+                                    onValueChange = { regCompanyStreet = it; companyStreetError = "" },
+                                    label = "Street / Address Number *",
+                                    leadingIcon = Icons.Default.LocationOn, leadingIconTint = RentOutColors.IconOrange,
+                                    isError = companyStreetError.isNotEmpty(), errorMessage = companyStreetError
+                                )
+
+                                // ── City / Town Picker ─────────────────────────
+                                OutlinedTextField(
+                                    value = regCompanyCity,
+                                    onValueChange = {},
+                                    label = { Text("Town / City *", fontSize = 14.sp) },
+                                    leadingIcon = { Icon(Icons.Default.LocationCity, null, tint = RentOutColors.IconBlue) },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                                    readOnly = true,
+                                    isError = companyCityError.isNotEmpty(),
+                                    supportingText = if (companyCityError.isNotEmpty()) {{ Text(companyCityError, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }} else null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { showCompanyCityPicker = true; companyCityError = "" },
+                                    shape = RoundedCornerShape(12.dp),
+                                    enabled = false,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledBorderColor = if (companyCityError.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                                        disabledLabelColor = if (companyCityError.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        disabledLeadingIconColor = RentOutColors.IconBlue,
+                                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                )
+
+                                // ── Country Picker ──────────────────────────────
+                                OutlinedTextField(
+                                    value = regCompanyCountry,
+                                    onValueChange = {},
+                                    label = { Text("Country *", fontSize = 14.sp) },
+                                    leadingIcon = {
+                                        val flag = SADC_COUNTRIES.firstOrNull { it.name == regCompanyCountry }?.flag ?: "🌍"
+                                        Text(flag, fontSize = 20.sp)
+                                    },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                                    readOnly = true,
+                                    isError = companyCountryError.isNotEmpty(),
+                                    supportingText = if (companyCountryError.isNotEmpty()) {{ Text(companyCountryError, color = MaterialTheme.colorScheme.error, fontSize = 11.sp) }} else null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) { showCompanyCountryPicker = true; companyCountryError = "" },
+                                    shape = RoundedCornerShape(12.dp),
+                                    enabled = false,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledBorderColor = if (companyCountryError.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                                        disabledLabelColor = if (companyCountryError.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        disabledLeadingIconColor = MaterialTheme.colorScheme.onSurface,
+                                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 )
                                 RentOutTextField(
                                     value = regTaxId, onValueChange = { regTaxId = it },
                                     label = "Tax ID / ZIMRA Number (optional)",
                                     leadingIcon = Icons.Default.Receipt, leadingIconTint = RentOutColors.IconAmber
                                 )
+
+                                RentOutTextField(
+                                    value = regCompanyPhone,
+                                    onValueChange = { regCompanyPhone = it; companyPhoneError = "" },
+                                    label = "Company Phone Number *",
+                                    leadingIcon = Icons.Default.Phone, leadingIconTint = RentOutColors.IconGreen,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                                    isError = companyPhoneError.isNotEmpty(),
+                                    errorMessage = companyPhoneError
+                                )
+
+                                RentOutTextField(
+                                    value = regCompanyEmail,
+                                    onValueChange = { regCompanyEmail = it; companyEmailError = "" },
+                                    label = "Company Email Address *",
+                                    leadingIcon = Icons.Default.Email, leadingIconTint = RentOutColors.IconBlue,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                    isError = companyEmailError.isNotEmpty(),
+                                    errorMessage = companyEmailError
+                                )
+
+                                // ── Company Logo ──────────────────────────────
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    val logoShape = RoundedCornerShape(16.dp)
+                                    Text(
+                                        "Company Logo *",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = TextAlign.Center,
+                                        color = if (companyLogoError.isNotEmpty()) MaterialTheme.colorScheme.error
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(bottom = 10.dp)
+                                    )
+                                    Box(contentAlignment = Alignment.BottomEnd) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(110.dp)
+                                                .clip(logoShape)
+                                                .background(
+                                                    if (regLogoUri.isNotEmpty())
+                                                        Brush.linearGradient(listOf(RentOutColors.Primary.copy(alpha = 0.15f), RentOutColors.Secondary.copy(alpha = 0.15f)))
+                                                    else
+                                                        Brush.linearGradient(listOf(
+                                                            MaterialTheme.colorScheme.surfaceVariant,
+                                                            MaterialTheme.colorScheme.surfaceVariant
+                                                        ))
+                                                )
+                                                .border(
+                                                    width = if (companyLogoError.isNotEmpty()) 2.dp
+                                                            else if (regLogoUri.isNotEmpty()) 1.5.dp else 1.dp,
+                                                    color = if (companyLogoError.isNotEmpty()) MaterialTheme.colorScheme.error
+                                                            else if (regLogoUri.isNotEmpty()) RentOutColors.Primary.copy(alpha = 0.6f)
+                                                            else MaterialTheme.colorScheme.outline,
+                                                    shape = logoShape
+                                                )
+                                                .clickable(
+                                                    interactionSource = remember { MutableInteractionSource() },
+                                                    indication = null
+                                                ) { showLogoDialog = true; companyLogoError = "" },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (regLogoUri.isNotEmpty()) {
+                                                AsyncImage(
+                                                    model = regLogoUri,
+                                                    contentDescription = "Company logo",
+                                                    contentScale = ContentScale.Fit,
+                                                    modifier = Modifier
+                                                        .size(100.dp)
+                                                        .clip(logoShape)
+                                                        .padding(4.dp)
+                                                )
+                                            } else {
+                                                Column(
+                                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Business, null,
+                                                        modifier = Modifier.size(36.dp),
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                    )
+                                                    Text(
+                                                        "Tap to add\nlogo",
+                                                        fontSize = 11.sp,
+                                                        textAlign = TextAlign.Center,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        // Camera badge
+                                        val logoCamInt = remember { MutableInteractionSource() }
+                                        val isLogoCamPressed by logoCamInt.collectIsPressedAsState()
+                                        val logoCamScale by animateFloatAsState(
+                                            targetValue = if (isLogoCamPressed) 0.85f else 1f,
+                                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                            label = "logo_cam_scale"
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .offset(x = 6.dp, y = 6.dp)
+                                                .size(32.dp)
+                                                .scale(logoCamScale)
+                                                .clip(CircleShape)
+                                                .background(RentOutColors.Primary)
+                                                .clickable(interactionSource = logoCamInt, indication = null)
+                                                { showLogoDialog = true; companyLogoError = "" },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.CameraAlt, null,
+                                                modifier = Modifier.size(16.dp), tint = Color.White)
+                                        }
+                                    }
+                                    AnimatedVisibility(visible = companyLogoError.isNotEmpty()) {
+                                        Text(
+                                            companyLogoError,
+                                            color = MaterialTheme.colorScheme.error,
+                                            fontSize = 11.sp,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(top = 6.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                         Spacer(Modifier.height(14.dp))
 
-                        val photoShape = RoundedCornerShape(20.dp)
-                        val photoWidth  = 120.dp
-                        val photoHeight = 150.dp
-
-                        // Track password field focus — halo pauses when user moves to passwords
+                        // Track password field focus
                         var passwordFocused by remember { mutableStateOf(false) }
                         var confirmFocused  by remember { mutableStateOf(false) }
-                        val passwordSectionActive = passwordFocused || confirmFocused
-
-                        // Halo animation — infinite pulse, but smoothly gated by passwordSectionActive.
-                        // When password fields are focused, haloActive snaps to 0 via animateFloatAsState,
-                        // which multiplies the infinite alpha/spread to effectively freeze the halo at 0.
-                        val haloTransition = rememberInfiniteTransition(label = "halo")
-                        val haloAlphaRaw by haloTransition.animateFloat(
-                            initialValue = 0.35f,
-                            targetValue  = 0.85f,
-                            animationSpec = infiniteRepeatable(
-                                tween(1400, easing = EaseInOutSine),
-                                RepeatMode.Reverse
-                            ),
-                            label = "halo_alpha"
-                        )
-                        val haloSpreadRaw by haloTransition.animateFloat(
-                            initialValue = 0f,
-                            targetValue  = 6f,
-                            animationSpec = infiniteRepeatable(
-                                tween(1400, easing = EaseInOutSine),
-                                RepeatMode.Reverse
-                            ),
-                            label = "halo_spread"
-                        )
-                        // Gate — smoothly fades halo in/out as password section gains/loses focus
-                        val haloGate by animateFloatAsState(
-                            targetValue = if (passwordSectionActive) 0f else 1f,
-                            animationSpec = tween(400, easing = EaseInOutSine),
-                            label = "halo_gate"
-                        )
-                        val haloAlpha  = haloAlphaRaw  * haloGate
-                        val haloSpread = haloSpreadRaw * haloGate
-
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "Profile Photo",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                                color = if (photoError.isNotEmpty()) MaterialTheme.colorScheme.error
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 10.dp)
-                            )
-
-                            Box(contentAlignment = Alignment.BottomEnd) {
-
-                                // Halo ring — only shown when photo is loaded
-                                if (regPhotoUri.isNotEmpty()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(photoWidth + haloSpread.dp * 2)
-                                            .height(photoHeight + haloSpread.dp * 2)
-                                            .border(
-                                                width = 1.dp,
-                                                color = RentOutColors.Secondary.copy(alpha = haloAlpha),
-                                                shape = RoundedCornerShape(20.dp + haloSpread.dp)
-                                            )
-                                    )
-                                }
-
-                                // Image shell — vertical rounded rectangle
-                                Box(
-                                    modifier = Modifier
-                                        .width(photoWidth)
-                                        .height(photoHeight)
-                                        .clip(photoShape)
-                                        .background(
-                                            if (regPhotoUri.isNotEmpty())
-                                                Brush.linearGradient(listOf(RentOutColors.Secondary, RentOutColors.SecondaryLight))
-                                            else
-                                                Brush.linearGradient(listOf(
-                                                    MaterialTheme.colorScheme.surfaceVariant,
-                                                    MaterialTheme.colorScheme.surfaceVariant
-                                                ))
-                                        )
-                                        .border(
-                                            width = if (photoError.isNotEmpty()) 2.dp else 1.dp,
-                                            color = if (photoError.isNotEmpty()) MaterialTheme.colorScheme.error
-                                                    else if (regPhotoUri.isNotEmpty()) RentOutColors.Secondary
-                                                    else MaterialTheme.colorScheme.outline,
-                                            shape = photoShape
-                                        )
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) { showPhotoDialog = true; photoError = "" },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (regPhotoUri.isNotEmpty()) {
-                                        AsyncImage(
-                                            model = regPhotoUri,
-                                            contentDescription = "Profile photo",
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .width(photoWidth)
-                                                .height(photoHeight)
-                                                .clip(photoShape)
-                                        )
-                                    } else {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Person, null,
-                                                modifier = Modifier.size(44.dp),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                            )
-                                            Text(
-                                                "Tap to add\nphoto",
-                                                fontSize = 11.sp,
-                                                textAlign = TextAlign.Center,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Camera badge — bottom-right corner of the rectangle
-                                val camInteraction = remember { MutableInteractionSource() }
-                                val isCamPressed by camInteraction.collectIsPressedAsState()
-                                val camScale by animateFloatAsState(
-                                    targetValue = if (isCamPressed) 0.85f else 1f,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                                    label = "cam_scale"
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .scale(camScale)
-                                        .clip(CircleShape)
-                                        .background(RentOutColors.Primary)
-                                        .clickable(
-                                            interactionSource = camInteraction,
-                                            indication = null
-                                        ) { showPhotoDialog = true; photoError = "" },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Default.CameraAlt, null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(17.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(10.dp))
-
-                            AnimatedContent(
-                                targetState = regPhotoUri.isNotEmpty(),
-                                transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
-                                label = "photo_status"
-                            ) { hasPhoto ->
-                                if (hasPhoto) {
-                                    Text(
-                                        "✓ Photo selected",
-                                        color = RentOutColors.StatusApproved,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        textAlign = TextAlign.Center
-                                    )
-                                } else {
-                                    Text(
-                                        "Tap the camera icon to add a photo",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 11.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            }
-
-                            AnimatedVisibility(visible = photoError.isNotEmpty()) {
-                                Text(
-                                    photoError,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontSize = 11.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
-                        }
                         Spacer(Modifier.height(14.dp))
 
                         // ── 7. Password ───────────────────────────────────────
@@ -1333,7 +1494,12 @@ fun AuthScreen(
                                     if (subtypeValid && selectedSubtype == "brokerage") {
                                         if (regCompanyName.isBlank()) { companyNameError = "Company name is required"; createAccountLoading = false; subtypeValid = false }
                                         else if (regCompanyReg.isBlank())  { companyRegError  = "Registration number is required"; createAccountLoading = false; subtypeValid = false }
-                                        else if (regCompanyAddress.isBlank()) { companyAddrError = "Office address is required"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyStreet.isBlank()) { companyStreetError = "Street / address number is required"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyCity.isBlank()) { companyCityError = "Please select a town / city"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyCountry.isBlank()) { companyCountryError = "Please select a country"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyPhone.isBlank()) { companyPhoneError = "Company phone number is required"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regCompanyEmail.isBlank()) { companyEmailError = "Company email address is required"; createAccountLoading = false; subtypeValid = false }
+                                        else if (regLogoUri.isBlank()) { companyLogoError = "Please upload a company logo"; createAccountLoading = false; subtypeValid = false }
                                     }
                                     if (subtypeValid) {
                                         onRegister(
@@ -1343,7 +1509,10 @@ fun AuthScreen(
                                             selectedSubtype,
                                             regLicenseNumber.trim(), regYearsExp.trim(),
                                             regCompanyName.trim(), regCompanyReg.trim(),
-                                            regCompanyAddress.trim(), regTaxId.trim()
+                                            regCompanyStreet.trim(), regCompanyCity.trim(), regCompanyCountry.trim(),
+                                            regTaxId.trim(),
+                                            regCompanyPhone.trim(), regCompanyEmail.trim(),
+                                            regLogoUri, regLogoBytes
                                         )
                                     }
                                 }
@@ -1361,6 +1530,183 @@ fun AuthScreen(
             }
             Spacer(Modifier.height(32.dp))
         }
+    }
+
+    // ── City Picker Dialog ────────────────────────────────────────────────────
+    if (showCompanyCityPicker) {
+        val isZimbabwe = regCompanyCountry == "Zimbabwe"
+        val zimCities  = ZIMBABWE_TOWNS.map { it.name }.sorted()
+        val filteredCities = if (isZimbabwe) {
+            zimCities.filter { it.contains(citySearchQuery, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+
+        AlertDialog(
+            onDismissRequest = { showCompanyCityPicker = false; citySearchQuery = "" },
+            icon = { Icon(Icons.Default.LocationCity, null, tint = RentOutColors.Primary) },
+            title = { Text("Select Town / City", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    if (isZimbabwe) {
+                        OutlinedTextField(
+                            value = citySearchQuery,
+                            onValueChange = { citySearchQuery = it },
+                            label = { Text("Search towns…") },
+                            leadingIcon = { Icon(Icons.Default.Search, null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
+                            items(filteredCities) { city ->
+                                val selected = city == regCompanyCity
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            if (selected) RentOutColors.Primary.copy(alpha = 0.12f)
+                                            else Color.Transparent
+                                        )
+                                        .clickable {
+                                            regCompanyCity = city
+                                            companyCityError = ""
+                                            showCompanyCityPicker = false
+                                            citySearchQuery = ""
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        city,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (selected) Icon(Icons.Default.Check, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+                                }
+                                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            }
+                        }
+                    } else {
+                        // Free-text for non-Zimbabwe countries
+                        OutlinedTextField(
+                            value = regCompanyCity,
+                            onValueChange = { regCompanyCity = it },
+                            label = { Text("Enter town / city") },
+                            leadingIcon = { Icon(Icons.Default.LocationCity, null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCompanyCityPicker = false; citySearchQuery = "" }) {
+                    Text(if (isZimbabwe) "Close" else "Confirm")
+                }
+            },
+            dismissButton = {}
+        )
+    }
+
+    // ── Country Picker Dialog ─────────────────────────────────────────────────
+    if (showCompanyCountryPicker) {
+        AlertDialog(
+            onDismissRequest = { showCompanyCountryPicker = false },
+            icon = { Icon(Icons.Default.Public, null, tint = RentOutColors.Primary) },
+            title = { Text("Select Country", fontWeight = FontWeight.Bold) },
+            text = {
+                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                    items(SADC_COUNTRIES) { country ->
+                        val selected = country.name == regCompanyCountry
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (selected) RentOutColors.Primary.copy(alpha = 0.12f)
+                                    else Color.Transparent
+                                )
+                                .clickable {
+                                    regCompanyCountry = country.name
+                                    regCompanyCity = "" // reset city when country changes
+                                    citySearchQuery = ""
+                                    companyCountryError = ""
+                                    showCompanyCountryPicker = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(country.flag, fontSize = 22.sp)
+                                Text(
+                                    country.name,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            if (selected) Icon(Icons.Default.Check, null, tint = RentOutColors.Primary, modifier = Modifier.size(18.dp))
+                        }
+                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCompanyCountryPicker = false }) { Text("Close") }
+            },
+            dismissButton = {}
+        )
+    }
+
+    // ── Company Logo source dialog ────────────────────────────────────────────
+    if (showLogoDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoDialog = false },
+            icon = { Icon(Icons.Default.Business, null, tint = RentOutColors.Primary) },
+            title = { Text("Add Company Logo", fontWeight = FontWeight.Bold) },
+            text = { Text("Choose how to upload your company logo.") },
+            confirmButton = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = {
+                            showLogoDialog = false
+                            logoPicker.launch(ImagePickerSource.CAMERA)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Take Photo")
+                    }
+                    Button(
+                        onClick = {
+                            showLogoDialog = false
+                            logoPicker.launch(ImagePickerSource.GALLERY)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary)
+                    ) {
+                        Icon(Icons.Default.Photo, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Browse Gallery")
+                    }
+                    TextButton(
+                        onClick = { showLogoDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Cancel") }
+                }
+            },
+            dismissButton = {}
+        )
     }
 
     // ── Photo source dialog ───────────────────────────────────────────────────

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -127,6 +128,10 @@ fun AddPropertyScreen(
     onNavigateToImages: (Property) -> Unit = {},
     landlordPhoneNumber: String = "",
     landlordName: String = "",
+    landlordCompanyName: String = "",       // brokerage: user.companyName
+    landlordCompanyPhone: String = "",      // brokerage: user.companyPhone
+    landlordCompanyEmail: String = "",      // brokerage: user.companyEmail
+    landlordCompanyAddress: String = "",    // brokerage: user.companyStreet + companyCity
     providerSubtype: String = "landlord",   // "landlord" | "agent" | "brokerage"
     draft: PropertyDraft = PropertyDraft(),
     onSaveDraft: (PropertyDraft) -> Unit = {},
@@ -182,10 +187,18 @@ fun AddPropertyScreen(
     val isAgentContactAutoFilled = landlordPhoneNumber.isNotBlank()
     // Landlord details entered manually by agent (always blank — never auto-filled)
     var landlordContactName  by remember { mutableStateOf(draft.landlordContactName) }
-    var brokerName           by remember { mutableStateOf(draft.brokerName) }
+    // Brokerage: broker's own name auto-filled from user profile name
+    var brokerName           by remember { mutableStateOf(draft.brokerName.ifEmpty { landlordName }) }
     var brokerContactNumber  by remember { mutableStateOf(draft.brokerContactNumber.ifEmpty { landlordPhoneNumber }) }
-    var brokerageAddress     by remember { mutableStateOf(draft.brokerageAddress) }
-    var brokerageContactNumber by remember { mutableStateOf(draft.brokerageContactNumber) }
+    // Brokerage office fields — auto-filled from company profile
+    var brokerageName          by remember { mutableStateOf(draft.brokerageName.ifEmpty { landlordCompanyName }) }
+    var brokerageAddress       by remember { mutableStateOf(draft.brokerageAddress.ifEmpty { landlordCompanyAddress }) }
+    var brokerageContactNumber by remember { mutableStateOf(draft.brokerageContactNumber.ifEmpty { landlordCompanyPhone }) }
+    var brokerageEmail         by remember { mutableStateOf(draft.brokerageEmail.ifEmpty { landlordCompanyEmail }) }
+    // Auto-fill indicators for brokerage
+    val isBrokerNameAutoFilled    = isBrokerage && landlordName.isNotBlank()
+    val isBrokerContactAutoFilled = isBrokerage && landlordPhoneNumber.isNotBlank()
+    val isBrokerageOfficeAutoFilled = isBrokerage && (landlordCompanyPhone.isNotBlank() || landlordCompanyAddress.isNotBlank() || landlordCompanyEmail.isNotBlank())
     var agentNameErr            by remember { mutableStateOf("") }
     var agentContactErr         by remember { mutableStateOf("") }
     var landlordContactNameErr  by remember { mutableStateOf("") }
@@ -193,6 +206,7 @@ fun AddPropertyScreen(
     var brokerContactErr        by remember { mutableStateOf("") }
     var brokerageAddressErr     by remember { mutableStateOf("") }
     var brokerageContactErr     by remember { mutableStateOf("") }
+    var brokerageEmailErr       by remember { mutableStateOf("") }
 
     // â”€â”€ Amenity selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var selectedAmenityKeys by remember { mutableStateOf<Set<String>>(draft.amenityKeys) }
@@ -272,6 +286,10 @@ fun AddPropertyScreen(
                 if (brokerContactNumber.isBlank())    { brokerContactErr   = "Broker contact number is required"; valid = false }
                 if (brokerageAddress.isBlank())       { brokerageAddressErr = "Brokerage address is required";    valid = false }
                 if (brokerageContactNumber.isBlank()) { brokerageContactErr = "Brokerage contact is required";   valid = false }
+                if (brokerageEmail.isNotBlank() && !brokerageEmail.contains("@")) {
+                    brokerageEmailErr = "Enter a valid email address"
+                    valid = false
+                }
             }
             else -> {
                 if (contact.isBlank())            { contactErr = "Contact number is required"; valid = false }
@@ -309,8 +327,10 @@ fun AddPropertyScreen(
                     // Brokerage fields
                     brokerName             = if (isBrokerage) brokerName.trim() else "",
                     brokerContactNumber    = if (isBrokerage) brokerContactNumber.trim() else "",
+                    brokerageName          = if (isBrokerage) brokerageName.trim() else "",
                     brokerageAddress       = if (isBrokerage) brokerageAddress.trim() else "",
                     brokerageContactNumber = if (isBrokerage) brokerageContactNumber.trim() else "",
+                    brokerageEmail         = if (isBrokerage) brokerageEmail.trim() else "",
                     classification         = classification,
                     propertyType           = propType,
                     locationType           = locationType,
@@ -448,7 +468,8 @@ fun AddPropertyScreen(
                         leadingIconTint = RentOutColors.IconBlue,
                         isError       = titleErr.isNotEmpty(),
                         errorMessage  = titleErr,
-                        labelFontSize = 11.sp
+                        labelFontSize = 11.sp,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
                     )
                     // Title preview
                     AnimatedVisibility(
@@ -875,10 +896,27 @@ fun AddPropertyScreen(
                             )
                         }
                         isBrokerage -> {
-                            // Brokerage: broker name + broker contact + brokerage address + brokerage contact
+                            // ── Broker Details ────────────────────────────────
                             Text("Broker Details", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF7C5CBF))
                             Spacer(Modifier.height(8.dp))
+
+                            // Auto-fill badge for broker name
+                            if (isBrokerNameAutoFilled) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF7C5CBF).copy(alpha = 0.08f))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF7C5CBF), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Auto-filled from your profile", fontSize = 11.sp, color = Color(0xFF7C5CBF), fontWeight = FontWeight.Medium)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
                             RentOutTextField(
                                 value         = brokerName,
                                 onValueChange = { brokerName = it; brokerNameErr = "" },
@@ -889,6 +927,23 @@ fun AddPropertyScreen(
                                 errorMessage  = brokerNameErr
                             )
                             Spacer(Modifier.height(10.dp))
+
+                            // Auto-fill badge for broker contact
+                            if (isBrokerContactAutoFilled) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF7C5CBF).copy(alpha = 0.08f))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF7C5CBF), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Auto-filled from your profile", fontSize = 11.sp, color = Color(0xFF7C5CBF), fontWeight = FontWeight.Medium)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
                             RentOutTextField(
                                 value           = brokerContactNumber,
                                 onValueChange   = { brokerContactNumber = it; brokerContactErr = "" },
@@ -900,14 +955,43 @@ fun AddPropertyScreen(
                                 errorMessage    = brokerContactErr
                             )
                             Spacer(Modifier.height(16.dp))
+
+                            // ── Brokerage Office Details ──────────────────────
                             Text("Brokerage Office Details", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFF7C5CBF))
                             Spacer(Modifier.height(8.dp))
+
+                            // Auto-fill badge for office fields
+                            if (isBrokerageOfficeAutoFilled) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF7C5CBF).copy(alpha = 0.08f))
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF7C5CBF), modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Auto-filled from your company profile", fontSize = 11.sp, color = Color(0xFF7C5CBF), fontWeight = FontWeight.Medium)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+
+                            // Brokerage full name (read-only display, sourced from companyName)
+                            RentOutTextField(
+                                value           = brokerageName,
+                                onValueChange   = { brokerageName = it },
+                                label           = "Brokerage Full Name",
+                                leadingIcon     = Icons.Default.Business,
+                                leadingIconTint = Color(0xFF7C5CBF)
+                            )
+                            Spacer(Modifier.height(10.dp))
                             RentOutTextField(
                                 value         = brokerageAddress,
                                 onValueChange = { brokerageAddress = it; brokerageAddressErr = "" },
                                 label         = "Brokerage Office Address",
-                                leadingIcon   = Icons.Default.Business,
+                                leadingIcon   = Icons.Default.Place,
                                 leadingIconTint = Color(0xFF7C5CBF),
                                 isError       = brokerageAddressErr.isNotEmpty(),
                                 errorMessage  = brokerageAddressErr
@@ -922,6 +1006,17 @@ fun AddPropertyScreen(
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 isError         = brokerageContactErr.isNotEmpty(),
                                 errorMessage    = brokerageContactErr
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            RentOutTextField(
+                                value           = brokerageEmail,
+                                onValueChange   = { brokerageEmail = it; brokerageEmailErr = "" },
+                                label           = "Brokerage Email Address",
+                                leadingIcon     = Icons.Default.Email,
+                                leadingIconTint = Color(0xFF7C5CBF),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                isError         = brokerageEmailErr.isNotEmpty(),
+                                errorMessage    = brokerageEmailErr
                             )
                         }
                         else -> {
@@ -961,7 +1056,8 @@ fun AddPropertyScreen(
                         hasLandlordName    = landlordContactName.isNotBlank(),
                         hasBrokerName      = brokerName.isNotBlank(),
                         hasBrokerContact   = brokerContactNumber.isNotBlank(),
-                        hasBrokerageAddr   = brokerageAddress.isNotBlank()
+                        hasBrokerageAddr   = brokerageAddress.isNotBlank(),
+                        hasBrokerageEmail  = brokerageEmail.isNotBlank()
                     )
 
                     // â”€â”€ Edit mode: image gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1023,8 +1119,10 @@ fun AddPropertyScreen(
                                             landlordContactName    = landlordContactName,
                                             brokerName             = brokerName,
                                             brokerContactNumber    = brokerContactNumber,
+                                            brokerageName          = brokerageName,
                                             brokerageAddress       = brokerageAddress,
-                                            brokerageContactNumber = brokerageContactNumber
+                                            brokerageContactNumber = brokerageContactNumber,
+                                            brokerageEmail         = brokerageEmail
                                         )
                                     )
                                     onNavigateToImages(builtProperty)
@@ -2620,6 +2718,7 @@ private fun DescriptionFieldWithHint(
             singleLine = false,
             maxLines = 6,
             shape = RoundedCornerShape(14.dp),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { isFocused = it.isFocused }
@@ -2875,6 +2974,7 @@ private fun FormCompletenessIndicator(
     hasBrokerName: Boolean = false,
     hasBrokerContact: Boolean = false,
     hasBrokerageAddr: Boolean = false,
+    hasBrokerageEmail: Boolean = false,
 ) {
     val isAgent     = providerSubtype == "agent"
     val isBrokerage = providerSubtype == "brokerage"
@@ -2903,6 +3003,7 @@ private fun FormCompletenessIndicator(
                 add("Broker No."    to hasBrokerContact)
                 add("Office Addr."  to hasBrokerageAddr)
                 add("Office No."    to hasContact)
+                add("Office Email"  to hasBrokerageEmail)
             }
             else -> {
                 add("Contact"       to hasContact)

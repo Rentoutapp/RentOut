@@ -148,7 +148,9 @@ fun App() {
                     },
                     onRegister = { name, email, password, phoneNumber, profilePhotoUrl, photoBytes, gender, nationalId,
                                    providerSubtype, agentLicenseNumber, yearsOfExperience,
-                                   companyName, companyRegNumber, companyAddress, taxId ->
+                                   companyName, companyRegNumber,
+                                   companyStreet, companyCity, companyCountry,
+                                   taxId, companyPhone, companyEmail, companyLogoUrl, logoBytes ->
                         authViewModel.onEvent(AuthEvent.Register(
                             name = name, email = email, password = password,
                             role = selectedRole, providerSubtype = providerSubtype,
@@ -156,7 +158,10 @@ fun App() {
                             photoBytes = photoBytes, gender = gender, nationalId = nationalId,
                             agentLicenseNumber = agentLicenseNumber, yearsOfExperience = yearsOfExperience,
                             companyName = companyName, companyRegNumber = companyRegNumber,
-                            companyAddress = companyAddress, taxId = taxId
+                            companyStreet = companyStreet, companyCity = companyCity,
+                            companyCountry = companyCountry, taxId = taxId,
+                            companyPhone = companyPhone, companyEmail = companyEmail,
+                            companyLogoUrl = companyLogoUrl, logoBytes = logoBytes
                         ))
                     },
                     onBack = { navController.popBackStack() },
@@ -371,9 +376,16 @@ fun App() {
                         propertyViewModel.selectProperty(property)
                         navController.navigate(NavRoutes.PROPERTY_IMAGES)
                     },
-                    landlordPhoneNumber = currentUser?.phoneNumber ?: "",
-                    landlordName        = currentUser?.name ?: "",
-                    providerSubtype     = currentUser?.providerSubtype ?: "landlord",
+                    landlordPhoneNumber     = currentUser?.phoneNumber ?: "",
+                    landlordName            = currentUser?.name ?: "",
+                    landlordCompanyName     = currentUser?.companyName ?: "",
+                    landlordCompanyPhone    = currentUser?.companyPhone ?: "",
+                    landlordCompanyEmail    = currentUser?.companyEmail ?: "",
+                    landlordCompanyAddress  = listOfNotNull(
+                        currentUser?.companyStreet?.takeIf { it.isNotBlank() },
+                        currentUser?.companyCity?.takeIf { it.isNotBlank() }
+                    ).joinToString(", "),
+                    providerSubtype         = currentUser?.providerSubtype ?: "landlord",
                     draft = propertyDraft,
                     onSaveDraft = { propertyViewModel.saveDraft(it) }
                 )
@@ -474,6 +486,13 @@ fun App() {
                             country              = parts.getOrNull(3) ?: "Zimbabwe",
                             // ── Contact ───────────────────────────────────────────────────────
                             contact              = property.contactNumber,
+                            // ── Brokerage-specific ────────────────────────────────────────────
+                            brokerName             = property.brokerName,
+                            brokerContactNumber    = property.brokerContactNumber,
+                            brokerageName          = property.brokerageName,
+                            brokerageAddress       = property.brokerageAddress,
+                            brokerageContactNumber = property.brokerageContactNumber,
+                            brokerageEmail         = property.brokerageEmail,
                             // ── Availability & tenant prefs ───────────────────────────────────
                             availabilityDate     = property.availabilityDate,
                             tenantRequirements   = property.tenantRequirements.toSet()
@@ -517,13 +536,20 @@ fun App() {
                             )
                             navController.navigate(NavRoutes.editPropertyImages(property.id))
                         },
-                        landlordPhoneNumber  = currentUser?.phoneNumber ?: "",
-                        landlordName         = currentUser?.name ?: "",
-                        providerSubtype      = currentUser?.providerSubtype ?: "landlord",
-                        draft                = editDraft,
-                        onSaveDraft          = { propertyViewModel.saveDraft(it) },
-                        isEditMode           = true,
-                        existingImageUrls    = existingImages
+                        landlordPhoneNumber     = currentUser?.phoneNumber ?: "",
+                        landlordName            = currentUser?.name ?: "",
+                        landlordCompanyName     = currentUser?.companyName ?: "",
+                        landlordCompanyPhone    = currentUser?.companyPhone ?: "",
+                        landlordCompanyEmail    = currentUser?.companyEmail ?: "",
+                        landlordCompanyAddress  = listOfNotNull(
+                            currentUser?.companyStreet?.takeIf { it.isNotBlank() },
+                            currentUser?.companyCity?.takeIf { it.isNotBlank() }
+                        ).joinToString(", "),
+                        providerSubtype         = currentUser?.providerSubtype ?: "landlord",
+                        draft                   = editDraft,
+                        onSaveDraft             = { propertyViewModel.saveDraft(it) },
+                        isEditMode              = true,
+                        existingImageUrls       = existingImages
                     )
                 }
             }

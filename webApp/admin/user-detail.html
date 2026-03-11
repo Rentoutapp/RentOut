@@ -392,10 +392,30 @@
           rows.innerHTML = infoRow('🪪', 'License Number', u.agentLicenseNumber) +
                            infoRow('📅', 'Years of Experience', u.yearsOfExperience);
         } else {
-          rows.innerHTML = infoRow('🏢', 'Company Name', u.companyName) +
-                           infoRow('📋', 'Reg. Number', u.companyRegNumber) +
-                           infoRow('📍', 'Office Address', u.companyAddress) +
-                           (u.taxId ? infoRow('🧾', 'Tax ID', u.taxId) : '');
+          // ── Company Logo (prominent, centred) ──────────────────────────────
+          const logoHtml = `
+            <div class="flex flex-col items-center py-6 border-b border-gray-200 mb-2">
+              <div class="w-24 h-24 rounded-2xl border-2 border-gray-200 bg-white shadow-sm overflow-hidden flex items-center justify-center">
+                ${u.companyLogoUrl
+                  ? `<img src="${u.companyLogoUrl}" alt="Company Logo"
+                        class="w-full h-full object-cover"
+                        onerror="this.parentElement.innerHTML='<span style=\\'font-size:2.5rem;\\'>🏢</span>'" />`
+                  : `<span style="font-size:2.5rem;">🏢</span>`}
+              </div>
+              <p class="mt-3 text-xs text-gray-400 font-medium tracking-wide uppercase">Company Logo</p>
+            </div>`;
+
+          // ── Address — combine non-blank parts ─────────────────────────────
+          const addressParts = [u.companyStreet, u.companyCity, u.companyCountry].filter(Boolean);
+          const addressValue = addressParts.length ? addressParts.join(', ') : '—';
+
+          rows.innerHTML = logoHtml +
+                           infoRow('🏢', 'Company Name', u.companyName || '—') +
+                           infoRow('📋', 'Reg. Number', u.companyRegNumber || '—') +
+                           infoRow('📞', 'Company Phone', u.companyPhone || '—') +
+                           infoRow('✉️', 'Company Email', u.companyEmail || '—') +
+                           infoRow('📍', 'Office Address', addressValue) +
+                           (u.taxId ? infoRow('🧾', 'Tax ID / ZIMRA', u.taxId) : '');
         }
       }
     }

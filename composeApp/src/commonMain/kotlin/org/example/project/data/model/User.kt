@@ -21,8 +21,13 @@ data class User(
     // Brokerage-specific fields
     val companyName: String = "",           // Registered company / agency name
     val companyRegNumber: String = "",      // Companies Registry number
-    val companyAddress: String = "",        // Physical office address
-    val taxId: String = ""                  // ZIMRA / tax clearance number (optional)
+    val companyStreet: String = "",         // Street / address number
+    val companyCity: String = "",           // Town / city
+    val companyCountry: String = "",        // Country
+    val taxId: String = "",                 // ZIMRA / tax clearance number (optional)
+    val companyPhone: String = "",          // Company / office phone number
+    val companyEmail: String = "",          // Company / office email address
+    val companyLogoUrl: String = ""         // Company logo upload URL
 )
 
 // ── Convenience extension helpers used across screens ─────────────────────────

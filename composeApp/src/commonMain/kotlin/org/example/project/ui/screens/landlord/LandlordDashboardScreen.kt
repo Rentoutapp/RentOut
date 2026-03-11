@@ -75,9 +75,11 @@ fun LandlordDashboardScreen(
     onAnimationDemo: () -> Unit = {}
 ) {
     val listState = rememberLazyListState()
-    val isFabVisible by remember {
+    val hasProperties = propertyListState is PropertyListState.Success &&
+            (propertyListState as PropertyListState.Success).properties.isNotEmpty()
+    val isFabVisible by remember(hasProperties) {
         derivedStateOf {
-            !listState.isScrollInProgress || listState.firstVisibleItemIndex == 0
+            hasProperties && (!listState.isScrollInProgress || listState.firstVisibleItemIndex == 0)
         }
     }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }

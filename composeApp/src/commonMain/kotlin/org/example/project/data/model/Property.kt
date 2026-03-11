@@ -29,8 +29,11 @@ data class Property(
     // Brokerage-specific fields (providerSubtype == "brokerage")
     val brokerName: String = "",          // Individual broker's full name
     val brokerContactNumber: String = "", // Individual broker's contact number
+    val brokerageName: String = "",       // Registered company / brokerage name
+    val brokerageLogoUrl: String = "",    // Company logo URL (from user.companyLogoUrl)
     val brokerageAddress: String = "",    // Company office address
     val brokerageContactNumber: String = "", // Company contact number
+    val brokerageEmail: String = "",      // Company email address
     val imageUrl: String = "",            // primary / cover image (backward compat)
     val imageUrls: List<String> = emptyList(), // all uploaded images
     // Classification hierarchy

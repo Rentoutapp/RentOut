@@ -1073,6 +1073,61 @@ private fun TenantContactContent(
                 when {
                     // ── BROKERAGE: broker name + contact, then brokerage address + contact ──
                     isBrokerage -> {
+                        // ── Brokerage logo + company name header ──────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(brokerageColor.copy(alpha = 0.07f))
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Brokerage logo — AsyncImage with fallback icon
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(brokerageColor.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (property.brokerageLogoUrl.isNotBlank()) {
+                                    AsyncImage(
+                                        model = property.brokerageLogoUrl,
+                                        contentDescription = "Brokerage Logo",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(12.dp))
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Business,
+                                        contentDescription = "Brokerage Logo",
+                                        tint = brokerageColor,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                if (property.brokerageName.isNotBlank()) {
+                                    Text(
+                                        text = property.brokerageName,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = brokerageColor
+                                    )
+                                }
+                                Text(
+                                    text = "🏢 Brokerage",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Spacer(Modifier.height(14.dp))
+
+                        // ── Broker Details ────────────────────────────────────
                         // Broker name
                         ContactRevealRow(
                             label = "Broker",
@@ -1098,12 +1153,14 @@ private fun TenantContactContent(
                         Spacer(Modifier.height(14.dp))
                         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                         Spacer(Modifier.height(14.dp))
+
+                        // ── Brokerage Office Details ──────────────────────────
                         // Brokerage address
                         if (property.brokerageAddress.isNotBlank()) {
                             ContactRevealRow(
-                                label = "Brokerage Address",
+                                label = "Office Address",
                                 value = property.brokerageAddress,
-                                icon = Icons.Default.Business,
+                                icon = Icons.Default.LocationOn,
                                 iconBg = brokerageColor.copy(alpha = 0.12f),
                                 iconTint = brokerageColor,
                                 alpha = contactAlpha
@@ -1112,17 +1169,36 @@ private fun TenantContactContent(
                             Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                             Spacer(Modifier.height(14.dp))
                         }
-                        // Brokerage contact
-                        ContactRevealRow(
-                            label = "Brokerage Contact",
-                            value = property.brokerageContactNumber,
-                            icon = Icons.Default.Call,
-                            iconBg = brokerageColor.copy(alpha = 0.15f),
-                            iconTint = brokerageColor,
-                            alpha = contactAlpha,
-                            isPhone = true
-                        )
-                        Spacer(Modifier.height(16.dp))
+                        // Brokerage contact number
+                        if (property.brokerageContactNumber.isNotBlank()) {
+                            ContactRevealRow(
+                                label = "Office Contact",
+                                value = property.brokerageContactNumber,
+                                icon = Icons.Default.Call,
+                                iconBg = brokerageColor.copy(alpha = 0.15f),
+                                iconTint = brokerageColor,
+                                alpha = contactAlpha,
+                                isPhone = true
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
+                        }
+                        // Brokerage email
+                        if (property.brokerageEmail.isNotBlank()) {
+                            ContactRevealRow(
+                                label = "Office Email",
+                                value = property.brokerageEmail,
+                                icon = Icons.Default.Email,
+                                iconBg = brokerageColor.copy(alpha = 0.12f),
+                                iconTint = brokerageColor,
+                                alpha = contactAlpha
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
+                        }
+                        // Call / WhatsApp buttons
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             RentOutPrimaryButton(
                                 text = "📞 Call Broker",
@@ -1133,6 +1209,16 @@ private fun TenantContactContent(
                                 text = "💬 WhatsApp",
                                 onClick = { onWhatsApp(property.brokerContactNumber) },
                                 modifier = Modifier.weight(1f)
+                            )
+                        }
+                        // Office call button if different from broker number
+                        if (property.brokerageContactNumber.isNotBlank() &&
+                            property.brokerageContactNumber != property.brokerContactNumber) {
+                            Spacer(Modifier.height(10.dp))
+                            RentOutSecondaryButton(
+                                text = "📞 Call Office",
+                                onClick = { onCall(property.brokerageContactNumber) },
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }

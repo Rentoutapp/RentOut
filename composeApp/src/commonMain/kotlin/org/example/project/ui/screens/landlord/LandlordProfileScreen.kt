@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -342,7 +343,9 @@ fun LandlordProfileScreen(
                             Text(
                                 text = if (user.isAgent) "🤝 Agent Details" else "🏢 Company Details",
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontSize = 16.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(16.dp))
                             
@@ -354,10 +357,75 @@ fun LandlordProfileScreen(
                             
                             // Brokerage fields
                             if (user.isBrokerage) {
+
+                                // ── Company Logo ──────────────────────────────
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(100.dp)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .border(
+                                                width = 2.dp,
+                                                color = MaterialTheme.colorScheme.outlineVariant,
+                                                shape = RoundedCornerShape(20.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (user.companyLogoUrl.isNotBlank()) {
+                                            AsyncImage(
+                                                model = user.companyLogoUrl,
+                                                contentDescription = "Company logo",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Business,
+                                                contentDescription = "Company logo placeholder",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                modifier = Modifier.size(44.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Divider(
+                                    modifier = Modifier.padding(horizontal = 0.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+
                                 ProfileInfoRow(icon = Icons.Default.Business, label = "Company Name", value = user.companyName.ifBlank { "—" }, iconTint = RentOutColors.IconBlue)
+                                Divider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
                                 ProfileInfoRow(icon = Icons.Default.Info, label = "Reg. Number", value = user.companyRegNumber.ifBlank { "—" }, iconTint = RentOutColors.IconTeal)
-                                ProfileInfoRow(icon = Icons.Default.LocationOn, label = "Office Address", value = user.companyAddress.ifBlank { "—" }, iconTint = RentOutColors.IconGreen)
+                                Divider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                                ProfileInfoRow(icon = Icons.Default.Phone, label = "Company Phone", value = user.companyPhone.ifBlank { "—" }, iconTint = RentOutColors.IconGreen)
+                                Divider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                                ProfileInfoRow(icon = Icons.Default.Email, label = "Company Email", value = user.companyEmail.ifBlank { "—" }, iconTint = RentOutColors.IconTeal)
+                                Divider(
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                                ProfileInfoRow(icon = Icons.Default.LocationOn, label = "Office Address", value = listOf(user.companyStreet, user.companyCity, user.companyCountry).filter { it.isNotBlank() }.joinToString(", ").ifBlank { "—" }, iconTint = RentOutColors.IconGreen)
                                 if (user.taxId.isNotBlank()) {
+                                    Divider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant
+                                    )
                                     ProfileInfoRow(icon = Icons.Default.Receipt, label = "Tax ID", value = user.taxId, iconTint = RentOutColors.IconAmber)
                                 }
                             }

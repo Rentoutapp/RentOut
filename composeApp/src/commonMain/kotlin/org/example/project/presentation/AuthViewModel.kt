@@ -49,8 +49,14 @@ sealed class AuthEvent {
         val yearsOfExperience: String = "",
         val companyName: String = "",
         val companyRegNumber: String = "",
-        val companyAddress: String = "",
-        val taxId: String = ""
+        val companyStreet: String = "",
+        val companyCity: String = "",
+        val companyCountry: String = "",
+        val taxId: String = "",
+        val companyPhone: String = "",
+        val companyEmail: String = "",
+        val companyLogoUrl: String = "",
+        val logoBytes: ByteArray? = null
     ) : AuthEvent()
     object Logout : AuthEvent()
 }
@@ -152,8 +158,13 @@ class AuthViewModel(
                             yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
                             companyName        = doc.get("companyName")         as? String ?: "",
                             companyRegNumber   = doc.get("companyRegNumber")    as? String ?: "",
-                            companyAddress     = doc.get("companyAddress")      as? String ?: "",
-                            taxId              = doc.get("taxId")               as? String ?: ""
+                            companyStreet      = doc.get("companyStreet")       as? String ?: "",
+                            companyCity        = doc.get("companyCity")         as? String ?: "",
+                            companyCountry     = doc.get("companyCountry")      as? String ?: "",
+                            taxId              = doc.get("taxId")               as? String ?: "",
+                            companyPhone       = doc.get("companyPhone")        as? String ?: "",
+                            companyEmail       = doc.get("companyEmail")        as? String ?: "",
+                            companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: ""
                         )
                         _rememberMeActive.value = true
                         _authState.value = if (role == "suspended") AuthState.Suspended else AuthState.Success(user)
@@ -189,7 +200,10 @@ class AuthViewModel(
                 event.gender, event.nationalId,
                 event.agentLicenseNumber, event.yearsOfExperience,
                 event.companyName, event.companyRegNumber,
-                event.companyAddress, event.taxId
+                event.companyStreet, event.companyCity, event.companyCountry,
+                event.taxId,
+                event.companyPhone, event.companyEmail,
+                event.companyLogoUrl, event.logoBytes
             )
             is AuthEvent.Logout   -> logout()
         }
@@ -316,8 +330,13 @@ class AuthViewModel(
                     yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
                     companyName        = doc.get("companyName")         as? String ?: "",
                     companyRegNumber   = doc.get("companyRegNumber")    as? String ?: "",
-                    companyAddress     = doc.get("companyAddress")      as? String ?: "",
-                    taxId              = doc.get("taxId")               as? String ?: ""
+                    companyStreet      = doc.get("companyStreet")       as? String ?: "",
+                    companyCity        = doc.get("companyCity")         as? String ?: "",
+                    companyCountry     = doc.get("companyCountry")      as? String ?: "",
+                    taxId              = doc.get("taxId")               as? String ?: "",
+                    companyPhone       = doc.get("companyPhone")        as? String ?: "",
+                    companyEmail       = doc.get("companyEmail")        as? String ?: "",
+                    companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: ""
                 )
 
                 // 1. Save rememberMe to LOCAL device storage — device-specific,
@@ -369,8 +388,14 @@ class AuthViewModel(
         yearsOfExperience: String = "",
         companyName: String = "",
         companyRegNumber: String = "",
-        companyAddress: String = "",
-        taxId: String = ""
+        companyStreet: String = "",
+        companyCity: String = "",
+        companyCountry: String = "",
+        taxId: String = "",
+        companyPhone: String = "",
+        companyEmail: String = "",
+        companyLogoUrl: String = "",
+        logoBytes: ByteArray? = null
     ) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
@@ -386,22 +411,43 @@ class AuthViewModel(
 
                 val createdAt = System.currentTimeMillis()
 
-                // Step 2 — Upload photo (30 → 70%)
+                // Step 2 — Upload profile photo (30 → 55%)
                 _registrationStep.value = "Uploading profile photo…"
                 _registrationProgress.value = 0.35f
                 val finalPhotoUrl = if (photoBytes != null && photoBytes.isNotEmpty()) {
                     try {
                         val url = uploadProfilePhoto(firebaseUser.uid, photoBytes)
-                        _registrationProgress.value = 0.70f
+                        _registrationProgress.value = 0.55f
                         url
                     } catch (e: Exception) {
                         println("[Storage] Photo upload failed: ${e.message}")
-                        _registrationProgress.value = 0.70f
+                        _registrationProgress.value = 0.55f
                         profilePhotoUrl
                     }
                 } else {
-                    _registrationProgress.value = 0.70f
+                    _registrationProgress.value = 0.55f
                     profilePhotoUrl
+                }
+
+                // Step 2b — Upload company logo if provided (55 → 70%)
+                val finalLogoUrl = if (logoBytes != null && logoBytes.isNotEmpty()) {
+                    _registrationStep.value = "Uploading company logo…"
+                    _registrationProgress.value = 0.60f
+                    try {
+                        val ref = storage.reference.child("company_logos/${firebaseUser.uid}/logo.jpg")
+                        val logoData = dev.gitlive.firebase.storage.Data(logoBytes)
+                        ref.putData(logoData)
+                        val url = ref.getDownloadUrl()
+                        _registrationProgress.value = 0.70f
+                        url
+                    } catch (e: Exception) {
+                        println("[Storage] Logo upload failed: ${e.message}")
+                        _registrationProgress.value = 0.70f
+                        companyLogoUrl
+                    }
+                } else {
+                    _registrationProgress.value = 0.70f
+                    companyLogoUrl
                 }
 
                 // Step 3 — Save to Firestore (70 → 90%)
@@ -437,8 +483,13 @@ class AuthViewModel(
                         "yearsOfExperience"  to yearsOfExperience,
                         "companyName"        to companyName,
                         "companyRegNumber"   to companyRegNumber,
-                        "companyAddress"     to companyAddress,
-                        "taxId"              to taxId
+                        "companyStreet"      to companyStreet,
+                        "companyCity"        to companyCity,
+                        "companyCountry"     to companyCountry,
+                        "taxId"              to taxId,
+                        "companyPhone"       to companyPhone,
+                        "companyEmail"       to companyEmail,
+                        "companyLogoUrl"     to finalLogoUrl
                     )
                 )
                 _registrationProgress.value = 0.90f
@@ -503,8 +554,13 @@ class AuthViewModel(
                     yearsOfExperience  = doc.get("yearsOfExperience")  as? String ?: "",
                     companyName        = doc.get("companyName")         as? String ?: "",
                     companyRegNumber   = doc.get("companyRegNumber")    as? String ?: "",
-                    companyAddress     = doc.get("companyAddress")      as? String ?: "",
-                    taxId              = doc.get("taxId")               as? String ?: ""
+                    companyStreet      = doc.get("companyStreet")       as? String ?: "",
+                    companyCity        = doc.get("companyCity")         as? String ?: "",
+                    companyCountry     = doc.get("companyCountry")      as? String ?: "",
+                    taxId              = doc.get("taxId")               as? String ?: "",
+                    companyPhone       = doc.get("companyPhone")        as? String ?: "",
+                    companyEmail       = doc.get("companyEmail")        as? String ?: "",
+                    companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: ""
                 )
                 println("[AuthViewModel] refreshUser — profilePhotoUrl=$profilePhotoUrl")
                 if (role != "suspended") {

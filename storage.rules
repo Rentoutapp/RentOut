@@ -49,6 +49,20 @@ service firebase.storage {
         && request.auth.uid == landlordId;
     }
 
+    // ─── Company Logos ────────────────────────────────────────────────────────
+    // Path: company_logos/{userId}/logo.jpg
+    // • Any authenticated user can read company logos (displayed in app listings)
+    // • Only the owning brokerage user can upload/update their own logo
+    // • Max file size: 5 MB
+    match /company_logos/{userId}/{fileName} {
+      allow read:   if request.auth != null;
+      allow write:  if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if request.auth != null
+        && request.auth.uid == userId;
+    }
+
     // ─── Admin Uploads ────────────────────────────────────────────────────────
     // Path: admin/{fileName}
     // Reserved for admin-uploaded assets (e.g. banner images, documents).

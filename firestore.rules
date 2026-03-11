@@ -121,7 +121,20 @@ service cloud.firestore {
         && (!('companyAddress' in request.resource.data)
             || request.resource.data.companyAddress is string)
         && (!('taxId' in request.resource.data)
-            || request.resource.data.taxId is string);
+            || request.resource.data.taxId is string)
+        // Brokerage company logo URL — optional, string only
+        && (!('companyStreet' in request.resource.data)
+            || request.resource.data.companyStreet is string)
+        && (!('companyCity' in request.resource.data)
+            || request.resource.data.companyCity is string)
+        && (!('companyCountry' in request.resource.data)
+            || request.resource.data.companyCountry is string)
+        && (!('companyPhone' in request.resource.data)
+            || request.resource.data.companyPhone is string)
+        && (!('companyEmail' in request.resource.data)
+            || request.resource.data.companyEmail is string)
+        && (!('companyLogoUrl' in request.resource.data)
+            || request.resource.data.companyLogoUrl is string);
 
       // Users can update their own mutable profile fields only.
       // Immutable fields (role, status, uid, createdAt) are locked.
