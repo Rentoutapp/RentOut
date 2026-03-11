@@ -294,17 +294,28 @@
     function renderUserProfile() {
       const u = currentUser;
       
-      // Avatar
+      // Avatar — for brokerage, prefer company logo; otherwise profile photo; else initials
       const avatarEl = document.getElementById('user-avatar');
-      if (u.profilePhotoUrl) {
+      if (u.providerSubtype === 'brokerage' && u.companyLogoUrl) {
+        avatarEl.innerHTML = `<img src="${u.companyLogoUrl}" class="w-full h-full rounded-2xl object-cover"
+          onerror="this.parentElement.innerHTML='<span style=\\'font-size:2.5rem;\\'>🏢</span>'" />`;
+      } else if (u.profilePhotoUrl) {
         avatarEl.innerHTML = `<img src="${u.profilePhotoUrl}" class="w-full h-full rounded-2xl object-cover" onerror="this.parentElement.innerHTML='${getInitials(u)}'" />`;
+      } else if (u.providerSubtype === 'brokerage') {
+        avatarEl.innerHTML = `<span style="font-size:2.5rem;">🏢</span>`;
       } else {
         avatarEl.textContent = getInitials(u);
       }
 
       // Basic info
       document.getElementById('user-name').textContent = u.name || 'Unknown User';
-      document.getElementById('user-email').textContent = u.email || '—';
+      // For brokerage: show company name as subtitle under user name
+      const emailEl = document.getElementById('user-email');
+      if (u.providerSubtype === 'brokerage' && u.companyName) {
+        emailEl.innerHTML = `<span class="opacity-90 font-semibold">🏢 ${u.companyName}</span><br/><span class="text-white text-opacity-70 text-sm">${u.email || ''}</span>`;
+      } else {
+        emailEl.textContent = u.email || '—';
+      }
       
       // Badges
       document.getElementById('user-role-badge').innerHTML = getRoleIcon(u.role, u.providerSubtype) + ' ' + getProviderLabel(u.role, u.providerSubtype);

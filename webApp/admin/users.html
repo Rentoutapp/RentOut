@@ -273,7 +273,18 @@
     }
 
     function avatar(u) {
+      // Brokerage: show company logo (square rounded) if available
+      if (u.providerSubtype === 'brokerage' && u.companyLogoUrl) {
+        return `<div class="relative w-9 h-9 flex-shrink-0">
+          <img src="${u.companyLogoUrl}" class="w-9 h-9 rounded-xl object-cover border-2 border-purple-200"
+               onerror="this.parentElement.innerHTML='<div class=\\'w-9 h-9 rounded-xl flex items-center justify-center text-sm bg-purple-100 text-purple-700 font-bold border-2 border-purple-200\\'>🏢</div>'"/>
+        </div>`;
+      }
       if (u.profilePhotoUrl) return `<img src="${u.profilePhotoUrl}" class="w-9 h-9 rounded-full object-cover border border-gray-200" onerror="this.style.display='none'">`;
+      // Brokerage without logo: show 🏢 icon in purple square
+      if (u.providerSubtype === 'brokerage') {
+        return `<div class="w-9 h-9 rounded-xl flex items-center justify-center text-base bg-purple-100 border-2 border-purple-200">🏢</div>`;
+      }
       const initials = (u.name || u.email || '?').substring(0,2).toUpperCase();
       const colors = { landlord:'bg-blue-100 text-blue-700', tenant:'bg-green-100 text-green-700', admin:'bg-purple-100 text-purple-700' };
       return `<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${colors[u.role] || 'bg-gray-100 text-gray-600'}">${initials}</div>`;
