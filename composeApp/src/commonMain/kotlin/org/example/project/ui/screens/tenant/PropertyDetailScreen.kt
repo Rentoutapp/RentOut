@@ -242,12 +242,20 @@ fun PropertyDetailScreen(
 
                         // ── Property type + badges row ───────────────────────
                         // Provider subtype badge — full width row
-                        val providerLabel = when (property.providerSubtype) {
+                        // Intelligently determine provider type — fall back to field-sniffing
+                        // for older listings that may lack providerSubtype
+                        val resolvedProviderSubtype = when {
+                            property.providerSubtype.isNotBlank() -> property.providerSubtype
+                            property.brokerName.isNotBlank() || property.brokerageName.isNotBlank() -> "brokerage"
+                            property.agentName.isNotBlank() || property.agentContactNumber.isNotBlank() -> "agent"
+                            else -> "landlord"
+                        }
+                        val providerLabel = when (resolvedProviderSubtype) {
                             "agent"     -> "🤝 Listed by Agent"
-                            "brokerage" -> "🏢 Listed by Brokerage"
+                            "brokerage" -> "🏢 Listed by Broker"
                             else        -> "🏠 Listed by Landlord"
                         }
-                        val providerColor = when (property.providerSubtype) {
+                        val providerColor = when (resolvedProviderSubtype) {
                             "agent"     -> Color(0xFF00897B)
                             "brokerage" -> Color(0xFF7C5CBF)
                             else        -> MaterialTheme.colorScheme.primary
@@ -1052,8 +1060,15 @@ private fun TenantContactContent(
         label = "contact_reveal"
     )
 
-    val isAgent     = property.providerSubtype == "agent"
-    val isBrokerage = property.providerSubtype == "brokerage"
+    // Intelligently resolve provider type — handles older listings without providerSubtype
+    val resolvedSubtype = when {
+        property.providerSubtype.isNotBlank() -> property.providerSubtype
+        property.brokerName.isNotBlank() || property.brokerageName.isNotBlank() -> "brokerage"
+        property.agentName.isNotBlank() || property.agentContactNumber.isNotBlank() -> "agent"
+        else -> "landlord"
+    }
+    val isAgent     = resolvedSubtype == "agent"
+    val isBrokerage = resolvedSubtype == "brokerage"
     val agentColor     = Color(0xFF00897B)
     val brokerageColor = Color(0xFF7C5CBF)
 
@@ -1069,6 +1084,25 @@ private fun TenantContactContent(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
+            // ── Section heading ───────────────────────────────────────────────
+            val sectionHeading = when {
+                isBrokerage -> "🏢 Brokerage Company Details"
+                isAgent     -> "🤝 Agent Details"
+                else        -> "🏠 Landlord Details"
+            }
+            val sectionColor = when {
+                isBrokerage -> brokerageColor
+                isAgent     -> agentColor
+                else        -> MaterialTheme.colorScheme.primary
+            }
+            Text(
+                text = sectionHeading,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = sectionColor,
+                modifier = Modifier.padding(bottom = 14.dp)
+            )
+
             if (isUnlocked) {
                 when {
                     // ── BROKERAGE: broker name + contact, then brokerage address + contact ──
@@ -1342,57 +1376,88 @@ private fun TenantContactContent(
                     }
                 }
             } else {
-                // ── LOCKED state — generic masked rows ────────────────────────
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(42.dp).clip(CircleShape)
-                            .background(RentOutColors.IconAmber.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Lock, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(22.dp))
+                // ── LOCKED state — masked rows tailored per provider type ────────────
+                // Helper composable for a single locked row
+                @Composable
+                fun LockedRow(label: String) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(42.dp).clip(CircleShape)
+                                .background(RentOutColors.IconAmber.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Lock, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(22.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "●●●●●●●●●●●●",
+                                fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                        }
                     }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            when {
-                                isBrokerage -> "Broker"
-                                isAgent     -> "Agent"
-                                else        -> "Landlord"
-                            },
-                            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            "••••••••••••",
-                            fontSize = 17.sp, fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
-                    }
+                    Spacer(Modifier.height(14.dp))
+                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(Modifier.height(14.dp))
+                }
+
+                // What info hint banner
+                val unlockHint = when {
+                    isBrokerage -> "🔒 Unlock to reveal broker name, broker contact, office address, office contact & email"
+                    isAgent     -> "🔒 Unlock to reveal agent name, agent contact & landlord contact"
+                    else        -> "🔒 Unlock to reveal landlord name & contact number"
+                }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = RentOutColors.IconAmber.copy(alpha = 0.07f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        unlockHint,
+                        modifier = Modifier.padding(12.dp),
+                        fontSize = 12.sp,
+                        color = RentOutColors.IconAmber,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
                 Spacer(Modifier.height(14.dp))
-                Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                Spacer(Modifier.height(14.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(42.dp).clip(CircleShape)
-                            .background(RentOutColors.IconAmber.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Lock, null, tint = RentOutColors.IconAmber, modifier = Modifier.size(22.dp))
+
+                when {
+                    isBrokerage -> {
+                        // Broker Details section
+                        Text("Broker Details", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                            color = brokerageColor, modifier = Modifier.padding(bottom = 8.dp))
+                        LockedRow("Broker Name")
+                        LockedRow("Broker Contact")
+                        // Brokerage Office section
+                        Text("Brokerage Office Details", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                            color = brokerageColor, modifier = Modifier.padding(bottom = 8.dp))
+                        LockedRow("Office Address")
+                        LockedRow("Office Contact")
+                        LockedRow("Office Email")
                     }
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("Contact Number", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            "•••••••••••••",
-                            fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        )
+                    isAgent -> {
+                        LockedRow("Agent Name")
+                        LockedRow("Agent Contact")
+                        LockedRow("Landlord Contact")
+                    }
+                    else -> {
+                        LockedRow("Landlord Name")
+                        LockedRow("Contact Number")
                     }
                 }
-                Spacer(Modifier.height(16.dp))
+
+                Spacer(Modifier.height(2.dp))
                 if (property.isAvailable) {
+                    val unlockButtonText = when {
+                        isBrokerage -> "🔑 Unlock Broker & Office Details — \$10"
+                        isAgent     -> "🔑 Unlock Agent & Landlord Details — \$10"
+                        else        -> "🔑 Unlock Landlord Contact — \$10"
+                    }
                     RentOutPrimaryButton(
-                        text = "🔓 Unlock Contact — $10",
+                        text = unlockButtonText,
                         onClick = onUnlock,
                         modifier = Modifier.fillMaxWidth()
                     )

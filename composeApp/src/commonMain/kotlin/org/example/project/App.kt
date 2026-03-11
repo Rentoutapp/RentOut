@@ -263,7 +263,6 @@ fun App() {
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
-                    onAnimationDemo = { navController.navigate(NavRoutes.BUTTON_ANIMATION_DEMO) }
                 )
             }
 
@@ -619,6 +618,13 @@ fun App() {
                     PaymentScreen(
                         property = property,
                         unlockState = unlockState,
+                        providerSubtype = property.providerSubtype.ifBlank {
+                            when {
+                                property.brokerName.isNotBlank() || property.brokerageName.isNotBlank() -> "brokerage"
+                                property.agentName.isNotBlank() || property.agentContactNumber.isNotBlank() -> "agent"
+                                else -> "landlord"
+                            }
+                        },
                         onPay = {
                             currentUser?.let { user ->
                                 tenantViewModel.initiateAndConfirmPayment(user.uid, property)

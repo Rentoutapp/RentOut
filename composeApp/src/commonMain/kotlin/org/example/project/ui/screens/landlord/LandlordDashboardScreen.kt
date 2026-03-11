@@ -71,8 +71,7 @@ fun LandlordDashboardScreen(
     onDeleteProperty: (String) -> Unit,
     onToggleAvailability: (String) -> Unit,
     onProfileClick: () -> Unit,
-    onLogout: () -> Unit,
-    onAnimationDemo: () -> Unit = {}
+    onLogout: () -> Unit
 ) {
     val listState = rememberLazyListState()
     val hasProperties = propertyListState is PropertyListState.Success &&
@@ -206,28 +205,11 @@ fun LandlordDashboardScreen(
                             }
                         }
 
-                        // ── Right: animation demo + notification + avatar ─────
+                        // ── Right: notification + avatar ─────────────────────
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Animation demo button
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
-                                    .clickable { onAnimationDemo() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Animation,
-                                    contentDescription = "Button Animations",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            
                             // Notification bell — small, clearly smaller than the avatar
                             Box(
                                 modifier = Modifier

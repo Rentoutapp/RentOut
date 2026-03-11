@@ -230,10 +230,16 @@ service cloud.firestore {
             || request.resource.data.brokerName is string)
         && (!('brokerContactNumber' in request.resource.data)
             || request.resource.data.brokerContactNumber is string)
+        && (!('brokerageName' in request.resource.data)
+            || request.resource.data.brokerageName is string)
+        && (!('brokerageLogoUrl' in request.resource.data)
+            || request.resource.data.brokerageLogoUrl is string)
         && (!('brokerageAddress' in request.resource.data)
             || request.resource.data.brokerageAddress is string)
         && (!('brokerageContactNumber' in request.resource.data)
-            || request.resource.data.brokerageContactNumber is string);
+            || request.resource.data.brokerageContactNumber is string)
+        && (!('brokerageEmail' in request.resource.data)
+            || request.resource.data.brokerageEmail is string);
 
       // Provider can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).

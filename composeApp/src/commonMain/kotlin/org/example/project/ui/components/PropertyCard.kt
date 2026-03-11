@@ -153,12 +153,19 @@ fun PropertyCard(
                 }
 
                 // Listed by banner — bottom right of image
-                val listedByText = when (property.providerSubtype) {
+                // Intelligently resolve provider type for older listings without providerSubtype
+                val resolvedSubtype = when {
+                    property.providerSubtype.isNotBlank() -> property.providerSubtype
+                    property.brokerName.isNotBlank() || property.brokerageName.isNotBlank() -> "brokerage"
+                    property.agentName.isNotBlank() || property.agentContactNumber.isNotBlank() -> "agent"
+                    else -> "landlord"
+                }
+                val listedByText = when (resolvedSubtype) {
                     "agent"     -> "🤝 Agent"
-                    "brokerage" -> "🏢 Brokerage"
+                    "brokerage" -> "🏢 Broker"
                     else        -> "🏠 Landlord"
                 }
-                val listedByColor = when (property.providerSubtype) {
+                val listedByColor = when (resolvedSubtype) {
                     "agent"     -> Color(0xFF00897B)
                     "brokerage" -> Color(0xFF7C5CBF)
                     else        -> RentOutColors.Primary

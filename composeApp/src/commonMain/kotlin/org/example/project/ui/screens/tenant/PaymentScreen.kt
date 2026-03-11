@@ -34,7 +34,8 @@ fun PaymentScreen(
     unlockState: UnlockState,
     onPay: () -> Unit,
     onBack: () -> Unit,
-    onSuccess: () -> Unit
+    onSuccess: () -> Unit,
+    providerSubtype: String = "landlord"
 ) {
     var backPressed by remember { mutableStateOf(false) }
     val backScale by animateFloatAsState(
@@ -125,7 +126,12 @@ fun PaymentScreen(
                         Text("Contact Unlocked! 🎉", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
                             color = RentOutColors.StatusApproved, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(8.dp))
-                        Text("You can now see the landlord's contact details.",
+                        val unlockedDesc = when (providerSubtype) {
+                            "brokerage" -> "You can now see the broker's and brokerage office details."
+                            "agent"     -> "You can now see the agent's and landlord contact details."
+                            else        -> "You can now see the landlord's contact details."
+                        }
+                        Text(unlockedDesc,
                             fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center)
                     }
@@ -239,7 +245,7 @@ fun PaymentScreen(
 
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "By paying, you agree to our Terms of Service. This is a one-time fee to reveal landlord contact details for this property.",
+                    "By paying, you agree to our Terms of Service. This is a one-time fee to reveal ${when (providerSubtype) { "brokerage" -> "broker & office"; "agent" -> "agent & landlord"; else -> "landlord" }} contact details for this property.",
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

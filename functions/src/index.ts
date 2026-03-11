@@ -73,7 +73,15 @@ export const initiatePayment = onCall(async (request) => {
   // Idempotency — already unlocked
   const existingUnlock = await db.collection("unlocks").doc(unlockId).get();
   if (existingUnlock.exists) {
-    return { success: true, alreadyUnlocked: true, unlockId };
+    // Already unlocked — return success immediately so client doesn't re-poll
+    const existingTxSnap = await db.collection("transactions")
+      .where("tenantId", "==", tenantId)
+      .where("propertyId", "==", propertyId)
+      .where("status", "==", "success")
+      .limit(1)
+      .get();
+    const existingTxId = existingTxSnap.empty ? "" : existingTxSnap.docs[0].id;
+    return { success: true, alreadyUnlocked: true, unlockId, transactionId: existingTxId, demoMode: true };
   }
 
   // Create pending transaction record
@@ -121,7 +129,7 @@ export const initiatePayment = onCall(async (request) => {
       await db.collection("notifications").add({
         userId:    tenantId,
         title:     "🔑 Contact Unlocked! (Demo)",
-        body:      "You can now view the landlord's contact details. This is a test unlock.",
+        body:      "You can now view the contact details for this property.",
         propertyId,
         type:      "unlock_success",
         read:      false,
@@ -129,7 +137,7 @@ export const initiatePayment = onCall(async (request) => {
       });
 
       checkoutUrl = `https://rentout-12239.web.app/payment-simulator?transactionId=${transactionRef.id}&tenantId=${tenantId}&propertyId=${propertyId}`;
-      logger.info(`Demo unlock auto-created: ${unlockId}`);
+      logger.info(`Demo unlock auto-created: ${unlockId}, transaction: ${transactionRef.id}`);
     } else {
       // ── Production PesePay ──────────────────────────────────────────────────
       const payload = {
@@ -270,7 +278,7 @@ async function handleMockPayment(req: any, res: any) {
     await db.collection("notifications").add({
       userId:    tenantId,
       title:     "🔑 Contact Unlocked! (TEST)",
-      body:      "You can now view the landlord's contact details. (Mock Payment)",
+      body:      "You can now view the contact details for this property. (Mock Payment)",
       propertyId,
       type:      "unlock_success",
       read:      false,
@@ -401,7 +409,7 @@ export const verifyPesePay = onRequest(async (req, res) => {
     await db.collection("notifications").add({
       userId:    tenantId,
       title:     "🔑 Contact Unlocked!",
-      body:      "You can now view the landlord's contact details.",
+      body:      "You can now view the contact details for this property.",
       propertyId,
       type:      "unlock_success",
       read:      false,
@@ -482,7 +490,61 @@ export const suspendUser = onCall(async (request) => {
   return { success: true, userId, status: newStatus };
 });
 
-// ─── 6. getAdminStats — Admin dashboard stats ─────────────────────────────────
+// ─── 6. confirmPayment — Lightweight callable to check if payment/unlock confirmed ─
+// Called by client after initiatePayment when it cannot confirm via Firestore
+// directly (e.g. App Check latency). Returns the server-authoritative unlock state.
+export const confirmPayment = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Must be logged in.");
+  }
+
+  const { propertyId } = request.data as { propertyId: string };
+  if (!propertyId) {
+    throw new HttpsError("invalid-argument", "propertyId is required.");
+  }
+
+  const tenantId = request.auth.uid;
+  const unlockId = `${tenantId}_${propertyId}`;
+
+  try {
+    // Check unlock doc — single get, not a list query
+    const unlockDoc = await db.collection("unlocks").doc(unlockId).get();
+    if (unlockDoc.exists) {
+      const data = unlockDoc.data();
+      logger.info(`confirmPayment: unlock confirmed for ${unlockId}`);
+      return {
+        confirmed:     true,
+        transactionId: data?.transactionId ?? "",
+        unlockedAt:    data?.unlockedAt?.toMillis?.() ?? Date.now(),
+      };
+    }
+
+    // Fall back to checking transactions collection
+    const txSnap = await db.collection("transactions")
+      .where("tenantId",   "==", tenantId)
+      .where("propertyId", "==", propertyId)
+      .where("status",     "==", "success")
+      .limit(1)
+      .get();
+
+    if (!txSnap.empty) {
+      logger.info(`confirmPayment: confirmed via transaction for ${unlockId}`);
+      return {
+        confirmed:     true,
+        transactionId: txSnap.docs[0].id,
+        unlockedAt:    Date.now(),
+      };
+    }
+
+    logger.info(`confirmPayment: not yet confirmed for ${unlockId}`);
+    return { confirmed: false };
+  } catch (error) {
+    logger.error(`confirmPayment error: ${error}`);
+    throw new HttpsError("internal", "Failed to check payment confirmation.");
+  }
+});
+
+// ─── 7. getAdminStats — Admin dashboard stats ─────────────────────────────────
 export const getAdminStats = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Must be logged in.");

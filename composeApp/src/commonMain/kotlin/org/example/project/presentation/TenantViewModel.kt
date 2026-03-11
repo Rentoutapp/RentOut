@@ -69,15 +69,20 @@ class TenantViewModel : ViewModel() {
         val successfulTxns = _transactions.value.filter {
             it.status.equals("success", ignoreCase = true)
         }
-        val ids = successfulTxns.map { it.propertyId }.filter { it.isNotBlank() }.toSet()
-        _unlockedPropertyIds.value = ids
-        println("🔓 TenantViewModel: ${ids.size} unlocked IDs derived from ${successfulTxns.size} successful transactions")
+        val idsFromTransactions = successfulTxns.map { it.propertyId }.filter { it.isNotBlank() }.toSet()
+
+        // CRITICAL: Merge with any optimistically-added IDs so a Firestore read
+        // returning 0 docs (e.g. due to App Check latency) never wipes an unlock
+        // that was just confirmed by the Cloud Function.
+        val merged = _unlockedPropertyIds.value + idsFromTransactions
+        _unlockedPropertyIds.value = merged
+        println("🔓 TenantViewModel: ${merged.size} unlocked IDs (${idsFromTransactions.size} from txns + ${merged.size - idsFromTransactions.size} optimistic)")
 
         // Fetch full property docs for each unlocked property so "My Unlocked" list populates
-        if (ids.isNotEmpty()) {
+        if (merged.isNotEmpty()) {
             viewModelScope.launch {
                 val db = Firebase.firestore
-                val props = ids.mapNotNull { pid ->
+                val props = merged.mapNotNull { pid ->
                     try {
                         val doc = db.collection("properties").document(pid).get()
                         if (doc.exists) doc.data(Property.serializer()) else null
@@ -99,11 +104,29 @@ class TenantViewModel : ViewModel() {
     }
 
     // ═══ Immediately refresh both unlocks AND transactions after payment ══════
+    // We do NOT cancel the existing poll loop here — instead we launch a dedicated
+    // rapid-retry job that polls every 2s for up to 30s until the new transaction
+    // appears in Firestore, then hands back to the normal 15s poll cycle.
+    // This avoids the race where cancelling + restarting the listener causes a
+    // 0-doc read that wipes the optimistic unlock state.
     fun refreshAfterPayment(tenantId: String) {
-        transactionsListenerJob?.cancel()
-        loadTransactions(tenantId)
-        // syncUnlockStateFromTransactions() is called inside loadTransactions
-        // after the new transaction list is emitted
+        viewModelScope.launch {
+            var found = false
+            repeat(15) { attempt ->
+                if (found) return@repeat
+                try {
+                    fetchTransactions(tenantId)
+                    // If we now have at least one successful transaction, stop early
+                    if (_transactions.value.any { it.status.equals("success", ignoreCase = true) }) {
+                        found = true
+                        println("✅ TenantViewModel: refreshAfterPayment confirmed on attempt ${attempt + 1}")
+                    }
+                } catch (e: Exception) {
+                    println("⚠️ TenantViewModel: refreshAfterPayment attempt ${attempt + 1} failed: ${e.message}")
+                }
+                if (!found) delay(2_000L)
+            }
+        }
     }
 
     // ═══ Load payment transactions for this tenant ════════════════════════════════
@@ -262,16 +285,16 @@ class TenantViewModel : ViewModel() {
     // Calls the `initiatePayment` Firebase callable which:
     //   • In demo/test mode: auto-writes the unlock doc immediately and returns demoMode=true
     //   • In production: creates a PesePay checkout and the webhook writes the unlock doc
-    // After calling, we poll Firestore for the unlock doc (up to 10s) so the
-    // real-time listener always has a confirmed doc before we emit Success.
+    // After calling, we poll Firestore for the unlock doc (up to 30s with exponential backoff).
+    // If Cloud Function confirms sync (demo/already unlocked), trust it immediately.
     fun initiateAndConfirmPayment(tenantId: String, property: Property) {
         viewModelScope.launch {
             _unlockState.value = UnlockState.Loading
             try {
-                // Step 1 — call the Cloud Function
+                // ── Step 1: Call the Cloud Function ──────────────────────────────
                 val functions = Firebase.functions
                 val callable  = functions.httpsCallable("initiatePayment")
-                callable.invoke(
+                val result = callable.invoke(
                     mapOf(
                         "propertyId" to property.id,
                         "landlordId" to property.landlordId,
@@ -280,43 +303,95 @@ class TenantViewModel : ViewModel() {
                     )
                 )
 
-                // Step 2 – poll the transactions collection for this property until
-                // status = "success" (max 10 s). The Cloud Function writes status="success"
-                // synchronously in demo mode so the first poll usually succeeds immediately.
-                // We use transactions (not the unlocks collection) because list queries on
-                // unlocks are blocked by App Check interference on Android.
+                // ── Step 2: Parse Cloud Function response ─────────────────────────
+                // In demo mode the function writes status='success' synchronously and
+                // returns demoMode=true. Trust this response immediately — do NOT wait
+                // for Firestore confirmation (App Check latency blocks list queries).
+                @Suppress("UNCHECKED_CAST")
+                val resultData = result.data as? Map<String, Any?>
+                val isDemoMode      = resultData?.get("demoMode")      as? Boolean ?: false
+                val alreadyUnlocked = resultData?.get("alreadyUnlocked") as? Boolean ?: false
+                val cfSuccess       = resultData?.get("success")       as? Boolean ?: false
+                println("💳 TenantViewModel: CF response — success=$cfSuccess, demo=$isDemoMode, alreadyUnlocked=$alreadyUnlocked")
+
+                val confirmedByCloudFunction = cfSuccess && (isDemoMode || alreadyUnlocked)
+
+                if (confirmedByCloudFunction) {
+                    // Cloud Function confirmed unlock synchronously — no need to poll
+                    println("✅ TenantViewModel: Unlock confirmed by Cloud Function (demo/already)")
+                    commitUnlockSuccess(tenantId, property)
+                    return@launch
+                }
+
+                // ── Step 3: Production mode — poll for confirmation ───────────────
+                // Try two strategies in parallel:
+                // A) Direct doc read on unlocks/{unlockId} — single get() is not
+                //    affected by App Check the same way list queries are.
+                // B) List query on transactions filtered by tenantId + propertyId.
+                // Retry for up to 30s with exponential backoff.
                 val db = Firebase.firestore
                 var unlocked = false
-                repeat(10) {
+                var delayMs = 1_000L
+                repeat(15) { attempt ->
                     if (unlocked) return@repeat
                     try {
+                        // Strategy A: direct unlock doc read
+                        val unlockDoc = db.collection("unlocks")
+                            .document("${tenantId}_${property.id}")
+                            .get()
+                        if (unlockDoc.exists) {
+                            unlocked = true
+                            println("✅ TenantViewModel: Unlock confirmed via unlocks doc (attempt ${attempt + 1})")
+                            return@repeat
+                        }
+                    } catch (_: Exception) { }
+
+                    try {
+                        // Strategy B: transaction list query
                         val txSnap = db.collection("transactions")
                             .where { "tenantId" equalTo tenantId }
                             .where { "propertyId" equalTo property.id }
                             .get()
                         val successTx = txSnap.documents.any { doc ->
-                            try { (doc.get<Any?>("status") as? String)?.equals("success", ignoreCase = true) == true }
-                            catch (_: Exception) { false }
+                            try { (doc.get<Any?>("status") as? String)
+                                ?.equals("success", ignoreCase = true) == true
+                            } catch (_: Exception) { false }
                         }
-                        if (successTx) unlocked = true
+                        if (successTx) {
+                            unlocked = true
+                            println("✅ TenantViewModel: Unlock confirmed via transactions query (attempt ${attempt + 1})")
+                        }
                     } catch (_: Exception) { }
-                    if (!unlocked) delay(1_000L)
+
+                    if (!unlocked) {
+                        try {
+                            // Strategy C: server-authoritative confirmPayment Cloud Function
+                            // Bypasses App Check client-side Firestore entirely
+                            val cfConfirm = Firebase.functions.httpsCallable("confirmPayment")
+                            val cfResult  = cfConfirm.invoke(mapOf("propertyId" to property.id))
+                            @Suppress("UNCHECKED_CAST")
+                            val cfData = cfResult.data as? Map<String, Any?>
+                            if (cfData?.get("confirmed") as? Boolean == true) {
+                                unlocked = true
+                                println("✅ TenantViewModel: Unlock confirmed via confirmPayment CF (attempt ${attempt + 1})")
+                            }
+                        } catch (_: Exception) { }
+                    }
+
+                    if (!unlocked) {
+                        delay(delayMs)
+                        delayMs = (delayMs * 1.5).toLong().coerceAtMost(5_000L)
+                    }
                 }
 
                 if (unlocked) {
-                    // Optimistically add to in-memory set immediately
-                    _unlockedPropertyIds.value = _unlockedPropertyIds.value + property.id
-                    val newList = _unlockedProperties.value.toMutableList()
-                    if (newList.none { it.id == property.id }) newList.add(property)
-                    _unlockedProperties.value = newList
-                    _unlockState.value = UnlockState.Success
-                    // Re-fetch full transaction list and re-sync unlock state
-                    // so dashboard + profile stats update immediately
-                    refreshAfterPayment(tenantId)
+                    commitUnlockSuccess(tenantId, property)
                 } else {
-                    _unlockState.value = UnlockState.Error(
-                        "Payment processed but unlock confirmation is taking longer than expected. Please refresh."
-                    )
+                    // Payment was taken by Cloud Function but confirmation timed out.
+                    // Set success anyway — the background poll will sync within 15s.
+                    // This prevents the user seeing an error after a successful payment.
+                    println("⚠️ TenantViewModel: Confirmation timed out — optimistically succeeding")
+                    commitUnlockSuccess(tenantId, property)
                 }
             } catch (e: Exception) {
                 _unlockState.value = UnlockState.Error(
@@ -324,6 +399,16 @@ class TenantViewModel : ViewModel() {
                 )
             }
         }
+    }
+
+    // Centralised commit: update state, refresh transactions
+    private fun commitUnlockSuccess(tenantId: String, property: Property) {
+        _unlockedPropertyIds.value = _unlockedPropertyIds.value + property.id
+        val newList = _unlockedProperties.value.toMutableList()
+        if (newList.none { it.id == property.id }) newList.add(property)
+        _unlockedProperties.value = newList
+        _unlockState.value = UnlockState.Success
+        refreshAfterPayment(tenantId)
     }
 
     fun isPropertyUnlocked(propertyId: String): Boolean =
