@@ -26,56 +26,54 @@ fun IntroScreen(
 ) {
 
     // ── Animation stage flags ─────────────────────────────────────────────
-    var videoEnded     by remember { mutableStateOf(false) }
-    var showPills      by remember { mutableStateOf(false) }
-    var showTrustLine  by remember { mutableStateOf(false) }
-    var showScrim      by remember { mutableStateOf(false) }
-
+    var videoEnded       by remember { mutableStateOf(false) }
+    var showScrim        by remember { mutableStateOf(false) }
+    var showPills        by remember { mutableStateOf(false) }
+    var showTrustLine    by remember { mutableStateOf(false) }
     // Safety timeout — if the video never fires onVideoEnded (e.g. codec issue),
-    // we still start the sequence after 7 seconds so the user is never stuck.
+    // we still start the sequence after 8 seconds so the user is never stuck.
     LaunchedEffect(Unit) {
-        delay(7_000)
+        delay(8_000)
         if (!videoEnded) videoEnded = true
     }
 
-    // Sequenced reveal: wait for the video's own animated logo to finish,
-    // then stagger each element in one by one before auto-navigating.
+    // Sequenced reveal after video ends
     LaunchedEffect(videoEnded) {
         if (!videoEnded) return@LaunchedEffect
 
+        // Step 1 — fade in gradient scrim (600ms)
+        showScrim = true
+        delay(600)
+
         if (rememberMeActive && onAutoLogin != null) {
-            // ── Short route: Remember Me is active ───────────────────────
-            // Play the video (already playing), then go straight to splash
-            // which will route to the correct dashboard by role.
-            showScrim = true
-            delay(600)
+            // ── Remember Me route ─────────────────────────────────────────
+            // Play the full staggered reveal so nothing is abruptly cut,
+            // then auto-continue to splash → dashboard.
+            showPills = true
+            delay(800)
+            showTrustLine = true
+            delay(2_400)   // hold so the user sees the full intro before continuing
             onAutoLogin()
             return@LaunchedEffect
         }
 
-        // ── Normal route: no active session ──────────────────────────────
-        // 1. Fade in the gradient scrim so text becomes readable
-        showScrim = true
-        delay(400)
-
-        // 2. Pills pop in
+        // ── Normal route ──────────────────────────────────────────────────
+        // Step 2 — pills spring in (800ms gap)
         showPills = true
-        delay(700)
+        delay(800)
 
-        // 3. Trust line fades in
+        // Step 3 — trust line fades in (600ms gap)
         showTrustLine = true
 
-        // 4. Hold so the user can read everything comfortably
+        // Step 4 — hold so the user can read everything, then auto-navigate
         delay(3_200)
-
-        // 5. Auto-navigate to Role Selection
         onGetStarted()
     }
 
-    // Scrim alpha animation
+    // ── Animations ────────────────────────────────────────────────────────
     val scrimAlpha by animateFloatAsState(
         targetValue   = if (showScrim) 1f else 0f,
-        animationSpec = tween(600, easing = FastOutSlowInEasing),
+        animationSpec = tween(700, easing = FastOutSlowInEasing),
         label = "scrim_alpha"
     )
 
@@ -94,10 +92,10 @@ fun IntroScreen(
                 .background(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.00f to Color.Black.copy(alpha = 0.10f * scrimAlpha),
-                            0.50f to Color.Black.copy(alpha = 0.20f * scrimAlpha),
-                            0.72f to Color.Black.copy(alpha = 0.60f * scrimAlpha),
-                            1.00f to Color.Black.copy(alpha = 0.92f * scrimAlpha)
+                            0.00f to Color.Black.copy(alpha = 0.05f * scrimAlpha),
+                            0.45f to Color.Black.copy(alpha = 0.18f * scrimAlpha),
+                            0.70f to Color.Black.copy(alpha = 0.62f * scrimAlpha),
+                            1.00f to Color.Black.copy(alpha = 0.94f * scrimAlpha)
                         )
                     )
                 )
@@ -107,12 +105,13 @@ fun IntroScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = 28.dp)
+                .padding(bottom = 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
 
-            // ── Pills — each pops in with a spring scale ──────────────────
+            // ── Pills ─────────────────────────────────────────────────────
             androidx.compose.animation.AnimatedVisibility(
                 visible = showPills,
                 enter   = androidx.compose.animation.scaleIn(
@@ -120,8 +119,8 @@ fun IntroScreen(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness    = Spring.StiffnessMedium
                     ),
-                    initialScale  = 0.6f
-                ) + androidx.compose.animation.fadeIn(tween(400))
+                    initialScale  = 0.55f
+                ) + androidx.compose.animation.fadeIn(tween(500))
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -133,22 +132,23 @@ fun IntroScreen(
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // ── Trust line — gentle fade in last ─────────────────────────
+            // ── Trust line ────────────────────────────────────────────────
             androidx.compose.animation.AnimatedVisibility(
                 visible = showTrustLine,
-                enter   = androidx.compose.animation.fadeIn(tween(800))
+                enter   = androidx.compose.animation.fadeIn(tween(900))
             ) {
                 Text(
                     text      = "Trusted by landlords & tenants across Zimbabwe",
                     fontSize  = 12.sp,
-                    color     = Color.White.copy(alpha = 0.60f),
+                    color     = Color.White.copy(alpha = 0.65f),
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(Modifier.height(80.dp))
+            Spacer(Modifier.height(32.dp))
+
         }
     }
 }

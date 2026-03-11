@@ -58,11 +58,11 @@ fun SplashScreen(
     )
 
     LaunchedEffect(Unit) {
-        delay(200)
+        delay(300)
         logoVisible = true
-        delay(400)
+        delay(600)
         textVisible = true
-        delay(1800)
+        delay(2_400)   // let logo pulse + text fully settle before routing
         when (currentUserRole) {
             "landlord" -> onNavigateToLandlord()
             "tenant"   -> onNavigateToTenant()
