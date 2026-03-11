@@ -19,7 +19,11 @@ import kotlinx.coroutines.delay
 import org.example.project.ui.components.IntroVideoPlayer
 
 @Composable
-fun IntroScreen(onGetStarted: () -> Unit) {
+fun IntroScreen(
+    onGetStarted: () -> Unit,
+    onAutoLogin: (() -> Unit)? = null,   // called instead of onGetStarted when rememberMeActive
+    rememberMeActive: Boolean = false
+) {
 
     // ── Animation stage flags ─────────────────────────────────────────────
     var videoEnded     by remember { mutableStateOf(false) }
@@ -39,6 +43,17 @@ fun IntroScreen(onGetStarted: () -> Unit) {
     LaunchedEffect(videoEnded) {
         if (!videoEnded) return@LaunchedEffect
 
+        if (rememberMeActive && onAutoLogin != null) {
+            // ── Short route: Remember Me is active ───────────────────────
+            // Play the video (already playing), then go straight to splash
+            // which will route to the correct dashboard by role.
+            showScrim = true
+            delay(600)
+            onAutoLogin()
+            return@LaunchedEffect
+        }
+
+        // ── Normal route: no active session ──────────────────────────────
         // 1. Fade in the gradient scrim so text becomes readable
         showScrim = true
         delay(400)

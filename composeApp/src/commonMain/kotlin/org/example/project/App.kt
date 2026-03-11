@@ -85,8 +85,16 @@ fun App() {
             // Role Selection — no button, no rememberMe branching here.
             composable(NavRoutes.INTRO) {
                 IntroScreen(
+                    rememberMeActive = rememberMeActive,
                     onGetStarted = {
                         navController.navigate(NavRoutes.ROLE_SELECTION) {
+                            popUpTo(NavRoutes.INTRO) { inclusive = true }
+                        }
+                    },
+                    onAutoLogin = {
+                        // Remember Me active — skip Role Selection & Auth entirely,
+                        // go straight to Splash which routes to the correct dashboard.
+                        navController.navigate(NavRoutes.SPLASH) {
                             popUpTo(NavRoutes.INTRO) { inclusive = true }
                         }
                     }

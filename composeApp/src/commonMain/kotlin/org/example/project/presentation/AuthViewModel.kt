@@ -325,13 +325,16 @@ class AuthViewModel(
                 localSettings.setRememberMe(firebaseUser.uid, rememberMe)
                 println("[Session] rememberMe=$rememberMe saved locally for uid=${firebaseUser.uid}")
 
-                // 2. Save non-sensitive cross-device metadata to Firestore app_settings.
-                //    rememberMe is intentionally NOT written here — it stays local only.
+                // 2. Save app settings to Firestore app_settings subcollection.
+                //    rememberMe is written here so the admin/cloud can see the preference,
+                //    but the LOCAL copy (above) remains the authoritative source for
+                //    session restore — it is device-specific and cannot be spoofed.
                 try {
                     val existingSettings = loadAppSettings(firebaseUser.uid)
                     saveAppSettings(
                         uid = firebaseUser.uid,
                         settings = existingSettings.copy(
+                            rememberMe        = rememberMe,
                             lastLoginAt       = System.currentTimeMillis(),
                             lastLoginPlatform = "android"
                         )
