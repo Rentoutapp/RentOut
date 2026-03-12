@@ -61,5 +61,13 @@ data class Property(
     val isAvailable: Boolean = true,
     val isVerified: Boolean = false,
     val isFlagged: Boolean = false,
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
+    // ── Admin moderation fields ───────────────────────────────────────────────
+    // Written by the admin web panel on approve/reject. Defined here so that
+    // kotlinx.serialization never throws "unknown key" when deserializing a
+    // Firestore document that contains these fields — which would silently
+    // drop the property from the tenant dashboard.
+    val approvedAt: Long = 0L,
+    val rejectedAt: Long = 0L,
+    val rejectionReason: String = ""
 )

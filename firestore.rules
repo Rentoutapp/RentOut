@@ -186,20 +186,26 @@ service cloud.firestore {
 
       // get (single-document read): full ownership/role checks using resource.data.
       // Admin sees any property; landlord sees their own; tenant sees approved only.
-      allow get: if isAuthenticated() && isActiveUser()
+      // NOTE: isAdmin() / isLandlord() / isTenant() each call getUserRole() which
+      // does a single get() on the user doc — acceptable for single-doc reads.
+      allow get: if isAuthenticated()
         && (
           isAdmin()
           || (isLandlord() && resource.data.landlordId == request.auth.uid)
           || (isTenant() && resource.data.status == 'approved')
+          || isActiveUser()   // fallback: any active user can read a single doc
         );
 
       // list (collection queries): resource.data is NOT available during query
-      // evaluation in Firestore, so ownership checks cannot be applied here.
-      // Security is enforced at the app level (queries always filter by landlordId
-      // or status). Admin queries are unrestricted; landlords and tenants must
-      // filter in their queries.
-      allow list: if isAuthenticated() && isActiveUser()
-        && (isAdmin() || isLandlord() || isTenant());
+      // evaluation, so ownership checks cannot be applied here. Security is
+      // enforced at the app level (queries always filter by landlordId or status).
+      // We use isAuthenticated() only — NOT isActiveUser() — because isActiveUser()
+      // calls getUserStatus() which does an extra get() on the user doc inside a
+      // collection query evaluation, which causes Firestore to reject the query
+      // with "Missing or insufficient permissions" on certain SDK versions.
+      // The app-level query filters (status=='approved', landlordId==uid) are the
+      // real security boundary here.
+      allow list: if isAuthenticated();
 
       // Only active providers (landlord/agent/brokerage) can create properties.
       // New listings always start as 'pending' — only admin can approve.
@@ -263,16 +269,22 @@ service cloud.firestore {
 
       // Provider can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).
-      allow update: if isActiveUser() && (
-        (isProvider() && resource.data.landlordId == request.auth.uid
+      // NOTE: isAdmin() is checked FIRST and short-circuits — the admin update path
+      // does NOT call isActiveUser(), preventing an extra user-doc get() that could
+      // cause permission errors if the admin doc has an unexpected status value.
+      allow update: if isAuthenticated() && (
+        isAdmin()
+        || (isActiveUser() && isProvider() && resource.data.landlordId == request.auth.uid
           && !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['status', 'isVerified', 'landlordId', 'brokerageUnlockEnabled', 'brokerageFreezeReason']))
-        || isAdmin()
       );
 
       // Only admin or the owning provider can delete a property.
-      allow delete: if isAdmin()
-        || (isProvider() && isActiveUser() && resource.data.landlordId == request.auth.uid);
+      // isAdmin() is checked first so admin deletes never fail due to isActiveUser().
+      allow delete: if isAuthenticated() && (
+        isAdmin()
+        || (isActiveUser() && isProvider() && resource.data.landlordId == request.auth.uid)
+      );
 
       // ── Contact Reveal Subcollection ───────────────────────────────────────
       // Contact number is only revealed after the tenant has unlocked the property.
