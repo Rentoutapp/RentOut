@@ -3015,7 +3015,7 @@ private fun FormCompletenessIndicator(
 
     val total = items.size
 
-    val progress = completed.toFloat() / total.toFloat()
+    val progress = if (total > 0) completed.toFloat() / total.toFloat() else 0f
 
 
 

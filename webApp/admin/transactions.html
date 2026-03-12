@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,13 +6,13 @@
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Transactions � RentOut Admin</title>  
+  <title>Transactions – RentOut Admin</title>  
   <!-- Favicons -->
-  <link rel="icon" type="image/x-icon" href="/admin/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/admin/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/admin/favicon-16x16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon.png">
-  <link rel="manifest" href="/admin/site.webmanifest">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   
   <!-- Landscape Orientation Enforcer -->
   <script src="landscape-enforcer.js"></script>
@@ -26,14 +26,44 @@
     .fade-in-up { animation: fadeUp 0.3s ease both; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
     .active-tab { background: var(--primary) !important; color: white !important; }
+
+    /* ── Notification panel ───────────────────────────── */
+    .notif-tab { font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;cursor:pointer;transition:all .15s;color:rgba(255,255,255,.6);background:transparent;border:none;white-space:nowrap; }
+    .notif-tab:hover { background:rgba(255,255,255,.12);color:#fff; }
+    .notif-tab.active { background:rgba(255,255,255,.22);color:#fff; }
+    .notif-card { margin:0 8px 6px;border-radius:14px;overflow:hidden;transition:box-shadow .2s,transform .15s;cursor:pointer; }
+    .notif-card:hover { box-shadow:0 4px 18px rgba(0,0,0,.09);transform:translateY(-1px); }
+    .notif-card-inner { display:flex;align-items:flex-start;gap:10px;padding:10px 12px 8px; }
+    .notif-icon { width:34px;height:34px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px; }
+    .notif-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;animation:pulse-dot 2s ease-in-out infinite; }
+    .notif-title { font-size:11.5px;font-weight:700;color:#111827;line-height:1.3; }
+    .notif-msg-preview { font-size:10.5px;color:#6b7280;line-height:1.45;margin-top:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+    .notif-expanded-body { max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1),opacity .25s;opacity:0; }
+    .notif-expanded-body.open { max-height:240px;opacity:1; }
+    .notif-expanded-inner { padding:8px 12px 10px 56px;border-top:1px solid #f3f4f6; }
+    .notif-meta { display:flex;align-items:center;gap:5px;margin-top:5px;flex-wrap:wrap; }
+    .notif-tag { font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px; }
+    .notif-time { font-size:10px;color:#9ca3af;margin-left:auto;white-space:nowrap; }
+    .notif-action-btn { font-size:10px;font-weight:700;padding:4px 10px;border-radius:8px;border:none;cursor:pointer;transition:all .15s; }
+    .notif-section-header { display:flex;align-items:center;justify-content:space-between;padding:10px 14px 5px;position:sticky;top:0;z-index:2;backdrop-filter:blur(8px); }
+    .notif-section-label { font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px; }
+    .notif-section-count { font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;min-width:22px;text-align:center; }
+    .notif-shimmer { height:64px;margin:0 8px 6px;border-radius:14px;background:linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%);background-size:200% 100%;animation:shimmer 1.3s infinite; }
+    .notif-reading { animation:notifSlideRead .42s cubic-bezier(.4,0,1,1) forwards;pointer-events:none; }
+    #notif-list::-webkit-scrollbar { width:3px; }
+    #notif-list::-webkit-scrollbar-thumb { background:#e2e8f0;border-radius:4px; }
+    @keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.7} }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    @keyframes notifSlideRead { 0%{opacity:1;transform:translateX(0) scale(1)} 40%{opacity:.4;transform:translateX(30px) scale(.97)} 100%{opacity:0;transform:translateX(60px) scale(.95);max-height:0;padding:0;margin:0} }
+    @keyframes notifAppear { 0%{opacity:0;transform:translateX(40px) scale(.95)} 100%{opacity:1;transform:none} }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
+<body class="bg-gray-50 min-h-screen flex font-sans">
 
-  <!-- Auth overlay � covers entire page until admin is confirmed. Removed by JS. -->
+  <!-- Auth overlay – covers entire page until admin is confirmed. Removed by JS. -->
   <div id="auth-overlay" style="position:fixed;inset:0;z-index:9999;background:#1B4FFF;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
     <div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
-    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials�</span>
+    <span style="color:white;font-family:sans-serif;font-size:14px;opacity:0.85;">Verifying credentials...</span>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
 
@@ -54,10 +84,61 @@
       <a href="users.html" class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors">👥 Users</a>
       <a href="transactions.html" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-50 text-primary font-semibold">💳 Transactions</a>
     </nav>
+    <!-- Notification Bell -->
+    <div class="px-4 pb-2">
+      <button onclick="toggleNotifPanel()" id="notif-bell-btn"
+        class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 text-primary font-medium text-sm hover:bg-blue-100 transition-colors">
+        <span>🔔</span><span>Notifications</span>
+        <span id="notif-badge" class="hidden ml-auto bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 animate-pulse"></span>
+      </button>
+    </div>
     <div class="p-4 border-t border-gray-100">
       <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-xl font-medium transition-colors">🚪 Logout</button>
     </div>
   </div>
+
+  <!-- Notification Panel -->
+  <div id="notif-panel" class="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-white"
+       style="width:390px;max-width:100vw;box-shadow:-12px 0 48px rgba(0,0,0,0.14);transform:translateX(100%);transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
+    <div style="background:linear-gradient(140deg,#0d1f6e 0%,#1B4FFF 55%,#4f7cff 100%);flex-shrink:0;">
+      <div style="padding:16px 14px 0;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:34px;height:34px;background:rgba(255,255,255,0.14);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🔔</div>
+            <div>
+              <div style="color:#fff;font-size:15px;font-weight:800;letter-spacing:-0.02em;">Notifications</div>
+              <div id="notif-panel-subtitle" style="color:rgba(255,255,255,0.6);font-size:10px;margin-top:1px;">Loading…</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button onclick="markAllNotifsRead()" id="mark-all-btn" style="display:none;font-size:10px;font-weight:700;color:#fff;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);border-radius:8px;padding:5px 11px;cursor:pointer;">✓ Mark all read</button>
+            <button onclick="clearAllNotifs()" id="clear-all-btn" style="display:none;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);background:transparent;border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 10px;cursor:pointer;">🗑 Clear all</button>
+            <button onclick="toggleNotifPanel()" style="width:30px;height:30px;background:rgba(255,255,255,0.13);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;">&times;</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:7px 6px;text-align:center;"><div id="ns-total-val" style="color:#fff;font-size:17px;font-weight:800;">—</div><div style="color:rgba(255,255,255,0.5);font-size:9px;font-weight:600;text-transform:uppercase;margin-top:2px;">Total</div></div>
+          <div style="flex:1;background:rgba(239,68,68,0.25);border-radius:10px;padding:7px 6px;text-align:center;border:1px solid rgba(239,68,68,0.4);"><div id="ns-unread-val" style="color:#fca5a5;font-size:17px;font-weight:800;">—</div><div style="color:rgba(252,165,165,0.7);font-size:9px;font-weight:600;text-transform:uppercase;margin-top:2px;">Unread</div></div>
+          <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:7px 6px;text-align:center;"><div id="ns-read-val" style="color:#6ee7b7;font-size:17px;font-weight:800;">—</div><div style="color:rgba(110,231,183,0.6);font-size:9px;font-weight:600;text-transform:uppercase;margin-top:2px;">Read</div></div>
+          <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:7px 6px;text-align:center;"><div id="ns-today-val" style="color:#fde68a;font-size:17px;font-weight:800;">—</div><div style="color:rgba(253,230,138,0.6);font-size:9px;font-weight:600;text-transform:uppercase;margin-top:2px;">Today</div></div>
+        </div>
+        <div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:1px;">
+          <button class="notif-tab active" id="ntab-all"     onclick="filterNotifs('all')">All</button>
+          <button class="notif-tab"        id="ntab-unread"  onclick="filterNotifs('unread')">🔴 Unread</button>
+          <button class="notif-tab"        id="ntab-read"    onclick="filterNotifs('read')">✅ Read</button>
+          <button class="notif-tab"        id="ntab-payment" onclick="filterNotifs('payment')">💳 Payments</button>
+          <button class="notif-tab"        id="ntab-listing" onclick="filterNotifs('listing')">🏠 Listings</button>
+        </div>
+      </div>
+      <div style="height:8px;background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.06));"></div>
+    </div>
+    <div id="notif-list" style="flex:1;overflow-y:auto;padding:6px 0 20px;">
+      <div class="notif-shimmer"></div>
+      <div class="notif-shimmer" style="opacity:0.7;"></div>
+      <div class="notif-shimmer" style="opacity:0.4;"></div>
+    </div>
+  </div>
+  <div id="notif-backdrop" class="fixed inset-0 z-40 hidden" style="background:rgba(15,20,60,0.28);backdrop-filter:blur(3px);" onclick="toggleNotifPanel()"></div>
 
   <!-- Main content -->
   <div class="ml-64 p-8">
@@ -67,36 +148,37 @@
         <p class="text-gray-400 text-sm mt-1">All property unlock payments on the platform</p>
       </div>
       <button onclick="loadTransactions()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium text-sm">
-        ?? Refresh
+        🔄 Refresh
       </button>
     </div>
 
     <!-- Stats -->
     <div class="grid grid-cols-4 gap-4 mb-6">
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-gray-800" id="stat-total">�</div>
+        <div class="text-2xl font-bold text-gray-800" id="stat-total">—</div>
         <div class="text-sm text-gray-400 mt-1">Total Transactions</div>
       </div>
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-green-600" id="stat-revenue">�</div>
+        <div class="text-2xl font-bold text-green-600" id="stat-revenue">—</div>
         <div class="text-sm text-gray-400 mt-1">Total Revenue</div>
       </div>
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-blue-600" id="stat-success">�</div>
+        <div class="text-2xl font-bold text-blue-600" id="stat-success">—</div>
         <div class="text-sm text-gray-400 mt-1">Successful</div>
       </div>
       <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="text-2xl font-bold text-red-500" id="stat-failed">�</div>
+        <div class="text-2xl font-bold text-red-500" id="stat-failed">—</div>
         <div class="text-sm text-gray-400 mt-1">Failed</div>
       </div>
     </div>
 
     <!-- Tabs -->
-    <div class="flex gap-2 mb-4">
+    <div class="flex gap-2 mb-4 flex-wrap">
       <button id="tab-all"     onclick="filterTx('all')"     class="tab-btn active-tab px-4 py-2 rounded-xl text-sm font-semibold transition-all">All</button>
       <button id="tab-success" onclick="filterTx('success')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">✅ Successful</button>
       <button id="tab-failed"  onclick="filterTx('failed')"  class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">❌ Failed</button>
       <button id="tab-pending" onclick="filterTx('pending')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">⏳ Pending</button>
+      <button id="tab-brokerage" onclick="filterTx('brokerage')" class="tab-btn bg-white text-gray-600 border border-gray-200 px-4 py-2 rounded-xl text-sm font-semibold transition-all">🏢 Brokerage</button>
     </div>
 
     <!-- Table -->
@@ -108,12 +190,13 @@
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Tenant</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Property</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Amount</th>
+            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Brokerage Deduction</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
           </tr>
         </thead>
         <tbody id="tx-table">
-          <tr><td colspan="6" class="px-6 py-16 text-center text-gray-400">Loading...</td></tr>
+          <tr><td colspan="7" class="px-6 py-16 text-center text-gray-400">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -121,7 +204,7 @@
 
   <script type="module">
     import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getFirestore, collection, getDocs, doc, getDoc, orderBy, query } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getFirestore, collection, getDocs, doc, getDoc, orderBy, query, limit, onSnapshot, updateDoc, writeBatch, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
     import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
     const firebaseConfig = {
@@ -139,7 +222,7 @@
     const auth = getAuth(app);
 
     // -- Auth guard ------------------------------------------------------------
-    // LAYER 1 (synchronous): sessionStorage gate � instant, no Firebase round-trip.
+    // LAYER 1 (synchronous): sessionStorage gate — instant, no Firebase round-trip.
     const SESSION_KEY = 'rentout_admin_authed';
     if (!sessionStorage.getItem(SESSION_KEY)) {
       window.location.replace('index.html');
@@ -156,8 +239,13 @@
           sessionStorage.removeItem(SESSION_KEY);
           window.location.replace('index.html'); return;
         }
-        // ? Confirmed admin � remove overlay and load data
+        // Confirmed admin — remove overlay, wire notification helpers, load data
         document.getElementById('auth-overlay').remove();
+        window.db = db;
+        window.__fsHelpers = { collection, query, orderBy, limit, onSnapshot, updateDoc, writeBatch, doc, where,
+          deleteDoc: async (ref) => { const { deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'); return deleteDoc(ref); },
+          getDocs, getDoc };
+        startNotifListener(user.uid);
         await loadTransactions();
       });
     }
@@ -166,6 +254,173 @@
       sessionStorage.removeItem('rentout_admin_authed');
       await signOut(auth).catch(() => {});
       window.location.replace('index.html');
+    };
+
+    // ── Notification Panel ────────────────────────────────────────────────────
+    let notifPanelOpen = false;
+    let allNotifications = [];
+    let notifUnsubscribe = null;
+    let activeNotifFilter = 'all';
+    let expandedNotifId = null;
+
+    window.toggleNotifPanel = function() {
+      notifPanelOpen = !notifPanelOpen;
+      const panel    = document.getElementById('notif-panel');
+      const backdrop = document.getElementById('notif-backdrop');
+      if (notifPanelOpen) {
+        panel.style.transform = 'translateX(0)';
+        backdrop.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+      } else {
+        panel.style.transform = 'translateX(100%)';
+        backdrop.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+    };
+
+    window.filterNotifs = function(filter) {
+      activeNotifFilter = filter;
+      ['all','unread','read','payment','listing'].forEach(f => {
+        const el = document.getElementById('ntab-' + f);
+        if (el) el.classList.toggle('active', f === filter);
+      });
+      applyNotifFilter();
+    };
+
+    function applyNotifFilter() {
+      let filtered = allNotifications;
+      if (activeNotifFilter === 'unread') filtered = allNotifications.filter(n => !n.isRead);
+      else if (activeNotifFilter === 'read') filtered = allNotifications.filter(n => n.isRead);
+      else if (activeNotifFilter === 'payment') filtered = allNotifications.filter(n => ['payment_confirmed','unlock_success','property_unlocked'].includes(n.type));
+      else if (activeNotifFilter === 'listing') filtered = allNotifications.filter(n => ['listing_approved','listing_rejected','listing_pending','listing_flagged','property_updated','property_removed'].includes(n.type));
+      renderNotifList(filtered);
+    }
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && notifPanelOpen) toggleNotifPanel(); });
+
+    function resolveTimestamp(raw) {
+      if (!raw) return 0;
+      if (typeof raw === 'object' && raw !== null && typeof raw.seconds === 'number') return raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1e6);
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return 0;
+      return n < 1e12 ? n * 1000 : n;
+    }
+
+    function startNotifListener(adminUid) {
+      const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
+      notifUnsubscribe = onSnapshot(q, { includeMetadataChanges: false }, (snap) => {
+        allNotifications = snap.docs.map(d => { const data = d.data(); return { id: d.id, ...data, _ts: resolveTimestamp(data.createdAt) }; });
+        recomputeAndRender();
+      }, (err) => { console.warn('Notification listener error:', err); });
+    }
+
+    function recomputeAndRender() {
+      const unread = allNotifications.filter(n => !n.isRead).length;
+      const readCount = allNotifications.filter(n => n.isRead).length;
+      const total = allNotifications.length;
+      const todayCount = allNotifications.filter(n => new Date(n._ts).toDateString() === new Date().toDateString()).length;
+      const badge = document.getElementById('notif-badge');
+      if (badge) { if (unread > 0) { badge.textContent = unread > 99 ? '99+' : unread; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); } }
+      const subtitle = document.getElementById('notif-panel-subtitle');
+      if (subtitle) subtitle.textContent = unread > 0 ? `${unread} unread · ${readCount} read` : 'All caught up ✓';
+      const markAllBtn = document.getElementById('mark-all-btn');
+      const clearAllBtn = document.getElementById('clear-all-btn');
+      if (markAllBtn) markAllBtn.style.display = unread > 0 ? 'inline-block' : 'none';
+      if (clearAllBtn) clearAllBtn.style.display = total > 0 ? 'inline-block' : 'none';
+      const sv = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+      sv('ns-total-val', total); sv('ns-unread-val', unread); sv('ns-read-val', readCount); sv('ns-today-val', todayCount);
+      applyNotifFilter();
+    }
+
+    function typeEmoji(type) { return ({listing_approved:'✅',listing_rejected:'❌',listing_pending:'⏳',listing_flagged:'🚩',property_unlocked:'🔓',account_suspended:'🚫',unlock_success:'🔑',payment_confirmed:'💳',property_updated:'✏️',property_removed:'🗑',welcome:'👋',system:'🔔'})[type]||'🔔'; }
+    function typeColor(type) { if(['listing_approved','unlock_success','payment_confirmed'].includes(type))return'#10b981'; if(['listing_rejected','property_removed','account_suspended'].includes(type))return'#ef4444'; if(type==='listing_pending')return'#f59e0b'; if(type==='listing_flagged')return'#f97316'; if(type==='property_unlocked')return'#8b5cf6'; if(type==='property_updated')return'#3b82f6'; if(type==='welcome')return'#06b6d4'; return'#94a3b8'; }
+    function typeLabel(type) { return ({listing_approved:'Approved',listing_rejected:'Rejected',listing_pending:'Pending',listing_flagged:'Flagged',property_unlocked:'Unlocked',account_suspended:'Suspended',unlock_success:'Unlock',payment_confirmed:'Payment',property_updated:'Updated',property_removed:'Removed',welcome:'Welcome',system:'System'})[type]||type||'Notice'; }
+    function formatTime(ts) { if(!ts)return'—'; const diff=Date.now()-ts; if(diff<0)return'Just now'; const m=Math.floor(diff/60000),h=Math.floor(diff/3600000),d=Math.floor(diff/86400000); if(m<1)return'Just now'; if(m<60)return m+'m ago'; if(h<24)return h+'h ago'; if(d===1)return'Yesterday'; if(d<7)return d+'d ago'; if(d<30)return Math.floor(d/7)+'w ago'; return new Date(ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+
+    function renderNotifList(notifs) {
+      const list = document.getElementById('notif-list'); if (!list) return;
+      const unread = notifs.filter(n => !n.isRead), read = notifs.filter(n => n.isRead);
+      if (!notifs.length) { list.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;gap:10px;text-align:center"><div style="font-size:36px">${activeNotifFilter==='unread'?'🎉':'🔕'}</div><div style="font-size:13px;font-weight:700;color:#374151">Nothing here yet</div><div style="font-size:11px;color:#94a3b8;line-height:1.6;max-width:200px">Notifications will appear here.</div></div>`; return; }
+      let html = '';
+      if (activeNotifFilter !== 'read' && unread.length) { html+=`<div class="notif-section-header" style="background:rgba(255,245,245,.92)"><div class="notif-section-label" style="color:#dc2626"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span>Unread</div><span class="notif-section-count" style="background:#fee2e2;color:#dc2626">${unread.length}</span></div>`; html+=unread.map(buildNotifCard).join(''); }
+      if (activeNotifFilter !== 'unread' && read.length) { html+=`<div class="notif-section-header" style="background:rgba(240,253,244,.92);margin-top:${unread.length?'8px':'0'}"><div class="notif-section-label" style="color:#16a34a">✅ Read</div><span class="notif-section-count" style="background:#dcfce7;color:#16a34a">${read.length}</span></div>`; html+=read.map(buildNotifCard).join(''); }
+      list.innerHTML = html;
+    }
+
+    function buildNotifCard(n) {
+      const color=typeColor(n.type),isUnread=!n.isRead,isExpanded=expandedNotifId===n.id;
+      return `<div class="notif-card" id="nc-${n.id}" style="background:${isUnread?`linear-gradient(135deg,${color}08 0%,#fff 100%)`:'#fafafa'};border:1px solid ${isUnread?color+'22':'#f0f0f0'}">
+        <div class="notif-card-inner" onclick="toggleNotifExpand('${n.id}')">
+          <div class="notif-icon" style="background:${color}15">${typeEmoji(n.type)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:5px">
+              <span class="notif-title" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.title||'Notification'}</span>
+              ${isUnread?`<div class="notif-dot" style="background:${color}"></div>`:''}
+              <span style="font-size:14px;color:#9ca3af">›</span>
+            </div>
+            <div class="notif-msg-preview">${n.message||''}</div>
+            <div class="notif-meta">
+              <span class="notif-tag" style="background:${color}15;color:${color}">${typeLabel(n.type)}</span>
+              <span class="notif-time">${formatTime(n._ts)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="notif-expanded-body${isExpanded?' open':''}" id="neb-${n.id}">
+          <div class="notif-expanded-inner">
+            <div style="font-size:11px;color:#374151;line-height:1.6">${n.message||''}</div>
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+              ${isUnread?`<button class="notif-action-btn" style="background:#dbeafe;color:#1d4ed8" onclick="event.stopPropagation();markNotifRead('${n.id}')">✓ Mark read</button>`:`<button class="notif-action-btn" style="background:#f1f5f9;color:#64748b" onclick="event.stopPropagation();markNotifUnread('${n.id}')">↩ Mark unread</button>`}
+              <button class="notif-action-btn" style="background:#fee2e2;color:#dc2626" onclick="event.stopPropagation();deleteNotif('${n.id}')">🗑 Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    window.toggleNotifExpand = function(notifId) {
+      const prev = expandedNotifId;
+      expandedNotifId = expandedNotifId === notifId ? null : notifId;
+      if (prev && prev !== notifId) { const pe = document.getElementById('neb-'+prev); if (pe) pe.classList.remove('open'); }
+      const ne = document.getElementById('neb-'+notifId); if (ne) ne.classList.toggle('open', expandedNotifId === notifId);
+    };
+
+    window.markNotifRead = async function(notifId) {
+      const idx = allNotifications.findIndex(n => n.id === notifId);
+      if (idx !== -1 && !allNotifications[idx].isRead) { allNotifications[idx] = {...allNotifications[idx], isRead:true}; recomputeAndRender(); }
+      const card = document.getElementById('nc-'+notifId);
+      if (card) { card.classList.add('notif-reading'); await new Promise(r => setTimeout(r, 420)); }
+      try { await updateDoc(doc(db,'notifications',notifId),{isRead:true}); if(expandedNotifId===notifId)expandedNotifId=null; }
+      catch(e) { if(idx!==-1){allNotifications[idx]={...allNotifications[idx],isRead:false};recomputeAndRender();} }
+    };
+
+    window.markNotifUnread = async function(notifId) {
+      const idx = allNotifications.findIndex(n => n.id === notifId);
+      if (idx !== -1) { allNotifications[idx] = {...allNotifications[idx], isRead:false}; recomputeAndRender(); }
+      try { await updateDoc(doc(db,'notifications',notifId),{isRead:false}); if(expandedNotifId===notifId)expandedNotifId=null; }
+      catch(e) { if(idx!==-1){allNotifications[idx]={...allNotifications[idx],isRead:true};recomputeAndRender();} }
+    };
+
+    window.deleteNotif = async function(notifId) {
+      const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      const card = document.getElementById('nc-'+notifId);
+      if (card) { card.classList.add('notif-reading'); await new Promise(r => setTimeout(r, 420)); }
+      try { await delDoc(doc(db,'notifications',notifId)); if(expandedNotifId===notifId)expandedNotifId=null; }
+      catch(e) { console.warn('deleteNotif:', e); }
+    };
+
+    window.markAllNotifsRead = async function() {
+      const unread = allNotifications.filter(n => !n.isRead); if (!unread.length) return;
+      allNotifications = allNotifications.map(n => ({...n, isRead:true})); expandedNotifId=null; recomputeAndRender();
+      const batch = writeBatch(db); unread.forEach(n => batch.update(doc(db,'notifications',n.id),{isRead:true}));
+      try { await batch.commit(); } catch(e) { allNotifications=allNotifications.map(n=>unread.find(u=>u.id===n.id)?{...n,isRead:false}:n); recomputeAndRender(); }
+    };
+
+    window.clearAllNotifs = async function() {
+      if (!allNotifications.length) return;
+      if (!confirm(`Delete all ${allNotifications.length} notifications? This cannot be undone.`)) return;
+      const { deleteDoc: delDoc2 } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      const batch = writeBatch(db); allNotifications.forEach(n => batch.delete(doc(db,'notifications',n.id))); expandedNotifId=null;
+      try { await batch.commit(); } catch(e) { console.warn('clearAll:', e); }
     };
 
     let allTx = [];
@@ -198,7 +453,7 @@
         renderTable();
       } catch(e) {
         document.getElementById('tx-table').innerHTML =
-          `<tr><td colspan="6" class="px-6 py-16 text-center text-red-400 font-medium">
+          `<tr><td colspan="7" class="px-6 py-16 text-center text-red-400 font-medium">
             ❌ Failed to load transactions. Check Firebase config and Firestore rules.
            </td></tr>`;
       }
@@ -206,7 +461,7 @@
 
     function showLoading() {
       document.getElementById('tx-table').innerHTML =
-        `<tr><td colspan="6" class="px-6 py-16 text-center">
+        `<tr><td colspan="7" class="px-6 py-16 text-center">
            <div class="flex flex-col items-center gap-3">
              <div class="spinner w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full"></div>
              <span class="text-gray-400 text-sm">Loading transactions from Firestore...</span>
@@ -218,6 +473,7 @@
       const success = allTx.filter(t => t.status === 'success').length;
       const failed  = allTx.filter(t => t.status === 'failed').length;
       const pending = allTx.filter(t => t.status === 'pending').length;
+      const brokerage = allTx.filter(t => t.providerSubtype === 'brokerage').length;
       const revenue = allTx.filter(t => t.status === 'success')
                            .reduce((s, t) => s + (Number(t.amount) || 0), 0);
       document.getElementById('stat-total').textContent   = allTx.length;
@@ -228,6 +484,7 @@
       document.getElementById('tab-success').textContent  = `✅ Successful (${success})`;
       document.getElementById('tab-failed').textContent   = `❌ Failed (${failed})`;
       document.getElementById('tab-pending').textContent  = `⏳ Pending (${pending})`;
+      document.getElementById('tab-brokerage').textContent = `🏢 Brokerage (${brokerage})`;
     }
 
     function statusBadge(s) {
@@ -240,20 +497,24 @@
     }
 
     function formatDate(ts) {
-      if (!ts) return '�';
+      if (!ts) return '—';
       const d = new Date(typeof ts === 'object' ? ts.toMillis?.() ?? ts : ts);
       return d.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
     }
 
     function shortId(id) {
-      return id ? `<span class="font-mono text-xs text-gray-500">${id.substring(0, 12)}...</span>` : '�';
+      return id ? `<span class="font-mono text-xs text-gray-500">${id.substring(0, 12)}...</span>` : '—';
     }
 
     window.renderTable = function() {
-      const filtered = currentFilter === 'all' ? allTx : allTx.filter(t => t.status === currentFilter);
+      const filtered = currentFilter === 'all'
+        ? allTx
+        : currentFilter === 'brokerage'
+          ? allTx.filter(t => t.providerSubtype === 'brokerage')
+          : allTx.filter(t => t.status === currentFilter);
       const tbody = document.getElementById('tx-table');
       if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-16 text-center">
+        tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-16 text-center">
           <div class="flex flex-col items-center gap-2">
             <span class="text-4xl">💳</span>
             <span class="text-gray-400 font-medium">No ${currentFilter === 'all' ? '' : currentFilter} transactions found.</span>
@@ -267,18 +528,22 @@
           <td class="px-6 py-3">
             ${t.tenantId 
               ? `<a href="user-detail.html?id=${t.tenantId}" class="font-medium text-primary hover:underline text-sm">${t.tenantName || t.tenantId}</a>`
-              : `<div class="font-medium text-gray-800 text-sm">${t.tenantName || '�'}</div>`
+              : `<div class="font-medium text-gray-800 text-sm">${t.tenantName || '—'}</div>`
             }
             <div class="text-xs text-gray-400">${t.tenantEmail || ''}</div>
           </td>
           <td class="px-6 py-3">
             ${t.propertyId
-              ? `<a href="property-detail.html?id=${t.propertyId}" class="font-medium text-gray-800 hover:text-primary text-sm">${t.propertyTitle || '�'}</a>`
-              : `<div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '�'}</div>`
+              ? `<a href="property-detail.html?id=${t.propertyId}" class="font-medium text-gray-800 hover:text-primary text-sm">${t.propertyTitle || '—'}</a>`
+              : `<div class="font-medium text-gray-800 text-sm">${t.propertyTitle || '—'}</div>`
             }
             <div class="text-xs text-gray-400">${t.propertyId ? t.propertyId.substring(0,10)+'...' : ''}</div>
           </td>
           <td class="px-6 py-3 font-bold text-gray-800">$${Number(t.amount || 0).toFixed(2)}</td>
+          <td class="px-6 py-3">
+            <div class="font-bold ${Number(t.brokerageDeductionAmount || 0) > 0 ? 'text-amber-600' : 'text-gray-400'}">${Number(t.brokerageDeductionAmount || 0) > 0 ? `$${Number(t.brokerageDeductionAmount || 0).toFixed(2)}` : '—'}</div>
+            <div class="text-xs text-gray-400">${t.providerSubtype === 'brokerage' ? (t.brokerageSettlementStatus || 'pending') : 'n/a'}</div>
+          </td>
           <td class="px-6 py-3 text-sm text-gray-500">${formatDate(t.createdAt)}</td>
           <td class="px-6 py-3">${statusBadge(t.status)}</td>
         </tr>
@@ -297,5 +562,6 @@
       renderTable();
     };
   </script>
+
 </body>
 </html>

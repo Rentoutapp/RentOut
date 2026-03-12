@@ -34,6 +34,8 @@ data class Property(
     val brokerageAddress: String = "",    // Company office address
     val brokerageContactNumber: String = "", // Company contact number
     val brokerageEmail: String = "",      // Company email address
+    val brokerageUnlockEnabled: Boolean = true,
+    val brokerageFreezeReason: String = "",
     val imageUrl: String = "",            // primary / cover image (backward compat)
     val imageUrls: List<String> = emptyList(), // all uploaded images
     // Classification hierarchy

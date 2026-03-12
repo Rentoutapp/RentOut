@@ -27,7 +27,15 @@ data class User(
     val taxId: String = "",                 // ZIMRA / tax clearance number (optional)
     val companyPhone: String = "",          // Company / office phone number
     val companyEmail: String = "",          // Company / office email address
-    val companyLogoUrl: String = ""         // Company logo upload URL
+    val companyLogoUrl: String = "",        // Company logo upload URL
+    val brokerageSubscriptionFeeUsd: Double = 0.0,
+    val brokerageFloatBalanceUsd: Double = 0.0,
+    val brokerageMinimumFloatUsd: Double = 40.0,
+    val brokerageCommissionRate: Double = 0.15,
+    val brokerageIsFrozen: Boolean = false,
+    val brokerageLastTopUpAt: Long = 0L,
+    val brokerageLastDeductionAt: Long = 0L,
+    val brokerageLastTransactionId: String = ""
 )
 
 // ── Convenience extension helpers used across screens ─────────────────────────
@@ -64,3 +72,15 @@ val User.dashboardTitle: String
         "brokerage" -> "Portfolio"
         else        -> "Your Properties"
     }
+
+val User.hasBrokerageFloatConfigured: Boolean
+    get() = isBrokerage && brokerageSubscriptionFeeUsd > 0.0
+
+val User.brokerageFloatHealthRatio: Double
+    get() {
+        if (!isBrokerage || brokerageSubscriptionFeeUsd <= 0.0) return 0.0
+        return (brokerageFloatBalanceUsd / brokerageSubscriptionFeeUsd).coerceIn(0.0, 1.0)
+    }
+
+val User.isBrokerageLowFloat: Boolean
+    get() = isBrokerage && brokerageFloatBalanceUsd <= brokerageMinimumFloatUsd + 10.0

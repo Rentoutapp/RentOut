@@ -18,6 +18,7 @@ import com.russhwolf.settings.Settings
 import org.example.project.data.local.LocalSettingsRepository
 import org.example.project.data.model.User
 import org.example.project.presentation.*
+import org.example.project.ui.screens.NotificationScreen
 import org.example.project.ui.navigation.NavRoutes
 import org.example.project.ui.screens.auth.*
 import org.example.project.ui.screens.landlord.*
@@ -39,6 +40,8 @@ fun App() {
         }
         val propertyViewModel: PropertyViewModel = viewModel()
         val tenantViewModel: TenantViewModel = viewModel()
+        val brokerageViewModel: BrokerageViewModel = viewModel()
+        val notificationViewModel: NotificationViewModel = viewModel()
 
         val authState by authViewModel.authState.collectAsState()
         val sessionChecked by authViewModel.sessionChecked.collectAsState()
@@ -55,11 +58,42 @@ fun App() {
         val unlockState by tenantViewModel.unlockState.collectAsState()
         val transactions by tenantViewModel.transactions.collectAsState()
         val transactionsLoading by tenantViewModel.transactionsLoading.collectAsState()
+        val brokerageAccount by brokerageViewModel.brokerageAccount.collectAsState()
+        val brokerageLedger by brokerageViewModel.ledgerEntries.collectAsState()
+        val brokerageAccountLoading by brokerageViewModel.isAccountLoading.collectAsState()
+        val brokerageLedgerLoading by brokerageViewModel.isLedgerLoading.collectAsState()
+        val brokerageTopUpState by brokerageViewModel.topUpState.collectAsState()
         val propertyDraft by propertyViewModel.draft.collectAsState()
         val propertyFilter by propertyViewModel.propertyFilter.collectAsState()
+        val notificationState by notificationViewModel.state.collectAsState()
+        val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
 
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
+
+        // Start/restart notification listener whenever the logged-in user changes.
+        // This covers: fresh login, remember-me session restore, and back-navigation.
+        LaunchedEffect(currentUser?.uid) {
+            val uid = currentUser?.uid
+            if (uid != null) {
+                notificationViewModel.startListening(uid)
+            } else {
+                notificationViewModel.stopListening()
+            }
+        }
+
+        // During session check (remember-me path), Firebase auth currentUser is
+        // available before authState.Success is emitted. Start the notification
+        // listener as soon as we have a UID from any source so the bell badge
+        // and notification list are ready the moment the dashboard appears.
+        LaunchedEffect(sessionChecked, authState) {
+            if (sessionChecked) {
+                val uid = (authState as? AuthState.Success)?.user?.uid
+                if (uid != null && notificationViewModel.currentListeningUid != uid) {
+                    notificationViewModel.startListening(uid)
+                }
+            }
+        }
 
         // While the session check is in-flight, show a plain black screen —
         // no text, no logo, no flash before the intro video starts.
@@ -195,8 +229,23 @@ fun App() {
 
             // -- SPLASH --------------------------------------------------------
             composable(NavRoutes.SPLASH) {
-                // splash animation window. By the time the dashboard renders, the
-                LaunchedEffect(Unit) { authViewModel.refreshUser() }
+                // Refresh the user profile from Firestore so all fields (role,
+                // brokerage balance, etc.) are up-to-date before the dashboard
+                // renders. We also eagerly start the notification listener here
+                // so the bell badge and notification list are ready on arrival.
+                LaunchedEffect(Unit) {
+                    authViewModel.refreshUser()
+                }
+                // Once authState.Success is available (either from refreshUser()
+                // or from the remember-me session check), start the notification
+                // listener immediately so past events are loaded during the
+                // splash animation window rather than after dashboard navigation.
+                LaunchedEffect(authState) {
+                    val uid = (authState as? AuthState.Success)?.user?.uid
+                    if (uid != null) {
+                        notificationViewModel.startListening(uid)
+                    }
+                }
                 val user = currentUser
                 SplashScreen(
                     currentUserRole = user?.role,
@@ -220,6 +269,27 @@ fun App() {
                 )
             }
 
+            // -- NOTIFICATIONS -------------------------------------------------
+            composable(NavRoutes.NOTIFICATIONS) {
+                // Ensure the notification listener is running whenever this screen
+                // is entered — covers the case where the user navigated here from
+                // any dashboard without a UID change triggering the top-level effect.
+                LaunchedEffect(currentUser?.uid) {
+                    val uid = currentUser?.uid
+                    if (uid != null) {
+                        notificationViewModel.startListening(uid)
+                    }
+                }
+                NotificationScreen(
+                    state        = notificationState,
+                    unreadCount  = unreadNotificationCount,
+                    onBack       = { navController.popBackStack() },
+                    onMarkAllRead = { notificationViewModel.markAllAsRead() },
+                    onMarkRead   = { id -> notificationViewModel.markAsRead(id) },
+                    onDelete     = { id -> notificationViewModel.deleteNotification(id) }
+                )
+            }
+
             // -- SUSPENDED -----------------------------------------------------
             composable(NavRoutes.SUSPENDED) {
                 SuspendedScreen(
@@ -235,17 +305,27 @@ fun App() {
 
             // -- LANDLORD DASHBOARD --------------------------------------------
             composable(NavRoutes.LANDLORD_DASHBOARD) {
+                val dashboardUser = if (currentUser?.providerSubtype == "brokerage" && brokerageAccount.uid.isNotBlank()) {
+                    brokerageAccount
+                } else {
+                    currentUser ?: User()
+                }
                 // Ensure the real-time listener is active whenever this screen
                 // is (re)entered — covers cold start, back-navigation, and
                 // returning from a sub-screen after logout/re-login.
                 LaunchedEffect(currentUser?.uid) {
                     currentUser?.uid?.let { uid ->
                         propertyViewModel.loadLandlordPropertiesFromFirestore(uid)
+                        if (currentUser?.providerSubtype == "brokerage") {
+                            brokerageViewModel.observeBrokerageAccount(uid)
+                            brokerageViewModel.observeLedger(uid)
+                        }
                     }
                 }
                 LandlordDashboardScreen(
-                    user = currentUser ?: User(),
+                    user = dashboardUser,
                     propertyListState = propertyListState,
+                    notificationCount = unreadNotificationCount,
                     onAddProperty = { navController.navigate(NavRoutes.ADD_PROPERTY) },
                     onPropertyClick = { property ->
                         propertyViewModel.selectProperty(property)
@@ -257,9 +337,13 @@ fun App() {
                     },
                     onDeleteProperty = { propertyViewModel.deleteProperty(it) },
                     onToggleAvailability = { propertyViewModel.toggleAvailability(it) },
+                    onNotificationsClick = { navController.navigate(NavRoutes.NOTIFICATIONS) },
                     onProfileClick = { navController.navigate(NavRoutes.LANDLORD_PROFILE) },
+                    onBrokerageAccountClick = { navController.navigate(NavRoutes.BROKERAGE_ACCOUNT) },
                     onLogout = {
                         propertyViewModel.stopAllListeners()
+                        brokerageViewModel.stop()
+                        notificationViewModel.stopListening()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
@@ -326,18 +410,24 @@ fun App() {
 
             // -- LANDLORD PROFILE ----------------------------------------------
             composable(NavRoutes.LANDLORD_PROFILE) {
+                val profileUser = if (currentUser?.providerSubtype == "brokerage" && brokerageAccount.uid.isNotBlank()) brokerageAccount else currentUser ?: User()
                 LandlordProfileScreen(
-                    user = currentUser ?: User(),
+                    user = profileUser,
                     onBack = { navController.popBackStack() },
                     onLogout = {
                         propertyViewModel.stopAllListeners()
+                        brokerageViewModel.stop()
+                        notificationViewModel.stopListening()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
+                    onOpenBrokerageAccount = { navController.navigate(NavRoutes.BROKERAGE_ACCOUNT) },
                     onDeleteAccount = {
                         authViewModel.deleteAccount(
                             onSuccess = {
                                 propertyViewModel.stopAllListeners()
+                                brokerageViewModel.stop()
+                                notificationViewModel.stopListening()
                                 navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                             },
                             onError = { error ->
@@ -345,6 +435,28 @@ fun App() {
                             }
                         )
                     }
+                )
+            }
+
+            composable(NavRoutes.BROKERAGE_ACCOUNT) {
+                BrokerageAccountScreen(
+                    user = if (brokerageAccount.uid.isNotBlank()) brokerageAccount else currentUser ?: User(),
+                    ledgerEntries = brokerageLedger,
+                    isLoading = brokerageAccountLoading || brokerageLedgerLoading,
+                    topUpState = brokerageTopUpState,
+                    onTopUp = { brokerageViewModel.topUpFloat(it) },
+                    onOpenHistory = { navController.navigate(NavRoutes.BROKERAGE_PAYMENT_HISTORY) },
+                    onBack = { navController.popBackStack() },
+                    onResetTopUpState = { brokerageViewModel.resetTopUpState() }
+                )
+            }
+
+            composable(NavRoutes.BROKERAGE_PAYMENT_HISTORY) {
+                BrokeragePaymentHistoryScreen(
+                    user = if (brokerageAccount.uid.isNotBlank()) brokerageAccount else currentUser ?: User(),
+                    ledgerEntries = brokerageLedger,
+                    isLoading = brokerageLedgerLoading,
+                    onBack = { navController.popBackStack() }
                 )
             }
 
@@ -573,6 +685,7 @@ fun App() {
                     unlockedPropertyIds = unlockedIds,
                     transactions = transactions,
                     activeFilter = propertyFilter,
+                    notificationCount = unreadNotificationCount,
                     onSearchQueryChange = { propertyViewModel.setSearchQuery(it) },
                     onCityChange = { propertyViewModel.setSelectedCity(it) },
                     onFilterChange = { propertyViewModel.setFilter(it) },
@@ -582,10 +695,12 @@ fun App() {
                         navController.navigate(NavRoutes.propertyDetail(property.id))
                     },
                     onUnlockedClick = { navController.navigate(NavRoutes.UNLOCKED_PROPERTIES) },
+                    onNotificationsClick = { navController.navigate(NavRoutes.NOTIFICATIONS) },
                     onProfileClick = { navController.navigate(NavRoutes.TENANT_PROFILE) },
                     onLogout = {
                         propertyViewModel.stopAllListeners()
                         tenantViewModel.stopListeners()
+                        notificationViewModel.stopListening()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
@@ -685,6 +800,7 @@ fun App() {
                     onLogout = {
                         propertyViewModel.stopAllListeners()
                         tenantViewModel.stopListeners()
+                        notificationViewModel.stopListening()
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
@@ -693,6 +809,7 @@ fun App() {
                             onSuccess = {
                                 propertyViewModel.stopAllListeners()
                                 tenantViewModel.stopListeners()
+                                notificationViewModel.stopListening()
                                 navController.navigate(NavRoutes.INTRO) { popUpTo(0) { inclusive = true } }
                             },
                             onError = { error ->

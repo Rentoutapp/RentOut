@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brokerage Top-up Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+  <div class="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+    <div class="bg-gradient-to-r from-blue-700 to-indigo-700 p-6 text-white">
+      <div class="text-sm uppercase tracking-[0.25em] opacity-80">Demo Payment Mode</div>
+      <h1 class="text-3xl font-extrabold mt-2">Fake PesePay Top-up</h1>
+      <p class="text-blue-100 mt-2">Use this page to simulate a brokerage float payment before real PesePay is connected.</p>
+    </div>
+    <div class="p-6 space-y-6">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+          <div class="text-xs text-slate-500 uppercase tracking-wide">Brokerage</div>
+          <div id="brokerage-name" class="text-lg font-bold text-slate-800 mt-1">—</div>
+        </div>
+        <div class="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+          <div class="text-xs text-slate-500 uppercase tracking-wide">Top-up amount</div>
+          <div id="topup-amount" class="text-lg font-bold text-slate-800 mt-1">—</div>
+        </div>
+      </div>
+      <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-amber-800 text-sm">
+        This is fake money for testing only. No real funds will be charged.
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button id="success-btn" class="rounded-2xl bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-5">✅ Simulate Successful Payment</button>
+        <button id="failed-btn" class="rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold py-4 px-5">❌ Simulate Failed Payment</button>
+      </div>
+      <div id="status-box" class="hidden rounded-2xl p-4 text-sm font-medium"></div>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('requestId') || '';
+    const amountUsd = params.get('amountUsd') || '0';
+    const company = params.get('company') || 'Brokerage';
+    document.getElementById('brokerage-name').textContent = company;
+    document.getElementById('topup-amount').textContent = `$${Number(amountUsd).toFixed(2)} USD`;
+
+    async function complete(status) {
+      const box = document.getElementById('status-box');
+      box.className = 'rounded-2xl p-4 text-sm font-medium bg-slate-100 text-slate-700';
+      box.textContent = 'Processing simulated payment...';
+      box.classList.remove('hidden');
+      try {
+        const url = `https://us-central1-rentout-12239.cloudfunctions.net/completeBrokerageTopUp?requestId=${encodeURIComponent(requestId)}&status=${encodeURIComponent(status)}`;
+        const res = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Simulation failed');
+        box.className = `rounded-2xl p-4 text-sm font-medium ${status === 'SUCCESS' ? 'bg-green-50 text-green-700' : 'bg-rose-50 text-rose-700'}`;
+        box.textContent = status === 'SUCCESS'
+          ? 'Simulated payment succeeded. You can return to the app and the brokerage float should update shortly.'
+          : 'Simulated payment failed. Return to the app to retry.';
+      } catch (e) {
+        box.className = 'rounded-2xl p-4 text-sm font-medium bg-rose-50 text-rose-700';
+        box.textContent = e.message || 'Simulation failed.';
+      }
+    }
+
+    document.getElementById('success-btn').onclick = () => complete('SUCCESS');
+    document.getElementById('failed-btn').onclick = () => complete('FAILED');
+  </script>
+</body>
+</html>

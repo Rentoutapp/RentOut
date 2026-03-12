@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tenant Payment Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+  <div class="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+    <div class="bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white">
+      <div class="text-sm uppercase tracking-[0.25em] opacity-80">Demo Payment Mode</div>
+      <h1 class="text-3xl font-extrabold mt-2">Fake PesePay Unlock</h1>
+      <p class="text-emerald-100 mt-2">This page represents the fake checkout used while testing unlock flows without real money.</p>
+    </div>
+    <div class="p-6 space-y-5">
+      <div class="rounded-2xl bg-slate-50 p-4 border border-slate-200">
+        <div class="text-xs text-slate-500 uppercase tracking-wide">Status</div>
+        <div class="text-lg font-bold text-slate-800 mt-1">Payment already simulated by the backend</div>
+      </div>
+      <div class="rounded-2xl bg-blue-50 border border-blue-100 p-4 text-blue-800 text-sm">
+        In demo mode, tenant unlock payments are auto-confirmed by Cloud Functions, so no real gateway interaction happens here.
+      </div>
+      <div class="text-sm text-slate-600 leading-6">
+        You can now return to the app. The property unlock, transaction record, brokerage deduction, and ledger logic should already have been applied.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

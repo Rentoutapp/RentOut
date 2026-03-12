@@ -208,7 +208,14 @@ class TenantViewModel : ViewModel() {
                     status = statusValue,
                     paymentProvider = providerValue,
                     paymentReference = referenceValue,
-                    createdAt = createdAtValue
+                    createdAt = createdAtValue,
+                    providerSubtype = try { doc.get<String>("providerSubtype") } catch (_: Exception) { "" },
+                    brokerageDeductionAmount = try { doc.get<Double>("brokerageDeductionAmount") } catch (_: Exception) { 0.0 },
+                    brokerageFloatBefore = try { doc.get<Double>("brokerageFloatBefore") } catch (_: Exception) { 0.0 },
+                    brokerageFloatAfter = try { doc.get<Double>("brokerageFloatAfter") } catch (_: Exception) { 0.0 },
+                    brokerageLedgerEntryId = try { doc.get<String>("brokerageLedgerEntryId") } catch (_: Exception) { "" },
+                    brokerageSettlementStatus = try { doc.get<String>("brokerageSettlementStatus") } catch (_: Exception) { "" },
+                    brokerageStatusMessage = try { doc.get<String>("brokerageStatusMessage") } catch (_: Exception) { "" }
                 )
                 println(
                     "✅ Parsed tx ${transaction.id}: \$${transaction.amount} ${transaction.currency} [${transaction.status}] createdAt=${transaction.createdAt}"
@@ -308,7 +315,7 @@ class TenantViewModel : ViewModel() {
                 // returns demoMode=true. Trust this response immediately — do NOT wait
                 // for Firestore confirmation (App Check latency blocks list queries).
                 @Suppress("UNCHECKED_CAST")
-                val resultData = result.data as? Map<String, Any?>
+                val resultData = try { result.data<Map<String, Any?>>() } catch (_: Exception) { null }
                 val isDemoMode      = resultData?.get("demoMode")      as? Boolean ?: false
                 val alreadyUnlocked = resultData?.get("alreadyUnlocked") as? Boolean ?: false
                 val cfSuccess       = resultData?.get("success")       as? Boolean ?: false
@@ -370,7 +377,7 @@ class TenantViewModel : ViewModel() {
                             val cfConfirm = Firebase.functions.httpsCallable("confirmPayment")
                             val cfResult  = cfConfirm.invoke(mapOf("propertyId" to property.id))
                             @Suppress("UNCHECKED_CAST")
-                            val cfData = cfResult.data as? Map<String, Any?>
+                            val cfData = try { cfResult.data<Map<String, Any?>>() } catch (_: Exception) { null }
                             if (cfData?.get("confirmed") as? Boolean == true) {
                                 unlocked = true
                                 println("✅ TenantViewModel: Unlock confirmed via confirmPayment CF (attempt ${attempt + 1})")

@@ -9,11 +9,11 @@
   <title>RentOut Admin — Dashboard</title>
   
   <!-- Favicons -->
-  <link rel="icon" type="image/x-icon" href="/admin/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/admin/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/admin/favicon-16x16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon.png">
-  <link rel="manifest" href="/admin/site.webmanifest">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   
   <!-- Landscape Orientation Enforcer -->
   <script src="landscape-enforcer.js"></script>
@@ -34,6 +34,8 @@
     @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
     @keyframes countUp { from{opacity:0;transform:scale(0.7)} to{opacity:1;transform:scale(1)} }
     @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes notifPop { 0%{opacity:0;transform:translateY(8px) scale(0.97)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes pulse-dot { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.7} }
     .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
     .count-up   { animation: countUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards; }
     .spinner    { animation: spin 0.9s linear infinite; }
@@ -43,6 +45,103 @@
     .nav-link { transition: all 0.2s ease; }
     .nav-link:hover { background: rgba(255,255,255,0.15); transform: translateX(4px); }
     .nav-link.active { background: rgba(255,255,255,0.2); font-weight: 700; }
+
+    /* ── Notification panel ───────────────────────────── */
+    #notif-panel { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+    /* Scrollbar */
+    #notif-list::-webkit-scrollbar { width: 3px; }
+    #notif-list::-webkit-scrollbar-track { background: transparent; }
+    #notif-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+
+    /* Tabs */
+    .notif-tab { font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: 20px; cursor: pointer; transition: all 0.15s; color: rgba(255,255,255,0.6); background: transparent; border: none; white-space: nowrap; }
+    .notif-tab:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .notif-tab.active { background: rgba(255,255,255,0.22); color: #fff; }
+
+    /* Section headers */
+    .notif-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px 6px;
+      position: sticky; top: 0; z-index: 2;
+      backdrop-filter: blur(8px);
+    }
+    .notif-section-label {
+      font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+      text-transform: uppercase; display: flex; align-items: center; gap: 6px;
+    }
+    .notif-section-count {
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 20px; min-width: 22px; text-align: center;
+    }
+
+    /* Notification card */
+    .notif-card {
+      margin: 0 8px 6px;
+      border-radius: 14px;
+      overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.15s;
+      cursor: pointer;
+    }
+    .notif-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.09); transform: translateY(-1px); }
+    .notif-card-inner {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 12px 8px;
+    }
+    .notif-icon {
+      width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 15px;
+    }
+    .notif-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .notif-title { font-size: 11.5px; font-weight: 700; color: #111827; line-height: 1.3; }
+    .notif-msg-preview { font-size: 10.5px; color: #6b7280; line-height: 1.45; margin-top: 2px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .notif-expanded-body {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.25s ease;
+      opacity: 0;
+    }
+    .notif-expanded-body.open { max-height: 200px; opacity: 1; }
+    .notif-expanded-inner { padding: 8px 12px 10px 56px; border-top: 1px solid #f3f4f6; }
+    .notif-expanded-text { font-size: 11px; color: #374151; line-height: 1.6; }
+    .notif-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .notif-action-btn {
+      font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 8px;
+      border: none; cursor: pointer; transition: all 0.15s; letter-spacing: 0.01em;
+    }
+    .notif-meta { display: flex; align-items: center; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+    .notif-tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.02em; }
+    .notif-time { font-size: 10px; color: #9ca3af; margin-left: auto; white-space: nowrap; }
+
+    /* Read transition animation */
+    @keyframes notifSlideRead {
+      0%  { opacity:1; transform:translateX(0) scale(1); max-height:200px; }
+      40% { opacity:0.4; transform:translateX(30px) scale(0.97); }
+      100%{ opacity:0; transform:translateX(60px) scale(0.95); max-height:0; padding:0; margin:0; }
+    }
+    .notif-reading { animation: notifSlideRead 0.42s cubic-bezier(0.4,0,1,1) forwards; pointer-events:none; }
+    @keyframes notifAppear {
+      0%  { opacity:0; transform:translateX(40px) scale(0.95); }
+      100%{ opacity:1; transform:translateX(0)    scale(1);    }
+    }
+    .notif-appear { animation: notifAppear 0.36s cubic-bezier(0,0,0.2,1.2) forwards; }
+
+    /* Shimmer */
+    .notif-shimmer {
+      height: 64px; margin: 0 8px 6px; border-radius: 14px;
+      background: linear-gradient(90deg, #f8fafc 25%, #f1f5f9 50%, #f8fafc 75%);
+      background-size: 200% 100%; animation: shimmer 1.3s infinite;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Empty state */
+    .notif-empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 48px 24px; gap: 10px; text-align: center;
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex">
@@ -81,12 +180,100 @@
         <span>💳</span> Transactions
       </a>
     </nav>
+    <!-- Notification Bell -->
+    <div class="px-4 pb-2 relative">
+      <button onclick="toggleNotifPanel()" id="notif-bell-btn"
+        class="btn w-full flex items-center gap-3 text-white px-4 py-3 rounded-xl text-sm bg-white bg-opacity-10 hover:bg-opacity-20 relative">
+        <span>🔔</span>
+        <span>Notifications</span>
+        <span id="notif-badge" class="hidden ml-auto bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1 animate-pulse"></span>
+      </button>
+    </div>
     <div class="p-4 border-t border-white border-opacity-20">
       <button onclick="logout()" class="btn w-full text-white text-sm py-2 px-4 rounded-xl bg-white bg-opacity-10 hover:bg-opacity-20">
         🚪 Sign Out
       </button>
     </div>
   </aside>
+
+  <!-- Notification Panel — slides in from RIGHT -->
+  <div id="notif-panel" class="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-white"
+       style="width:390px;max-width:100vw;box-shadow:-12px 0 48px rgba(0,0,0,0.14);transform:translateX(100%);transition:transform 0.32s cubic-bezier(0.4,0,0.2,1);">
+
+    <!-- Header gradient -->
+    <div style="background:linear-gradient(140deg,#0d1f6e 0%,#1B4FFF 55%,#4f7cff 100%);flex-shrink:0;">
+      <div style="padding:16px 14px 0;">
+        <!-- Title row -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div style="width:34px;height:34px;background:rgba(255,255,255,0.14);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🔔</div>
+            <div>
+              <div style="color:#fff;font-size:15px;font-weight:800;letter-spacing:-0.02em;line-height:1.2;">Notifications</div>
+              <div id="notif-panel-subtitle" style="color:rgba(255,255,255,0.6);font-size:10px;margin-top:1px;">Loading…</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button onclick="markAllNotifsRead()" id="mark-all-btn"
+              style="display:none;font-size:10px;font-weight:700;color:#fff;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);border-radius:8px;padding:5px 11px;cursor:pointer;transition:all 0.15s;">
+              ✓ Mark all read
+            </button>
+            <button onclick="clearAllNotifs()" id="clear-all-btn"
+              style="display:none;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);background:transparent;border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:5px 10px;cursor:pointer;transition:all 0.15s;"
+              title="Delete all notifications">
+              🗑 Clear all
+            </button>
+            <button onclick="toggleNotifPanel()"
+              style="width:30px;height:30px;background:rgba(255,255,255,0.13);border:none;border-radius:9px;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background 0.15s;">
+              &times;
+            </button>
+          </div>
+        </div>
+
+        <!-- Stats strip -->
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:7px 6px;text-align:center;">
+            <div id="ns-total-val" style="color:#fff;font-size:17px;font-weight:800;line-height:1;">—</div>
+            <div style="color:rgba(255,255,255,0.5);font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;">Total</div>
+          </div>
+          <div style="flex:1;background:rgba(239,68,68,0.25);border-radius:10px;padding:7px 6px;text-align:center;border:1px solid rgba(239,68,68,0.4);">
+            <div id="ns-unread-val" style="color:#fca5a5;font-size:17px;font-weight:800;line-height:1;">—</div>
+            <div style="color:rgba(252,165,165,0.7);font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;">Unread</div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:7px 6px;text-align:center;">
+            <div id="ns-read-val" style="color:#6ee7b7;font-size:17px;font-weight:800;line-height:1;">—</div>
+            <div style="color:rgba(110,231,183,0.6);font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;">Read</div>
+          </div>
+          <div style="flex:1;background:rgba(255,255,255,0.1);border-radius:10px;padding:7px 6px;text-align:center;">
+            <div id="ns-today-val" style="color:#fde68a;font-size:17px;font-weight:800;line-height:1;">—</div>
+            <div style="color:rgba(253,230,138,0.6);font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;margin-top:2px;">Today</div>
+          </div>
+        </div>
+
+        <!-- Filter tabs -->
+        <div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:1px;">
+          <button class="notif-tab active" id="ntab-all"     onclick="filterNotifs('all')">All</button>
+          <button class="notif-tab"        id="ntab-unread"  onclick="filterNotifs('unread')">🔴 Unread</button>
+          <button class="notif-tab"        id="ntab-read"    onclick="filterNotifs('read')">✅ Read</button>
+          <button class="notif-tab"        id="ntab-payment" onclick="filterNotifs('payment')">💳 Payments</button>
+          <button class="notif-tab"        id="ntab-listing" onclick="filterNotifs('listing')">🏠 Listings</button>
+        </div>
+      </div>
+      <!-- Bottom fade -->
+      <div style="height:8px;background:linear-gradient(to bottom,transparent,rgba(0,0,0,0.06));"></div>
+    </div>
+
+    <!-- Notification list body -->
+    <div id="notif-list" style="flex:1;overflow-y:auto;padding:6px 0 20px;">
+      <div class="notif-shimmer"></div>
+      <div class="notif-shimmer" style="opacity:0.7;"></div>
+      <div class="notif-shimmer" style="opacity:0.4;"></div>
+    </div>
+  </div>
+
+  <!-- Backdrop -->
+  <div id="notif-backdrop" class="fixed inset-0 z-40 hidden"
+       style="background:rgba(15,20,60,0.28);backdrop-filter:blur(3px);"
+       onclick="toggleNotifPanel()"></div>
 
   <!-- Main content -->
   <main class="flex-1 ml-64 p-8">
@@ -161,35 +348,89 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 fade-in-up" style="animation-delay:0.2s">
-        <h2 class="text-lg font-bold text-gray-800 mb-4">📈 Platform Overview</h2>
-        <div class="space-y-4">
-          <div>
-            <div class="flex justify-between text-sm mb-1">
-              <span class="text-gray-600">Approved Properties</span>
-              <span class="font-semibold text-success" id="overview-approved">—</span>
+      <div class="space-y-6 fade-in-up" style="animation-delay:0.2s">
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">📈 Platform Overview</h2>
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Approved Properties</span>
+                <span class="font-semibold text-success" id="overview-approved">—</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div id="bar-approved" class="bg-success h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+              </div>
             </div>
-            <div class="w-full bg-gray-100 rounded-full h-2">
-              <div id="bar-approved" class="bg-success h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Pending Review</span>
+                <span class="font-semibold text-warning" id="overview-pending">—</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div id="bar-pending" class="bg-warning h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Total Unlocks</span>
+                <span class="font-semibold text-primary" id="overview-unlocks">—</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div id="bar-unlocks" class="bg-primary h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+              </div>
             </div>
           </div>
-          <div>
-            <div class="flex justify-between text-sm mb-1">
-              <span class="text-gray-600">Pending Review</span>
-              <span class="font-semibold text-warning" id="overview-pending">—</span>
+        </div>
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">🏢 Brokerage Finance</h2>
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="rounded-xl bg-purple-50 p-4 border border-purple-100">
+              <div class="text-xs text-purple-600 font-semibold uppercase tracking-wide">Brokerages</div>
+              <div id="brokerage-count" class="text-2xl font-extrabold text-purple-800 mt-1">—</div>
             </div>
-            <div class="w-full bg-gray-100 rounded-full h-2">
-              <div id="bar-pending" class="bg-warning h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+            <div class="rounded-xl bg-red-50 p-4 border border-red-100">
+              <div class="text-xs text-red-600 font-semibold uppercase tracking-wide">At risk / frozen</div>
+              <div id="brokerage-risk" class="text-2xl font-extrabold text-red-700 mt-1">—</div>
+            </div>
+            <div class="rounded-xl bg-blue-50 p-4 border border-blue-100">
+              <div class="text-xs text-blue-600 font-semibold uppercase tracking-wide">Total float</div>
+              <div id="brokerage-float-total" class="text-2xl font-extrabold text-blue-700 mt-1">—</div>
+            </div>
+            <div class="rounded-xl bg-amber-50 p-4 border border-amber-100">
+              <div class="text-xs text-amber-600 font-semibold uppercase tracking-wide">RentOut deductions</div>
+              <div id="brokerage-deductions" class="text-2xl font-extrabold text-amber-700 mt-1">—</div>
             </div>
           </div>
-          <div>
-            <div class="flex justify-between text-sm mb-1">
-              <span class="text-gray-600">Total Unlocks</span>
-              <span class="font-semibold text-primary" id="overview-unlocks">—</span>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Frozen brokerages</span>
+                <span class="font-semibold text-red-600" id="brokerage-risk-label">—</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div id="bar-brokerage-risk" class="bg-red-500 h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+              </div>
             </div>
-            <div class="w-full bg-gray-100 rounded-full h-2">
-              <div id="bar-unlocks" class="bg-primary h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-600">Average float health</span>
+                <span class="font-semibold text-purple-700" id="brokerage-health-label">—</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div id="bar-brokerage-health" class="bg-purple-500 h-2 rounded-full transition-all duration-700" style="width:0%"></div>
+              </div>
             </div>
+          </div>
+          <div class="mt-6 border-t border-gray-100 pt-5">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h3 class="font-bold text-gray-800">Brokerage trend analytics</h3>
+                <p class="text-xs text-gray-500 mt-1">Last 6 finance events across all brokerages</p>
+              </div>
+              <span id="brokerage-trend-summary" class="text-xs font-semibold px-3 py-1 rounded-full bg-purple-50 text-purple-700">—</span>
+            </div>
+            <div id="brokerage-trend-bars" class="grid grid-cols-6 gap-2 items-end h-32 mb-3"></div>
+            <div id="brokerage-trend-labels" class="grid grid-cols-6 gap-2 text-[11px] text-gray-400"></div>
           </div>
         </div>
       </div>
@@ -198,7 +439,7 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getFirestore, collection, getDocs, doc, getDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getFirestore, collection, getDocs, doc, getDoc, query, where, orderBy, limit, onSnapshot, updateDoc, writeBatch } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
     import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
     const firebaseConfig = {
@@ -240,6 +481,12 @@
         }
         // ✅ Confirmed admin — remove overlay and load data
         document.getElementById('auth-overlay').remove();
+        window.db = db;
+        window.__fsHelpers = { collection, query, orderBy, limit, onSnapshot, updateDoc, writeBatch, doc,
+          deleteDoc: async (ref) => { const { deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js'); return deleteDoc(ref); },
+          getDocs, getDoc, where };
+        if (window.NP) NP.init();
+        startNotifListener(user.uid);
         await loadStats();
       });
     }
@@ -250,24 +497,379 @@
       window.location.replace('index.html');
     };
 
+    // ── Notification Panel ────────────────────────────────────────────────────
+
+    let notifPanelOpen = false;
+    let allNotifications = [];
+    let notifUnsubscribe = null;
+    let activeFilter = 'all';
+
+    window.toggleNotifPanel = function() {
+      notifPanelOpen = !notifPanelOpen;
+      const panel    = document.getElementById('notif-panel');
+      const backdrop = document.getElementById('notif-backdrop');
+      if (notifPanelOpen) {
+        panel.style.transform = 'translateX(0)';
+        backdrop.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+      } else {
+        panel.style.transform = 'translateX(100%)';
+        backdrop.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+    };
+
+    window.filterNotifs = function(filter) {
+      activeFilter = filter;
+      ['all','unread','read','payment','listing'].forEach(f => {
+        const el = document.getElementById('ntab-' + f);
+        if (el) el.classList.toggle('active', f === filter);
+      });
+      applyNotifFilter();
+    };
+
+    function applyNotifFilter() {
+      let filtered = allNotifications;
+      if (activeFilter === 'unread') filtered = allNotifications.filter(n => !n.isRead);
+      else if (activeFilter === 'read') filtered = allNotifications.filter(n => n.isRead);
+      else if (activeFilter === 'payment') filtered = allNotifications.filter(n => ['payment_confirmed','unlock_success','property_unlocked'].includes(n.type));
+      else if (activeFilter === 'listing') filtered = allNotifications.filter(n => ['listing_approved','listing_rejected','listing_pending','listing_flagged','property_updated','property_removed'].includes(n.type));
+      renderNotifList(filtered);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && notifPanelOpen) toggleNotifPanel();
+    });
+
+    // ── Timestamp fix: handle Firestore Timestamp object, epoch seconds, epoch millis ──
+    function resolveTimestamp(raw) {
+      if (!raw) return 0;
+      // Firestore Timestamp object from JS SDK  { seconds, nanoseconds }
+      if (typeof raw === 'object' && raw !== null && typeof raw.seconds === 'number') {
+        return raw.seconds * 1000 + Math.floor((raw.nanoseconds || 0) / 1e6);
+      }
+      // Already a number
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n <= 0) return 0;
+      // If stored as Unix seconds (< year 3000 in seconds ≈ 32503680000)
+      if (n < 1e12) return n * 1000;
+      // Already milliseconds
+      return n;
+    }
+
+    function startNotifListener(adminUid) {
+      const q = query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(50));
+      notifUnsubscribe = onSnapshot(q, { includeMetadataChanges: false }, (snap) => {
+        allNotifications = snap.docs.map(d => {
+          const data = d.data();
+          return { id: d.id, ...data, _ts: resolveTimestamp(data.createdAt) };
+        });
+        recomputeAndRender();
+      }, (err) => { console.warn('Notification listener error:', err); });
+    }
+
+    function recomputeAndRender() {
+      const unread    = allNotifications.filter(n => !n.isRead).length;
+      const readCount = allNotifications.filter(n =>  n.isRead).length;
+      const total     = allNotifications.length;
+      const now       = new Date();
+      const todayCount = allNotifications.filter(n => new Date(n._ts).toDateString() === now.toDateString()).length;
+      updateBadge(unread, readCount, total, todayCount);
+      applyNotifFilter();
+    }
+
+    function updateBadge(unread, readCount, total, today) {
+      const badge = document.getElementById('notif-badge');
+      if (unread > 0) {
+        badge.textContent = unread > 99 ? '99+' : unread;
+        badge.classList.remove('hidden');
+      } else { badge.classList.add('hidden'); }
+
+      const subtitle = document.getElementById('notif-panel-subtitle');
+      if (subtitle) subtitle.textContent = unread > 0 ? `${unread} unread · ${readCount} read` : 'All caught up ✓';
+
+      const markAllBtn = document.getElementById('mark-all-btn');
+      const clearAllBtn = document.getElementById('clear-all-btn');
+      if (markAllBtn) markAllBtn.style.display = unread > 0 ? 'inline-block' : 'none';
+      if (clearAllBtn) clearAllBtn.style.display = total > 0 ? 'inline-block' : 'none';
+
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v ?? '—'; };
+      setVal('ns-total-val', total);
+      setVal('ns-unread-val', unread);
+      setVal('ns-read-val', readCount);
+      setVal('ns-today-val', today);
+    }
+
+    function typeEmoji(type) {
+      const map = {
+        listing_approved: '✅', listing_rejected: '❌', listing_pending: '⏳',
+        listing_flagged: '🚩',  property_unlocked: '🔓', account_suspended: '🚫',
+        unlock_success: '🔑',   payment_confirmed: '💳', property_updated: '✏️',
+        property_removed: '🗑', welcome: '👋', system: '🔔'
+      };
+      return map[type] || '🔔';
+    }
+
+    function typeColor(type) {
+      if (['listing_approved','unlock_success','payment_confirmed'].includes(type)) return '#10b981';
+      if (['listing_rejected','property_removed','account_suspended'].includes(type)) return '#ef4444';
+      if (type === 'listing_pending')  return '#f59e0b';
+      if (type === 'listing_flagged')  return '#f97316';
+      if (type === 'property_unlocked') return '#8b5cf6';
+      if (type === 'property_updated') return '#3b82f6';
+      if (type === 'welcome') return '#06b6d4';
+      return '#94a3b8';
+    }
+
+    function typeLabel(type) {
+      const map = {
+        listing_approved: 'Approved', listing_rejected: 'Rejected', listing_pending: 'Pending',
+        listing_flagged: 'Flagged',   property_unlocked: 'Unlocked', account_suspended: 'Suspended',
+        unlock_success: 'Unlock',     payment_confirmed: 'Payment',  property_updated: 'Updated',
+        property_removed: 'Removed',  welcome: 'Welcome', system: 'System'
+      };
+      return map[type] || type || 'Notice';
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '—';
+      const diff = Date.now() - ts;
+      if (diff < 0) return 'Just now';
+      const m = Math.floor(diff / 60000);
+      const h = Math.floor(diff / 3600000);
+      const d = Math.floor(diff / 86400000);
+      if (m < 1)  return 'Just now';
+      if (m < 60) return `${m}m ago`;
+      if (h < 24) return `${h}h ago`;
+      if (d === 1) return 'Yesterday';
+      if (d < 7)  return `${d}d ago`;
+      if (d < 30) return `${Math.floor(d/7)}w ago`;
+      return new Date(ts).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    }
+
+    let expandedNotifId = null;
+
+    function renderNotifList(notifs) {
+      const list = document.getElementById('notif-list');
+      if (!list) return;
+
+      const unread = notifs.filter(n => !n.isRead);
+      const read   = notifs.filter(n =>  n.isRead);
+
+      if (notifs.length === 0) {
+        const emptyMsgs = { all:'Nothing here yet', unread:'No unread notifications', read:'No read notifications', payment:'No payment notifications', listing:'No listing notifications' };
+        list.innerHTML = `<div class="notif-empty">
+          <div style="font-size:36px;margin-bottom:4px;">${activeFilter === 'unread' ? '🎉' : '🔕'}</div>
+          <div style="font-size:13px;font-weight:700;color:#374151;">${emptyMsgs[activeFilter] || 'Nothing here'}</div>
+          <div style="font-size:11px;color:#94a3b8;line-height:1.6;max-width:200px;">${activeFilter === 'unread' ? 'You\'re all caught up! Check back later.' : 'Notifications will appear here.'}</div>
+        </div>`;
+        return;
+      }
+
+      let html = '';
+
+      if (activeFilter !== 'read' && unread.length > 0) {
+        html += `<div class="notif-section-header" style="background:rgba(255,245,245,0.92);">
+          <div class="notif-section-label" style="color:#dc2626;">
+            <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;animation:pulse-dot 2s infinite;"></span>
+            Unread
+          </div>
+          <span class="notif-section-count" style="background:#fee2e2;color:#dc2626;">${unread.length}</span>
+        </div>`;
+        html += unread.map(n => buildNotifCard(n)).join('');
+      }
+
+      if (activeFilter !== 'unread' && read.length > 0) {
+        html += `<div class="notif-section-header" style="background:rgba(240,253,244,0.92);margin-top:${unread.length > 0 ? '8px' : '0'}">
+          <div class="notif-section-label" style="color:#16a34a;">
+            <span style="font-size:12px;">✅</span>
+            Read
+          </div>
+          <span class="notif-section-count" style="background:#dcfce7;color:#16a34a;">${read.length}</span>
+        </div>`;
+        html += read.map(n => buildNotifCard(n)).join('');
+      }
+
+      list.innerHTML = html;
+    }
+
+    function buildNotifCard(n) {
+      const color = typeColor(n.type);
+      const isUnread = !n.isRead;
+      const isExpanded = expandedNotifId === n.id;
+      const bg = isUnread ? `linear-gradient(135deg,${color}08 0%,#fff 100%)` : '#fafafa';
+      const border = isUnread ? `${color}22` : '#f0f0f0';
+
+      return `
+        <div class="notif-card ${isExpanded ? 'notif-appear' : ''}" id="nc-${n.id}"
+          style="background:${bg};border:1px solid ${border};${isUnread ? `box-shadow:0 2px 10px ${color}14;` : ''}">
+          <div class="notif-card-inner" onclick="toggleNotifExpand('${n.id}')">
+            <div class="notif-icon" style="background:${color}15;">${typeEmoji(n.type)}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:5px;">
+                <span class="notif-title" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${n.title || 'Notification'}</span>
+                ${isUnread ? `<div class="notif-dot" style="background:${color};"></div>` : ''}
+                <span style="font-size:14px;color:#9ca3af;transition:transform 0.25s;display:inline-block;${isExpanded ? 'transform:rotate(180deg)' : ''}">›</span>
+              </div>
+              <div class="notif-msg-preview">${n.message || ''}</div>
+              <div class="notif-meta">
+                <span class="notif-tag" style="background:${color}15;color:${color};">${typeLabel(n.type)}</span>
+                ${n.role ? `<span class="notif-tag" style="background:#f1f5f9;color:#64748b;">${n.role}</span>` : ''}
+                <span class="notif-time">${formatTime(n._ts)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="notif-expanded-body ${isExpanded ? 'open' : ''}" id="neb-${n.id}">
+            <div class="notif-expanded-inner">
+              <div class="notif-expanded-text">${n.message || ''}</div>
+              ${n.propertyTitle ? `<div style="margin-top:6px;font-size:10px;color:#6b7280;">🏠 ${n.propertyTitle}</div>` : ''}
+              ${n.userId ? `<div style="font-size:10px;color:#6b7280;margin-top:2px;">👤 ${n.userName || n.userId}</div>` : ''}
+              <div class="notif-actions">
+                ${isUnread ? `<button class="notif-action-btn" style="background:#dbeafe;color:#1d4ed8;" onclick="event.stopPropagation();markNotifRead('${n.id}')">✓ Mark read</button>` : `<button class="notif-action-btn" style="background:#f1f5f9;color:#64748b;" onclick="event.stopPropagation();markNotifUnread('${n.id}')">↩ Mark unread</button>`}
+                <button class="notif-action-btn" style="background:#fee2e2;color:#dc2626;" onclick="event.stopPropagation();deleteNotif('${n.id}')">🗑 Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    window.toggleNotifExpand = function(notifId) {
+      const prev = expandedNotifId;
+      expandedNotifId = expandedNotifId === notifId ? null : notifId;
+
+      // Collapse previous
+      if (prev && prev !== notifId) {
+        const prevBody = document.getElementById('neb-' + prev);
+        if (prevBody) prevBody.classList.remove('open');
+      }
+
+      // Toggle current
+      const body = document.getElementById('neb-' + notifId);
+      if (body) body.classList.toggle('open', expandedNotifId === notifId);
+    };
+
+    window.markNotifRead = async function(notifId) {
+      // 1. Optimistic local update — instant badge/count sync before Firestore confirms
+      const idx = allNotifications.findIndex(n => n.id === notifId);
+      if (idx !== -1 && !allNotifications[idx].isRead) {
+        allNotifications[idx] = { ...allNotifications[idx], isRead: true };
+        recomputeAndRender();
+      }
+      // 2. Animate card out
+      const card = document.getElementById('nc-' + notifId);
+      if (card) {
+        card.classList.add('notif-reading');
+        await new Promise(r => setTimeout(r, 420));
+      }
+      // 3. Persist to Firestore
+      try {
+        await updateDoc(doc(db, 'notifications', notifId), { isRead: true });
+        if (expandedNotifId === notifId) expandedNotifId = null;
+      } catch(e) {
+        // Rollback optimistic update on failure
+        console.warn('markNotifRead error:', e);
+        if (idx !== -1) {
+          allNotifications[idx] = { ...allNotifications[idx], isRead: false };
+          recomputeAndRender();
+        }
+      }
+    };
+
+    window.markNotifUnread = async function(notifId) {
+      // Optimistic local update
+      const idx = allNotifications.findIndex(n => n.id === notifId);
+      if (idx !== -1 && allNotifications[idx].isRead) {
+        allNotifications[idx] = { ...allNotifications[idx], isRead: false };
+        recomputeAndRender();
+      }
+      try {
+        await updateDoc(doc(db, 'notifications', notifId), { isRead: false });
+        if (expandedNotifId === notifId) expandedNotifId = null;
+      } catch(e) {
+        console.warn('markNotifUnread error:', e);
+        if (idx !== -1) {
+          allNotifications[idx] = { ...allNotifications[idx], isRead: true };
+          recomputeAndRender();
+        }
+      }
+    };
+
+    window.deleteNotif = async function(notifId) {
+      const { deleteDoc: delDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      const card = document.getElementById('nc-' + notifId);
+      if (card) { card.classList.add('notif-reading'); await new Promise(r => setTimeout(r, 420)); }
+      try {
+        await delDoc(doc(db, 'notifications', notifId));
+        if (expandedNotifId === notifId) expandedNotifId = null;
+      } catch(e) { console.warn('deleteNotif error:', e); }
+    };
+
+    window.clearAllNotifs = async function() {
+      if (!allNotifications.length) return;
+      if (!confirm(`Delete all ${allNotifications.length} notifications? This cannot be undone.`)) return;
+      const { deleteDoc: delDoc2 } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      const batch = writeBatch(db);
+      allNotifications.forEach(n => batch.delete(doc(db, 'notifications', n.id)));
+      expandedNotifId = null;
+      try { await batch.commit(); } catch(e) { console.warn('clearAll error:', e); }
+    };
+
+    window.markAllNotifsRead = async function() {
+      const unread = allNotifications.filter(n => !n.isRead);
+      if (unread.length === 0) return;
+      // Optimistic local update — badge drops to 0 instantly
+      allNotifications = allNotifications.map(n => ({ ...n, isRead: true }));
+      expandedNotifId = null;
+      recomputeAndRender();
+      const batch = writeBatch(db);
+      unread.forEach(n => batch.update(doc(db, 'notifications', n.id), { isRead: true }));
+      try { await batch.commit(); } catch(e) {
+        console.warn('markAllRead error:', e);
+        // Rollback
+        allNotifications = allNotifications.map(n =>
+          unread.find(u => u.id === n.id) ? { ...n, isRead: false } : n
+        );
+        recomputeAndRender();
+      }
+    };
+
     async function loadStats() {
       try {
-        const [propsSnap, usersSnap, txSnap] = await Promise.all([
+        const [propsSnap, usersSnap, txSnap, ledgerSnap] = await Promise.all([
           getDocs(collection(db, 'properties')),
           getDocs(collection(db, 'users')),
-          getDocs(query(collection(db, 'transactions'), where('status', '==', 'success')))
+          getDocs(query(collection(db, 'transactions'), where('status', '==', 'success'))),
+          getDocs(collection(db, 'brokerage_float_ledger'))
         ]);
 
         const props    = propsSnap.docs.map(d => d.data());
+        const users    = usersSnap.docs.map(d => d.data());
         const pending  = props.filter(p => p.status === 'pending').length;
         const approved = props.filter(p => p.status === 'approved').length;
         const rejected = props.filter(p => p.status === 'rejected').length;
         const revenue  = txSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
         const unlocks  = txSnap.size;
+        const brokerages = users.filter(u => u.role === 'landlord' && u.providerSubtype === 'brokerage');
+        const frozenBrokerages = brokerages.filter(u => u.brokerageIsFrozen === true || Number(u.brokerageFloatBalanceUsd || 0) < Number(u.brokerageMinimumFloatUsd || 40));
+        const totalBrokerageFloat = brokerages.reduce((s, u) => s + Number(u.brokerageFloatBalanceUsd || 0), 0);
+        const ledgerEntries = ledgerSnap.docs.map(d => d.data()).sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+        const totalBrokerageDeductions = ledgerEntries
+          .filter(l => l.direction === 'debit')
+          .reduce((s, l) => s + Number(l.amount || 0), 0);
+        const averageHealth = brokerages.length
+          ? brokerages.reduce((s, u) => s + Math.min((Number(u.brokerageFloatBalanceUsd || 0) / Math.max(Number(u.brokerageSubscriptionFeeUsd || 100), 1)) * 100, 100), 0) / brokerages.length
+          : 0;
+        const brokerageTrend = ledgerEntries.slice(-6);
 
         renderStats({
           properties: props.length, pending, approved, rejected,
-          users: usersSnap.size, revenue, unlocks
+          users: usersSnap.size, revenue, unlocks,
+          brokerageCount: brokerages.length,
+          brokerageRisk: frozenBrokerages.length,
+          brokerageFloatTotal: totalBrokerageFloat,
+          brokerageDeductions: totalBrokerageDeductions,
+          brokerageHealth: averageHealth,
+          brokerageTrend
         });
       } catch (e) {
         console.error('Firestore unavailable:', e); document.getElementById('stat-properties').textContent = 'Error';
@@ -284,13 +886,35 @@
       document.getElementById('overview-approved').textContent = s.approved;
       document.getElementById('overview-pending').textContent  = s.pending;
       document.getElementById('overview-unlocks').textContent  = s.unlocks;
+      document.getElementById('brokerage-count').textContent = s.brokerageCount;
+      document.getElementById('brokerage-risk').textContent = s.brokerageRisk;
+      document.getElementById('brokerage-float-total').textContent = `$${s.brokerageFloatTotal.toFixed(2)}`;
+      document.getElementById('brokerage-deductions').textContent = `$${s.brokerageDeductions.toFixed(2)}`;
+      document.getElementById('brokerage-risk-label').textContent = `${s.brokerageRisk} / ${s.brokerageCount || 0}`;
+      document.getElementById('brokerage-health-label').textContent = `${s.brokerageHealth.toFixed(0)}%`;
+
+      const trendBars = document.getElementById('brokerage-trend-bars');
+      const trendLabels = document.getElementById('brokerage-trend-labels');
+      const trend = s.brokerageTrend || [];
+      const maxBalance = Math.max(...trend.map(t => Number(t.balanceAfter || 0)), 100);
+      trendBars.innerHTML = trend.map(t => {
+        const height = Math.max((Number(t.balanceAfter || 0) / maxBalance) * 100, 8);
+        const color = t.direction === 'credit' ? 'bg-green-500' : 'bg-red-500';
+        return `<div class="flex flex-col justify-end h-32"><div class="${color} rounded-t-xl" style="height:${height}%"></div></div>`;
+      }).join('') || '<div class="col-span-6 text-sm text-gray-400 flex items-center">No trend data yet</div>';
+      trendLabels.innerHTML = trend.map(t => `<div class="truncate">${(t.type || 'entry').replaceAll('_',' ')}</div>`).join('');
+      document.getElementById('brokerage-trend-summary').textContent = trend.length ? `${trend.length} latest events` : 'No activity';
 
       setTimeout(() => {
         document.getElementById('bar-approved').style.width = `${(s.approved / total * 100).toFixed(0)}%`;
         document.getElementById('bar-pending').style.width  = `${(s.pending  / total * 100).toFixed(0)}%`;
         document.getElementById('bar-unlocks').style.width  = `${Math.min((s.unlocks / 50 * 100), 100).toFixed(0)}%`;
+        document.getElementById('bar-brokerage-risk').style.width = `${s.brokerageCount ? ((s.brokerageRisk / s.brokerageCount) * 100).toFixed(0) : 0}%`;
+        document.getElementById('bar-brokerage-health').style.width = `${Math.min(s.brokerageHealth, 100).toFixed(0)}%`;
       }, 200);
     }
   </script>
+  <script src="notif-panel.js"></script>
+  <script src="notif-logic.js"></script>
 </body>
 </html>

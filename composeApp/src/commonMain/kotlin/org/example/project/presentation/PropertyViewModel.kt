@@ -328,16 +328,34 @@ class PropertyViewModel : ViewModel() {
                 }
 
                 val userDoc         = db.collection("users").document(uid).get()
-                val landlordName    = userDoc.get("name") as? String ?: ""
+                val agentProfileName = userDoc.get("name") as? String ?: ""
                 val providerSubtype = userDoc.get("providerSubtype") as? String ?: ""
                 val companyLogoUrl  = userDoc.get("companyLogoUrl") as? String ?: ""
+                val brokerageIsFrozen = userDoc.get("brokerageIsFrozen") as? Boolean ?: false
+                val brokerageBalance  = userDoc.get("brokerageFloatBalanceUsd") as? Double ?: 0.0
+                val minimumFloat      = userDoc.get("brokerageMinimumFloatUsd") as? Double ?: 40.0
+
+                // For agent listings: the agent manually enters the landlord's name and phone.
+                // We store those in landlordName and contactNumber so tenants see the real landlord.
+                // For landlord/brokerage listings: landlordName = the signed-in user's profile name.
+                val resolvedLandlordName = if (providerSubtype == "agent") {
+                    property.landlordName.ifBlank { agentProfileName }
+                } else {
+                    agentProfileName
+                }
 
                 val finalProperty = property.copy(
                     id                = docRef.id,
                     landlordId        = uid,
-                    landlordName      = landlordName,
+                    landlordName      = resolvedLandlordName,
                     providerSubtype   = providerSubtype,
+                    // For agent listings, contactNumber already holds the landlord's phone
+                    // (set from draft.contact in AddPropertyScreen). Keep it as-is.
                     brokerageLogoUrl  = if (providerSubtype == "brokerage") companyLogoUrl else "",
+                    brokerageUnlockEnabled = providerSubtype != "brokerage" || !brokerageIsFrozen,
+                    brokerageFreezeReason  = if (providerSubtype == "brokerage" && brokerageIsFrozen) {
+                        "Tenant unlocks are temporarily frozen while your insurance float is below $$minimumFloat. Current balance: $$brokerageBalance"
+                    } else "",
                     imageUrl          = imageUrls.firstOrNull() ?: "",
                     imageUrls         = imageUrls,
                     status            = "pending",

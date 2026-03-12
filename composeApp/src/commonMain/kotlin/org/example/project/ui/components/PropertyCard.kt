@@ -34,6 +34,7 @@ fun PropertyCard(
     modifier: Modifier = Modifier,
     showActions: Boolean = false,
     isUnlocked: Boolean = true,          // false = tenant view, address hidden until paid
+    showBillsInfo: Boolean = true,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onToggleAvailability: (() -> Unit)? = null
@@ -281,8 +282,8 @@ fun PropertyCard(
                     if (property.bathrooms > 0) PropertyStat(icon = Icons.Default.Bathtub, label = "${property.bathrooms} Bath", tint = RentOutColors.IconTeal)
                     if (property.locationType.isNotBlank()) PropertyStat(icon = Icons.Default.LocationCity, label = property.locationType, tint = RentOutColors.IconPurple)
                 }
-                // Bills row — inclusive only
-                if (property.billsInclusive.isNotEmpty()) {
+                // Bills row — hidden on tenant dashboard cards
+                if (showBillsInfo && property.billsInclusive.isNotEmpty()) {
                     Spacer(Modifier.height(6.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                         PropertyStat(

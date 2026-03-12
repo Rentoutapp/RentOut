@@ -8,11 +8,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <title>User Details — RentOut Admin</title>  
   <!-- Favicons -->
-  <link rel="icon" type="image/x-icon" href="/admin/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/admin/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/admin/favicon-16x16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/admin/apple-touch-icon.png">
-  <link rel="manifest" href="/admin/site.webmanifest">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   
   <!-- Landscape Orientation Enforcer -->
   <script src="landscape-enforcer.js"></script>
@@ -183,6 +183,18 @@
       <div id="unlocks-list" class="space-y-4"></div>
     </div>
 
+    <!-- Brokerage Finance Section -->
+    <div id="brokerage-finance-section" class="hidden bg-white rounded-2xl shadow-lg p-8 mb-6 fade-in-up">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <span class="text-2xl">🏢</span> Brokerage Finance
+        </h2>
+        <button id="export-brokerage-ledger-btn" class="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">⬇ Export Ledger CSV</button>
+      </div>
+      <div id="brokerage-finance-summary" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"></div>
+      <div id="brokerage-ledger-list" class="space-y-3"></div>
+    </div>
+
     <!-- Transactions Section -->
     <div id="transactions-section" class="bg-white rounded-2xl shadow-lg p-8 fade-in-up">
       <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -235,6 +247,7 @@
 
     const SESSION_KEY = 'rentout_admin_authed';
     let currentUser = null;
+    let currentBrokerageLedger = [];
 
     // Get user ID from URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -282,6 +295,9 @@
         
         if (currentUser.role === 'landlord') {
           await loadProperties();
+          if (currentUser.providerSubtype === 'brokerage') {
+            await loadBrokerageFinance();
+          }
         } else if (currentUser.role === 'tenant') {
           await loadUnlocks();
         }
@@ -437,14 +453,15 @@
 
       if (u.role === 'landlord') {
         const propsSnap = await getDocs(query(collection(db, 'properties'), where('landlordId', '==', userId)));
-        const totalUnlocks = propsSnap.docs.reduce((sum, d) => sum + (d.data().unlockCount || 0), 0);
-        const totalRevenue = propsSnap.docs.reduce((sum, d) => sum + (d.data().unlockCount || 0) * (d.data().price || 0), 0);
+        const txSnap = await getDocs(query(collection(db, 'transactions'), where('landlordId', '==', userId)));
+        const totalUnlocks = txSnap.docs.filter(d => d.data().status === 'success').length;
+        const totalRevenue = txSnap.docs.filter(d => d.data().status === 'success').reduce((sum, d) => sum + (Number(d.data().amount) || 0), 0);
         
         stats = [
           { label: 'Properties', value: propsSnap.size, icon: '🏠', color: 'blue' },
           { label: 'Total Unlocks', value: totalUnlocks, icon: '🔓', color: 'green' },
           { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}`, icon: '💰', color: 'purple' },
-          { label: 'Avg Rating', value: '4.5★', icon: '⭐', color: 'yellow' }
+          { label: u.providerSubtype === 'brokerage' ? 'Float' : 'Avg Rating', value: u.providerSubtype === 'brokerage' ? `$${Number(u.brokerageFloatBalanceUsd || 0).toFixed(2)}` : '4.5★', icon: u.providerSubtype === 'brokerage' ? '🏦' : '⭐', color: 'yellow' }
         ];
       } else if (u.role === 'tenant') {
         const unlocksSnap = await getDocs(query(collection(db, 'unlocks'), where('tenantId', '==', userId)));
@@ -482,6 +499,71 @@
           <div class="text-sm text-gray-600 font-medium">${s.label}</div>
         </div>
       `).join('');
+    }
+
+    async function loadBrokerageFinance() {
+      const section = document.getElementById('brokerage-finance-section');
+      const summary = document.getElementById('brokerage-finance-summary');
+      const list = document.getElementById('brokerage-ledger-list');
+      const ledgerSnap = await getDocs(query(collection(db, 'brokerage_float_ledger'), where('brokerageId', '==', userId)));
+      const entries = ledgerSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+      currentBrokerageLedger = entries;
+      const totalDebits = entries.filter(e => e.direction === 'debit').reduce((s, e) => s + Number(e.amount || 0), 0);
+      const totalCredits = entries.filter(e => e.direction === 'credit').reduce((s, e) => s + Number(e.amount || 0), 0);
+      const floatBalance = Number(currentUser.brokerageFloatBalanceUsd || 0);
+      const minFloat = Number(currentUser.brokerageMinimumFloatUsd || 40);
+      summary.innerHTML = [
+        { label: 'Current Float', value: `$${floatBalance.toFixed(2)}`, tone: 'blue' },
+        { label: 'Minimum Float', value: `$${minFloat.toFixed(2)}`, tone: 'amber' },
+        { label: 'Deductions', value: `$${totalDebits.toFixed(2)}`, tone: 'red' },
+        { label: 'Top-ups', value: `$${totalCredits.toFixed(2)}`, tone: 'green' }
+      ].map(card => `<div class="rounded-xl border p-4 ${card.tone === 'blue' ? 'bg-blue-50 border-blue-100' : card.tone === 'amber' ? 'bg-amber-50 border-amber-100' : card.tone === 'red' ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100'}"><div class="text-xs font-semibold uppercase tracking-wide text-gray-500">${card.label}</div><div class="text-2xl font-extrabold text-gray-800 mt-1">${card.value}</div></div>`).join('');
+      if (!entries.length) {
+        list.innerHTML = '<div class="text-gray-400 text-sm">No brokerage finance activity yet.</div>';
+      } else {
+        list.innerHTML = entries.slice(0, 8).map(entry => `
+          <div class="rounded-xl border border-gray-100 bg-gray-50 p-4 flex items-start justify-between gap-4">
+            <div>
+              <div class="font-semibold text-gray-800">${entry.title || entry.type || 'Ledger entry'}</div>
+              <div class="text-sm text-gray-500 mt-1">${entry.description || 'Brokerage finance activity'}</div>
+              <div class="text-xs text-gray-400 mt-2">${formatDate(entry.createdAt)} • Balance: $${Number(entry.balanceBefore || 0).toFixed(2)} → $${Number(entry.balanceAfter || 0).toFixed(2)}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-bold ${entry.direction === 'credit' ? 'text-green-600' : 'text-red-600'}">${entry.direction === 'credit' ? '+' : '-'}$${Number(entry.amount || 0).toFixed(2)}</div>
+              <div class="text-xs text-gray-400 uppercase mt-1">${entry.direction || '—'}</div>
+            </div>
+          </div>
+        `).join('');
+      }
+      const exportBtn = document.getElementById('export-brokerage-ledger-btn');
+      if (exportBtn) exportBtn.onclick = exportBrokerageLedger;
+      section.classList.remove('hidden');
+    }
+
+    function exportBrokerageLedger() {
+      if (!currentBrokerageLedger.length) {
+        showToast('No brokerage ledger entries to export.', 'info');
+        return;
+      }
+      const rows = [
+        ['id','type','direction','amount','currency','balanceBefore','balanceAfter','createdAt','title','description','status','relatedTransactionId','propertyId','tenantId']
+      ];
+      currentBrokerageLedger.forEach(entry => {
+        rows.push([
+          entry.id || '', entry.type || '', entry.direction || '', Number(entry.amount || 0).toFixed(2), entry.currency || 'USD',
+          Number(entry.balanceBefore || 0).toFixed(2), Number(entry.balanceAfter || 0).toFixed(2), formatDate(entry.createdAt),
+          entry.title || '', entry.description || '', entry.status || '', entry.relatedTransactionId || '', entry.propertyId || '', entry.tenantId || ''
+        ]);
+      });
+      const csv = rows.map(cols => cols.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `brokerage-ledger-${userId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Brokerage ledger exported.', 'success');
     }
 
     async function loadProperties() {

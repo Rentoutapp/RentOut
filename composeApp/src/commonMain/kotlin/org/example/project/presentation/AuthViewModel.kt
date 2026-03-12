@@ -164,7 +164,15 @@ class AuthViewModel(
                             taxId              = doc.get("taxId")               as? String ?: "",
                             companyPhone       = doc.get("companyPhone")        as? String ?: "",
                             companyEmail       = doc.get("companyEmail")        as? String ?: "",
-                            companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: ""
+                            companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: "",
+                            brokerageSubscriptionFeeUsd = doc.get("brokerageSubscriptionFeeUsd") as? Double ?: 0.0,
+                            brokerageFloatBalanceUsd    = doc.get("brokerageFloatBalanceUsd") as? Double ?: 0.0,
+                            brokerageMinimumFloatUsd    = doc.get("brokerageMinimumFloatUsd") as? Double ?: 40.0,
+                            brokerageCommissionRate     = doc.get("brokerageCommissionRate") as? Double ?: 0.15,
+                            brokerageIsFrozen           = doc.get("brokerageIsFrozen") as? Boolean ?: false,
+                            brokerageLastTopUpAt        = doc.get("brokerageLastTopUpAt") as? Long ?: 0L,
+                            brokerageLastDeductionAt    = doc.get("brokerageLastDeductionAt") as? Long ?: 0L,
+                            brokerageLastTransactionId  = doc.get("brokerageLastTransactionId") as? String ?: ""
                         )
                         _rememberMeActive.value = true
                         _authState.value = if (role == "suspended") AuthState.Suspended else AuthState.Success(user)
@@ -336,7 +344,15 @@ class AuthViewModel(
                     taxId              = doc.get("taxId")               as? String ?: "",
                     companyPhone       = doc.get("companyPhone")        as? String ?: "",
                     companyEmail       = doc.get("companyEmail")        as? String ?: "",
-                    companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: ""
+                    companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: "",
+                    brokerageSubscriptionFeeUsd = doc.get("brokerageSubscriptionFeeUsd") as? Double ?: 0.0,
+                    brokerageFloatBalanceUsd    = doc.get("brokerageFloatBalanceUsd") as? Double ?: 0.0,
+                    brokerageMinimumFloatUsd    = doc.get("brokerageMinimumFloatUsd") as? Double ?: 40.0,
+                    brokerageCommissionRate     = doc.get("brokerageCommissionRate") as? Double ?: 0.15,
+                    brokerageIsFrozen           = doc.get("brokerageIsFrozen") as? Boolean ?: false,
+                    brokerageLastTopUpAt        = doc.get("brokerageLastTopUpAt") as? Long ?: 0L,
+                    brokerageLastDeductionAt    = doc.get("brokerageLastDeductionAt") as? Long ?: 0L,
+                    brokerageLastTransactionId  = doc.get("brokerageLastTransactionId") as? String ?: ""
                 )
 
                 // 1. Save rememberMe to LOCAL device storage — device-specific,
@@ -466,6 +482,7 @@ class AuthViewModel(
                     gender          = gender,
                     nationalId      = nationalId
                 )
+                val isBrokerage = providerSubtype == "brokerage"
                 firestore.collection("users").document(firebaseUser.uid).set(
                     mapOf(
                         "uid"             to user.uid,
@@ -489,7 +506,15 @@ class AuthViewModel(
                         "taxId"              to taxId,
                         "companyPhone"       to companyPhone,
                         "companyEmail"       to companyEmail,
-                        "companyLogoUrl"     to finalLogoUrl
+                        "companyLogoUrl"     to finalLogoUrl,
+                        "brokerageSubscriptionFeeUsd" to if (isBrokerage) 100.0 else 0.0,
+                        "brokerageFloatBalanceUsd"    to if (isBrokerage) 100.0 else 0.0,
+                        "brokerageMinimumFloatUsd"    to 40.0,
+                        "brokerageCommissionRate"     to if (isBrokerage) 0.15 else 0.0,
+                        "brokerageIsFrozen"           to false,
+                        "brokerageLastTopUpAt"        to if (isBrokerage) createdAt else 0L,
+                        "brokerageLastDeductionAt"    to 0L,
+                        "brokerageLastTransactionId"  to ""
                     )
                 )
                 _registrationProgress.value = 0.90f
@@ -560,7 +585,15 @@ class AuthViewModel(
                     taxId              = doc.get("taxId")               as? String ?: "",
                     companyPhone       = doc.get("companyPhone")        as? String ?: "",
                     companyEmail       = doc.get("companyEmail")        as? String ?: "",
-                    companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: ""
+                    companyLogoUrl     = doc.get("companyLogoUrl")      as? String ?: "",
+                    brokerageSubscriptionFeeUsd = doc.get("brokerageSubscriptionFeeUsd") as? Double ?: 0.0,
+                    brokerageFloatBalanceUsd    = doc.get("brokerageFloatBalanceUsd") as? Double ?: 0.0,
+                    brokerageMinimumFloatUsd    = doc.get("brokerageMinimumFloatUsd") as? Double ?: 40.0,
+                    brokerageCommissionRate     = doc.get("brokerageCommissionRate") as? Double ?: 0.15,
+                    brokerageIsFrozen           = doc.get("brokerageIsFrozen") as? Boolean ?: false,
+                    brokerageLastTopUpAt        = doc.get("brokerageLastTopUpAt") as? Long ?: 0L,
+                    brokerageLastDeductionAt    = doc.get("brokerageLastDeductionAt") as? Long ?: 0L,
+                    brokerageLastTransactionId  = doc.get("brokerageLastTransactionId") as? String ?: ""
                 )
                 println("[AuthViewModel] refreshUser — profilePhotoUrl=$profilePhotoUrl")
                 if (role != "suspended") {

@@ -80,12 +80,14 @@ fun TenantHomeScreen(
     unlockedPropertyIds: Set<String> = emptySet(),
     transactions: List<Transaction> = emptyList(),
     activeFilter: PropertyFilter = PropertyFilter(),
+    notificationCount: Int = 0,
     onSearchQueryChange: (String) -> Unit,
     onCityChange: (String) -> Unit,
     onFilterChange: (PropertyFilter) -> Unit = {},
     onClearFilter: () -> Unit = {},
     onPropertyClick: (Property) -> Unit,
     onUnlockedClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onProfileClick: () -> Unit,
     onLogout: () -> Unit,
     applyFilters: (List<Property>, String, String, PropertyFilter) -> List<Property> = { props, query, city, _ ->
@@ -262,12 +264,18 @@ fun TenantHomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier.size(36.dp).clip(CircleShape)
-                                        .background(Color.White.copy(0.15f)),
-                                    contentAlignment = Alignment.Center
+                                // Notification bell with unread badge
+                                org.example.project.ui.screens.NotificationBadgeBox(
+                                    count = notificationCount,
+                                    onClick = onNotificationsClick
                                 ) {
-                                    Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                    Box(
+                                        modifier = Modifier.size(36.dp).clip(CircleShape)
+                                            .background(Color.White.copy(0.15f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Notifications, "Notifications", tint = Color.White, modifier = Modifier.size(20.dp))
+                                    }
                                 }
                                 // Profile avatar — rounded rect, image or initials
                                 val profileInteraction = remember { MutableInteractionSource() }
@@ -490,7 +498,8 @@ fun TenantHomeScreen(
                         property = property,
                         onClick = { onPropertyClick(property) },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).animateItem(),
-                        isUnlocked = unlockedPropertyIds.contains(property.id)
+                        isUnlocked = unlockedPropertyIds.contains(property.id),
+                        showBillsInfo = false
                     )
                 }
             }

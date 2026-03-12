@@ -41,6 +41,7 @@ fun LandlordProfileScreen(
     user: User,
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onOpenBrokerageAccount: () -> Unit = {},
     onDeleteAccount: () -> Unit = {}
 ) {
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -430,6 +431,20 @@ fun LandlordProfileScreen(
                                 }
                             }
                         }
+                    }
+                }
+
+                if (user.isBrokerage) {
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = onOpenBrokerageAccount,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary)
+                    ) {
+                        Icon(Icons.Default.AccountBalanceWallet, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Open Brokerage Finance", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                     }
                 }
 

@@ -127,4 +127,6 @@ dependencies {
     // Only analytics is kept here as it has no KMP counterpart.
     implementation(platform(libs.firebase.bom))
     implementation("com.google.firebase:firebase-analytics")
+    // Firebase Cloud Messaging — push notifications
+    implementation("com.google.firebase:firebase-messaging-ktx")
 }

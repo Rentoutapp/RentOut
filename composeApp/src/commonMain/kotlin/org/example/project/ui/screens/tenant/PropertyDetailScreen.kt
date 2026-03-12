@@ -54,7 +54,7 @@ import androidx.compose.ui.graphics.SolidColor
 private val DetailNavy = Color(0xFF0F2A4A)
 private val DetailNavyLight = Color(0xFF1A3F6F)
 
-private enum class TenantDetailTab { OVERVIEW, AMENITIES, CONTACT, DIRECTIONS }
+private enum class TenantDetailTab { OVERVIEW, AMENITIES, CONTACT_DIRECTIONS }
 
 // WhatsApp Icon using official WhatsApp logo path
 @Composable
@@ -141,6 +141,13 @@ fun PropertyDetailScreen(
 
     // Tab state
     var selectedTab by remember { mutableStateOf(TenantDetailTab.OVERVIEW) }
+
+    val resolvedProviderSubtype = when {
+        property.providerSubtype.isNotBlank() -> property.providerSubtype
+        property.brokerName.isNotBlank() || property.brokerageName.isNotBlank() -> "brokerage"
+        property.agentName.isNotBlank() || property.agentContactNumber.isNotBlank() -> "agent"
+        else -> "landlord"
+    }
 
     // Image list — prefer full imageUrls, fall back to imageUrl
     val images = remember(property.id) {
@@ -242,14 +249,6 @@ fun PropertyDetailScreen(
 
                         // ── Property type + badges row ───────────────────────
                         // Provider subtype badge — full width row
-                        // Intelligently determine provider type — fall back to field-sniffing
-                        // for older listings that may lack providerSubtype
-                        val resolvedProviderSubtype = when {
-                            property.providerSubtype.isNotBlank() -> property.providerSubtype
-                            property.brokerName.isNotBlank() || property.brokerageName.isNotBlank() -> "brokerage"
-                            property.agentName.isNotBlank() || property.agentContactNumber.isNotBlank() -> "agent"
-                            else -> "landlord"
-                        }
                         val providerLabel = when (resolvedProviderSubtype) {
                             "agent"     -> "🤝 Listed by Agent"
                             "brokerage" -> "🏢 Listed by Broker"
@@ -376,19 +375,14 @@ fun PropertyDetailScreen(
                             label = "tenant_tab"
                         ) { tab ->
                             when (tab) {
-                                TenantDetailTab.OVERVIEW  -> TenantOverviewContent(property)
-                                TenantDetailTab.AMENITIES -> TenantAmenitiesContent(property)
-                                TenantDetailTab.CONTACT   -> TenantContactContent(
+                                TenantDetailTab.OVERVIEW          -> TenantOverviewContent(property)
+                                TenantDetailTab.AMENITIES         -> TenantAmenitiesContent(property)
+                                TenantDetailTab.CONTACT_DIRECTIONS -> TenantContactAndDirectionsContent(
                                     property   = property,
                                     isUnlocked = isUnlocked,
                                     onUnlock   = onUnlock,
                                     onCall     = onCall,
                                     onWhatsApp = onWhatsApp
-                                )
-                                TenantDetailTab.DIRECTIONS -> TenantDirectionsContent(
-                                    property   = property,
-                                    isUnlocked = isUnlocked,
-                                    onUnlock   = onUnlock
                                 )
                             }
                         }
@@ -476,7 +470,7 @@ fun PropertyDetailScreen(
                 // Action button — hidden on the Contact tab (the tab has its own unlock button,
                 // so showing it here too is redundant). Animates in/out smoothly.
                 AnimatedVisibility(
-                    visible = selectedTab != TenantDetailTab.CONTACT && selectedTab != TenantDetailTab.DIRECTIONS,
+                    visible = selectedTab != TenantDetailTab.CONTACT_DIRECTIONS,
                     enter = fadeIn(tween(250)) + slideInHorizontally(
                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
                         initialOffsetX = { it }
@@ -535,20 +529,22 @@ fun PropertyDetailScreen(
                         }
                     }
                 } else {
+                    val brokerageBlocked = resolvedProviderSubtype == "brokerage" && !property.brokerageUnlockEnabled
+                    val canUnlock = property.isAvailable && !brokerageBlocked
                     Box(
                         modifier = Modifier
                             .height(54.dp)
                             .shadow(6.dp, RoundedCornerShape(16.dp))
                             .clip(RoundedCornerShape(16.dp))
                             .background(
-                                if (property.isAvailable) RentOutColors.Secondary
+                                if (canUnlock) RentOutColors.Secondary
                                 else MaterialTheme.colorScheme.surfaceVariant
                             )
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                enabled = property.isAvailable
-                            ) { if (property.isAvailable) onUnlock() }
+                                enabled = canUnlock
+                            ) { if (canUnlock) onUnlock() }
                             .padding(horizontal = 20.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -557,17 +553,18 @@ fun PropertyDetailScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
-                                if (property.isAvailable) Icons.Default.LockOpen else Icons.Default.Lock,
+                                if (canUnlock) Icons.Default.LockOpen else Icons.Default.Lock,
                                 null,
-                                tint = if (property.isAvailable) Color.White
-                                       else MaterialTheme.colorScheme.onSurfaceVariant,
+                                tint = if (canUnlock) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                if (property.isAvailable) "Unlock — \$10"
-                                else "Unavailable",
-                                color = if (property.isAvailable) Color.White
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                when {
+                                    brokerageBlocked -> "Brokerage temporarily frozen"
+                                    property.isAvailable -> "Unlock — \$10"
+                                    else -> "Unavailable"
+                                },
+                                color = if (canUnlock) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
@@ -591,10 +588,9 @@ private fun TenantDetailTabBar(
     val activeColor = if (isDark) MaterialTheme.colorScheme.primary else DetailNavy
 
     val tabs = listOf(
-        TenantDetailTab.OVERVIEW   to "Overview",
-        TenantDetailTab.AMENITIES  to "Amenities",
-        TenantDetailTab.CONTACT    to "Contact",
-        TenantDetailTab.DIRECTIONS to "Directions"
+        TenantDetailTab.OVERVIEW          to "Overview",
+        TenantDetailTab.AMENITIES         to "Amenities",
+        TenantDetailTab.CONTACT_DIRECTIONS to "Contact & Directions"
     )
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(0.dp)) {
         tabs.forEach { (tab, label) ->
@@ -1047,7 +1043,7 @@ private fun AmenityChip(amenity: String, modifier: Modifier = Modifier) {
 
 // ── Contact tab ───────────────────────────────────────────────────────────────
 @Composable
-private fun TenantContactContent(
+private fun TenantContactAndDirectionsContent(
     property: Property,
     isUnlocked: Boolean,
     onUnlock: () -> Unit,
@@ -1072,6 +1068,7 @@ private fun TenantContactContent(
     val agentColor     = Color(0xFF00897B)
     val brokerageColor = Color(0xFF7C5CBF)
 
+    Column(modifier = Modifier.fillMaxWidth()) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -1257,12 +1254,19 @@ private fun TenantContactContent(
                         }
                     }
 
-                    // ── AGENT: agent name + contact, then landlord address + contact ──
+                    // ── AGENT: agent name + contact + buttons, then Landlord Details ──
                     isAgent -> {
+                        val isDark = isSystemInDarkTheme()
+                        // Landlord section accent — visible in both light and dark mode
+                        val landlordAccent = if (isDark)
+                            Color(0xFF64B5F6)   // light blue — readable on dark surface
+                        else
+                            Color(0xFF0F2A4A)   // DetailNavy — readable on light surface
+
                         // Agent name
                         ContactRevealRow(
                             label = "Agent",
-                            value = property.agentName.ifBlank { property.landlordName },
+                            value = property.agentName.ifBlank { "" },
                             icon = Icons.Default.Person,
                             iconBg = agentColor.copy(alpha = 0.12f),
                             iconTint = agentColor,
@@ -1282,23 +1286,82 @@ private fun TenantContactContent(
                             isPhone = true
                         )
                         Spacer(Modifier.height(14.dp))
+                        // ── Compact Call Agent / WhatsApp pill buttons ────────
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // Call Agent pill
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(agentColor)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onCall(property.agentContactNumber) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Call, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Text("Call Agent", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            // WhatsApp pill — branded green with official icon
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF25D366))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onWhatsApp(property.agentContactNumber) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = rememberWhatsAppIcon(),
+                                        contentDescription = "WhatsApp",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text("WhatsApp", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(20.dp))
                         Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                         Spacer(Modifier.height(14.dp))
-                        // Property address (landlord's)
-                        if (property.location.isNotBlank()) {
+                        // ── Landlord Details sub-section ──────────────────────
+                        Text(
+                            "🏠 Landlord Details",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = landlordAccent,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        // Landlord name
+                        if (property.landlordName.isNotBlank()) {
                             ContactRevealRow(
-                                label = "Property Address",
-                                value = property.location,
-                                icon = Icons.Default.LocationOn,
-                                iconBg = DetailNavy.copy(alpha = 0.10f),
-                                iconTint = DetailNavy,
+                                label = "Landlord",
+                                value = property.landlordName,
+                                icon = Icons.Default.Person,
+                                iconBg = landlordAccent.copy(alpha = 0.12f),
+                                iconTint = landlordAccent,
                                 alpha = contactAlpha
                             )
                             Spacer(Modifier.height(14.dp))
                             Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                             Spacer(Modifier.height(14.dp))
                         }
-                        // Landlord contact
+                        // Landlord phone
                         ContactRevealRow(
                             label = "Landlord Contact",
                             value = property.contactNumber,
@@ -1308,18 +1371,70 @@ private fun TenantContactContent(
                             alpha = contactAlpha,
                             isPhone = true
                         )
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            RentOutPrimaryButton(
-                                text = "📞 Call Agent",
-                                onClick = { onCall(property.agentContactNumber) },
-                                modifier = Modifier.weight(1f)
+                        // Property address
+                        if (property.location.isNotBlank()) {
+                            Spacer(Modifier.height(14.dp))
+                            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            Spacer(Modifier.height(14.dp))
+                            ContactRevealRow(
+                                label = "Property Address",
+                                value = property.location,
+                                icon = Icons.Default.LocationOn,
+                                iconBg = landlordAccent.copy(alpha = 0.10f),
+                                iconTint = landlordAccent,
+                                alpha = contactAlpha
                             )
-                            RentOutSecondaryButton(
-                                text = "💬 WhatsApp",
-                                onClick = { onWhatsApp(property.agentContactNumber) },
-                                modifier = Modifier.weight(1f)
-                            )
+                        }
+                        // ── Call Landlord / WhatsApp pill buttons (below address) ──
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // Call Landlord pill
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(RentOutColors.StatusApproved)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onCall(property.contactNumber) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Default.Call, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Text("Call Landlord", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                            // WhatsApp Landlord pill
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF25D366))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onWhatsApp(property.contactNumber) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = rememberWhatsAppIcon(),
+                                        contentDescription = "WhatsApp",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text("WhatsApp", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
                         }
                     }
 
@@ -1376,6 +1491,23 @@ private fun TenantContactContent(
                     }
                 }
             } else {
+                if (isBrokerage && !property.brokerageUnlockEnabled) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = RentOutColors.IconAmber.copy(alpha = 0.12f),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                    ) {
+                        Text(
+                            text = property.brokerageFreezeReason.ifBlank {
+                                "This brokerage has temporarily frozen tenant acquisitions while topping up its insurance float."
+                            },
+                            modifier = Modifier.padding(14.dp),
+                            color = RentOutColors.IconAmber,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
                 // ── LOCKED state — masked rows tailored per provider type ────────────
                 // Helper composable for a single locked row
                 @Composable
@@ -1477,7 +1609,16 @@ private fun TenantContactContent(
                 }
             }
         }
-    }
+    } // end Card
+
+    // ── Directions section (below contacts) ───────────────────────────────────
+    Spacer(Modifier.height(24.dp))
+    TenantDirectionsContent(
+        property   = property,
+        isUnlocked = isUnlocked,
+        onUnlock   = onUnlock
+    )
+    } // end outer Column
 }
 
 // ── Reusable contact reveal row ───────────────────────────────────────────────

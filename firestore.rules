@@ -134,7 +134,23 @@ service cloud.firestore {
         && (!('companyEmail' in request.resource.data)
             || request.resource.data.companyEmail is string)
         && (!('companyLogoUrl' in request.resource.data)
-            || request.resource.data.companyLogoUrl is string);
+            || request.resource.data.companyLogoUrl is string)
+        && (!('brokerageSubscriptionFeeUsd' in request.resource.data)
+            || request.resource.data.brokerageSubscriptionFeeUsd is number)
+        && (!('brokerageFloatBalanceUsd' in request.resource.data)
+            || request.resource.data.brokerageFloatBalanceUsd is number)
+        && (!('brokerageMinimumFloatUsd' in request.resource.data)
+            || request.resource.data.brokerageMinimumFloatUsd is number)
+        && (!('brokerageCommissionRate' in request.resource.data)
+            || request.resource.data.brokerageCommissionRate is number)
+        && (!('brokerageIsFrozen' in request.resource.data)
+            || request.resource.data.brokerageIsFrozen is bool)
+        && (!('brokerageLastTopUpAt' in request.resource.data)
+            || request.resource.data.brokerageLastTopUpAt is int)
+        && (!('brokerageLastDeductionAt' in request.resource.data)
+            || request.resource.data.brokerageLastDeductionAt is int)
+        && (!('brokerageLastTransactionId' in request.resource.data)
+            || request.resource.data.brokerageLastTransactionId is string);
 
       // Users can update their own mutable profile fields only.
       // Immutable fields (role, status, uid, createdAt) are locked.
@@ -144,7 +160,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (isAuthenticated() && isOwner(userId)
           && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['role', 'status', 'uid', 'createdAt'])
+              .hasAny(['role', 'status', 'uid', 'createdAt', 'brokerageSubscriptionFeeUsd', 'brokerageFloatBalanceUsd', 'brokerageMinimumFloatUsd', 'brokerageCommissionRate', 'brokerageIsFrozen', 'brokerageLastTopUpAt', 'brokerageLastDeductionAt', 'brokerageLastTransactionId'])
           // If gender is being changed, it must still be a valid value
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender'])
               || (request.resource.data.gender is string
@@ -239,14 +255,18 @@ service cloud.firestore {
         && (!('brokerageContactNumber' in request.resource.data)
             || request.resource.data.brokerageContactNumber is string)
         && (!('brokerageEmail' in request.resource.data)
-            || request.resource.data.brokerageEmail is string);
+            || request.resource.data.brokerageEmail is string)
+        && (!('brokerageUnlockEnabled' in request.resource.data)
+            || request.resource.data.brokerageUnlockEnabled is bool)
+        && (!('brokerageFreezeReason' in request.resource.data)
+            || request.resource.data.brokerageFreezeReason is string);
 
       // Provider can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).
       allow update: if isActiveUser() && (
         (isProvider() && resource.data.landlordId == request.auth.uid
           && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['status', 'isVerified', 'landlordId']))
+              .hasAny(['status', 'isVerified', 'landlordId', 'brokerageUnlockEnabled', 'brokerageFreezeReason']))
         || isAdmin()
       );
 
@@ -317,14 +337,49 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ─── Brokerage Float Ledger Collection ───────────────────────────────────
+    match /brokerage_float_ledger/{entryId} {
+      allow get: if isAuthenticated() && (request.auth.uid == resource.data.brokerageId || isAdmin());
+      allow list: if isAuthenticated();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ─── Brokerage Top-up Requests Collection ────────────────────────────────
+    match /brokerage_topup_requests/{requestId} {
+      allow get: if isAuthenticated() && (request.auth.uid == resource.data.brokerageId || isAdmin());
+      allow list: if isAuthenticated();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
     // ─── Notifications Collection ─────────────────────────────────────────────
-    // Created by Cloud Functions only.
-    // Users can read, mark as read (update), and dismiss (delete) their own.
+    // Created by Cloud Functions (or admin) only.
+    // Each notification document has a recipientId field equal to the user's UID.
+    // Users can read/update(mark-read)/delete their own notifications.
+    // list queries are allowed for authenticated users (app always filters by recipientId).
     match /notifications/{notificationId} {
-      allow read:   if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow create: if false;  // Cloud Functions only
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      // Single-doc reads — owner or admin
+      allow get:    if isAuthenticated()
+        && (request.auth.uid == resource.data.recipientId || isAdmin());
+      // Collection queries — filtered by recipientId in app code
+      allow list:   if isAuthenticated();
+      // Cloud Functions write via Admin SDK; admin panel can also create
+      allow create: if isAdmin();
+      // Users can update isRead on their own notifications; admin can update any
+      allow update: if isAuthenticated()
+        && (
+          // Owner updating only isRead
+          (request.auth.uid == resource.data.recipientId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']))
+          // Admin can update any field on any notification
+          || isAdmin()
+        );
+      // Owner or admin can delete
+      allow delete: if isAuthenticated()
+        && (request.auth.uid == resource.data.recipientId || isAdmin());
     }
 
     // ─── Property Images Metadata (optional subcollection) ───────────────────

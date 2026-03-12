@@ -65,12 +65,15 @@ private fun getTimeOfDay(hour: Int): TimeOfDay = when (hour) {
 fun LandlordDashboardScreen(
     user: User,
     propertyListState: PropertyListState,
+    notificationCount: Int = 0,
     onAddProperty: () -> Unit,
     onPropertyClick: (Property) -> Unit,
     onEditProperty: (Property) -> Unit,
     onDeleteProperty: (String) -> Unit,
     onToggleAvailability: (String) -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onProfileClick: () -> Unit,
+    onBrokerageAccountClick: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     val listState = rememberLazyListState()
@@ -205,25 +208,66 @@ fun LandlordDashboardScreen(
                             }
                         }
 
-                        // ── Right: notification + avatar ─────────────────────
+                        // ── Right: finance (brokerage) + notification + avatar ────
                         Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Notification bell — small, clearly smaller than the avatar
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = "Notifications",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
+                            // $ finance button — only for brokerage users
+                            if (user.providerSubtype == "brokerage") {
+                                val financeInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                                val isFinancePressed by financeInteraction.collectIsPressedAsState()
+                                val financeScale by animateFloatAsState(
+                                    targetValue = if (isFinancePressed) 0.88f else 1f,
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                    label = "finance_scale"
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .scale(financeScale)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (user.brokerageIsFrozen)
+                                                RentOutColors.IconRose.copy(alpha = 0.85f)
+                                            else
+                                                Color.White.copy(alpha = 0.22f)
+                                        )
+                                        .clickable(
+                                            interactionSource = financeInteraction,
+                                            indication = null,
+                                            onClick = onBrokerageAccountClick
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "$",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+
+                            // Notification bell with unread badge
+                            org.example.project.ui.screens.NotificationBadgeBox(
+                                count = notificationCount,
+                                onClick = onNotificationsClick
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.Notifications,
+                                        contentDescription = "Notifications",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
 
                             // Profile avatar — larger rounded rectangle, full-bleed image
@@ -350,6 +394,45 @@ fun LandlordDashboardScreen(
                     StatCard("Rejected", rejected.toString(), Icons.Default.Cancel, RentOutColors.StatusRejected, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(24.dp))
+                // Brokerage frozen banner — compact, shown only when account is frozen
+                if (user.providerSubtype == "brokerage" && user.brokerageIsFrozen) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { onBrokerageAccountClick() },
+                        color = RentOutColors.IconRose.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.AcUnit,
+                                null,
+                                tint = RentOutColors.IconRose,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                "Tenant unlocks frozen — tap $ to top up",
+                                color = RentOutColors.IconRose,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                null,
+                                tint = RentOutColors.IconRose,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
                 Text(
                     when (user.providerSubtype) {
                         "agent"     -> "Your Listings"

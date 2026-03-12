@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -192,25 +191,7 @@ actual fun DirectionsMapView(
                     )
                 )
             },
-            onNavigate = {
-                // Launch Google Maps navigation intent
-                val uri = Uri.parse(
-                    "google.navigation:q=$propertyLat,$propertyLng&mode=d"
-                )
-                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                    setPackage("com.google.android.apps.maps")
-                }
-                if (intent.resolveActivity(context.packageManager) != null) {
-                    context.startActivity(intent)
-                } else {
-                    // Fallback — open in browser
-                    val browserUri = Uri.parse(
-                        "https://www.google.com/maps/dir/?api=1&destination=$propertyLat,$propertyLng"
-                    )
-                    context.startActivity(Intent(Intent.ACTION_VIEW, browserUri))
-                }
-                onOpenNavigation()
-            },
+            onNavigate = { /* navigation handled in-app within DirectionsDialog */ },
             onDismiss = { showDialog = false },
             scope     = scope
         )
@@ -254,6 +235,8 @@ private fun DirectionsDialog(
         position = CameraPosition.fromLatLngZoom(propertyPos, 13f)
     }
 
+    var isNavigating by remember { mutableStateOf(false) }
+
     // Fly camera to show both user + property when both are known
     LaunchedEffect(userLocation) {
         if (userLocation != null) {
@@ -265,6 +248,24 @@ private fun DirectionsDialog(
                 dialogCamera.animate(
                     CameraUpdateFactory.newLatLngBounds(bounds, 160),
                     durationMs = 900
+                )
+            }
+        }
+    }
+
+    // During navigation, continuously animate camera to follow user location
+    LaunchedEffect(isNavigating, userLocation) {
+        if (isNavigating && userLocation != null) {
+            scope.launch {
+                dialogCamera.animate(
+                    CameraUpdateFactory.newCameraPosition(
+                        CameraPosition.Builder()
+                            .target(userLocation)
+                            .zoom(17f)
+                            .tilt(45f)
+                            .build()
+                    ),
+                    durationMs = 800
                 )
             }
         }
@@ -641,23 +642,45 @@ private fun DirectionsDialog(
                                     )
                                 }
 
-                                // Start Navigation button
+                                // Start / Stop Navigation button (in-app only)
                                 Button(
-                                    onClick  = onNavigate,
+                                    onClick = {
+                                        if (isNavigating) {
+                                            // Exit navigation mode — zoom back out to show both points
+                                            isNavigating = false
+                                            userLocation?.let { userPos ->
+                                                val bounds = LatLngBounds.builder()
+                                                    .include(userPos)
+                                                    .include(propertyPos)
+                                                    .build()
+                                                scope.launch {
+                                                    dialogCamera.animate(
+                                                        CameraUpdateFactory.newLatLngBounds(bounds, 160),
+                                                        durationMs = 700
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            isNavigating = true
+                                        }
+                                    },
                                     modifier = Modifier.weight(2f).height(52.dp),
                                     shape    = RoundedCornerShape(16.dp),
                                     colors   = ButtonDefaults.buttonColors(
-                                        containerColor = RentOutColors.Primary
+                                        containerColor = if (isNavigating)
+                                            androidx.compose.ui.graphics.Color(0xFFE53935) // Red when navigating
+                                        else
+                                            RentOutColors.Primary
                                     )
                                 ) {
                                     Icon(
-                                        Icons.Default.Navigation,
+                                        if (isNavigating) Icons.Default.Close else Icons.Default.Navigation,
                                         null,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
                                     Text(
-                                        "Start Navigation",
+                                        if (isNavigating) "Stop Navigation" else "Start Navigation",
                                         fontSize   = 15.sp,
                                         fontWeight = FontWeight.Bold
                                     )

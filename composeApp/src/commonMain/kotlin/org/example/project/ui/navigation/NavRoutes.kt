@@ -14,6 +14,8 @@ object NavRoutes {
     const val PROPERTY_IMAGES           = "property_images"
     const val EDIT_PROPERTY             = "edit_property/{propertyId}"
     const val LANDLORD_PROFILE          = "landlord_profile"
+    const val BROKERAGE_ACCOUNT         = "brokerage_account"
+    const val BROKERAGE_PAYMENT_HISTORY = "brokerage_payment_history"
     const val LANDLORD_PROPERTY_DETAIL  = "landlord_property_detail/{propertyId}"
     const val EDIT_PROPERTY_IMAGES      = "edit_property_images/{propertyId}"
     const val BUTTON_ANIMATION_DEMO     = "button_animation_demo"
@@ -25,6 +27,9 @@ object NavRoutes {
     const val UNLOCKED_PROPERTIES= "unlocked_properties"
     const val TENANT_PROFILE     = "tenant_profile"
     const val PAYMENT_HISTORY    = "payment_history"
+
+    // Notifications (shared across all roles)
+    const val NOTIFICATIONS = "notifications"
 
     // Helpers
     fun landlordPropertyDetail(propertyId: String) = "landlord_property_detail/$propertyId"
