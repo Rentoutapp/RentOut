@@ -1,6 +1,561 @@
-index.html:1 Error while trying to use the following icon from the Manifest: https://rentout-12239.web.app/android-chrome-192x192.png (Download error or resource isn't a valid image)
-index.html:22 X-Frame-Options may only be set via an HTTP header sent along with a document. It may not be set inside <meta>.
-(index):64 cdn.tailwindcss.com should not be used in production. To use Tailwind CSS in production, install it as a PostCSS plugin or use the Tailwind CLI: https://tailwindcss.com/docs/installation
-(anonymous) @ (index):64
-(anonymous) @ (index):64
-I've shared the console log files in the app.log.txt file found in the logs folder.
+2026-03-12 22:02:19.007 25706-25713 example.project         org.example.project                  I  Compiler allocated 9932KB to compile void org.example.project.ui.components.PropertyCardKt$PropertyCard$3.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int)
+2026-03-12 22:02:19.139 25706-25911 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:19.414 25706-25911 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:19.594 25706-25911 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:21.283 25706-25911 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:21.347 25706-25714 example.project         org.example.project                  W  Cleared Reference was only reachable from finalizer (only reported once)
+2026-03-12 22:02:21.383 25706-25714 example.project         org.example.project                  I  NativeAlloc concurrent mark compact GC freed 10MB AllocSpace bytes, 75(5052KB) LOS objects, 49% free, 10MB/20MB, paused 886us,4.732ms total 100.100ms
+2026-03-12 22:02:25.026 25706-25706 WindowOnBackDispatcher  org.example.project                  W  OnBackInvokedCallback is not enabled for the application.
+                                                                                                    Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+2026-03-12 22:02:25.230 25706-25913 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:25.288 25706-25911 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:25.349 25706-25912 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:25.382 25706-25925 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:25.384 25706-25913 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:02:30.179 25706-25706 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:02:30.185 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:02:30.192 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:02:30.196 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:02:31.241 25706-25706 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:02:31.242 25706-25706 System.out              org.example.project                  I  🔄 TenantViewModel: loadTransactions called for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:02:31.242 25706-25706 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:02:31.242 25706-25706 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:02:32.123 25706-25706 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:02:32.128 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:02:32.133 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:02:32.140 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:02:32.918 25706-25706 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:02:32.921 25706-25706 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:02:33.264 25706-25706 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:02:33.265 25706-25706 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:02:33.343 25706-25713 example.project         org.example.project                  I  Compiler allocated 9042KB to compile void org.example.project.ui.screens.tenant.TenantHomeScreenKt$TenantHomeScreen$11$1$1$1.invoke(androidx.compose.foundation.lazy.LazyItemScope, androidx.compose.runtime.Composer, int)
+2026-03-12 22:02:34.437 25706-25706 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:02:48.649 25706-25706 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:02:48.657 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:02:48.664 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:02:48.670 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:02:49.765 25706-25706 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:02:49.765 25706-25706 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:02:50.778 25706-25706 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:03:05.140 25706-25706 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:03:05.145 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:03:05.151 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:03:05.157 25706-25706 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:03:06.209 25706-25706 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:03:06.210 25706-25706 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:03:07.276 25706-25706 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+---------------------------- PROCESS ENDED (25706) for package org.example.project ----------------------------
+---------------------------- PROCESS STARTED (25998) for package org.example.project ----------------------------
+2026-03-12 22:03:14.086 25998-25998 example.project         org.example.project                  W  Unexpected CPU variant for x86: x86_64.
+                                                                                                    Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, goldmont-without-sha-xsaves, tremont, kabylake, alderlake, default
+2026-03-12 22:03:14.154 25998-25998 nativeloader            org.example.project                  D  Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+2026-03-12 22:03:14.244 25998-25998 re-initialized>         org.example.project                  W  type=1400 audit(0.0:55): avc:  granted  { execute } for  path="/data/data/org.example.project/code_cache/startup_agents/a82ed9e3-agent.so" dev="dm-55" ino=362436 scontext=u:r:untrusted_app:s0:c218,c256,c512,c768 tcontext=u:object_r:app_data_file:s0:c218,c256,c512,c768 tclass=file app=org.example.project
+2026-03-12 22:03:14.258 25998-25998 nativeloader            org.example.project                  D  Load /data/user/0/org.example.project/code_cache/startup_agents/a82ed9e3-agent.so using system ns (caller=<unknown>): ok
+2026-03-12 22:03:14.274 25998-25998 example.project         org.example.project                  W  hiddenapi: DexFile /data/data/org.example.project/code_cache/.studio/instruments-2fd5708c.jar is in boot class path but is not in a known location
+2026-03-12 22:03:14.438 25998-25998 example.project         org.example.project                  W  Redefining intrinsic method java.lang.Thread java.lang.Thread.currentThread(). This may cause the unexpected use of the original definition of java.lang.Thread java.lang.Thread.currentThread()in methods that have already been compiled.
+2026-03-12 22:03:14.438 25998-25998 example.project         org.example.project                  W  Redefining intrinsic method boolean java.lang.Thread.interrupted(). This may cause the unexpected use of the original definition of boolean java.lang.Thread.interrupted()in methods that have already been compiled.
+2026-03-12 22:03:14.480 25998-25998 ApplicationLoaders      org.example.project                  D  Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+2026-03-12 22:03:15.600 25998-25998 nativeloader            org.example.project                  D  Configuring clns-9 for other apk /data/app/~~CNPOEb5BkLKw7AmYnMAMIw==/org.example.project-q_fS9v2LWUoktovm1uF_0Q==/base.apk. target_sdk_version=35, uses_libraries=, library_path=/data/app/~~CNPOEb5BkLKw7AmYnMAMIw==/org.example.project-q_fS9v2LWUoktovm1uF_0Q==/lib/x86_64:/data/app/~~CNPOEb5BkLKw7AmYnMAMIw==/org.example.project-q_fS9v2LWUoktovm1uF_0Q==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/org.example.project
+2026-03-12 22:03:15.609 25998-25998 CompatChangeReporter    org.example.project                  D  Compat change id reported: 202956589; UID 10218; state: ENABLED
+2026-03-12 22:03:15.615 25998-25998 example.project         org.example.project                  I  AssetManager2(0x71cee7f69eb8) locale list changing from [] to [en-US]
+2026-03-12 22:03:15.619 25998-25998 example.project         org.example.project                  I  AssetManager2(0x71cee7f67c58) locale list changing from [] to [en-US]
+2026-03-12 22:03:15.631 25998-25998 GraphicsEnvironment     org.example.project                  V  Currently set values for:
+2026-03-12 22:03:15.632 25998-25998 GraphicsEnvironment     org.example.project                  V    angle_gl_driver_selection_pkgs=[]
+2026-03-12 22:03:15.632 25998-25998 GraphicsEnvironment     org.example.project                  V    angle_gl_driver_selection_values=[]
+2026-03-12 22:03:15.632 25998-25998 GraphicsEnvironment     org.example.project                  V  org.example.project is not listed in per-application setting
+2026-03-12 22:03:15.632 25998-25998 GraphicsEnvironment     org.example.project                  V  ANGLE allowlist from config: com.dreamgames.royalmatch com.dts.freefiremax com.dxx.firenow com.gramgames.mergedragons com.ludo.king com.mojang.minecraftpe com.my.defense com.nintendo.zaka com.os.airforce com.playrix.fishdomdd.gplay io.teslatech.callbreak jp.konami.prospia net.peakgames.toonblast
+2026-03-12 22:03:15.632 25998-25998 GraphicsEnvironment     org.example.project                  V  org.example.project is not listed in ANGLE allowlist or settings, returning default
+2026-03-12 22:03:15.632 25998-25998 GraphicsEnvironment     org.example.project                  V  Neither updatable production driver nor prerelease driver is supported.
+2026-03-12 22:03:15.689 25998-25998 FirebaseApp             org.example.project                  I  Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+2026-03-12 22:03:15.735 25998-25998 FirebaseInitProvider    org.example.project                  I  FirebaseApp initialization successful
+2026-03-12 22:03:15.742 25998-26015 example.project         org.example.project                  W  ClassLoaderContext classpath size mismatch. expected=1, found=0 (DLC[];PCL[base.apk*1257986816]{PCL[/system/framework/org.apache.http.legacy.jar*4247870504]#PCL[/system/framework/com.android.location.provider.jar*1570284764]#PCL[/system/framework/com.android.media.remotedisplay.jar*487574312]#PCL[/system_ext/framework/androidx.window.extensions.jar*1030441313]#PCL[/system_ext/framework/androidx.window.sidecar.jar*3860983653]} | DLC[];PCL[])
+2026-03-12 22:03:15.760 25998-26015 DynamiteModule          org.example.project                  I  Considering local module com.google.android.gms.measurement.dynamite:127 and remote module com.google.android.gms.measurement.dynamite:176
+2026-03-12 22:03:15.760 25998-26015 DynamiteModule          org.example.project                  I  Selected remote version of com.google.android.gms.measurement.dynamite, version >= 176
+2026-03-12 22:03:15.761 25998-26015 DynamiteModule          org.example.project                  V  Dynamite loader version >= 2, using loadModule2NoCrashUtils
+2026-03-12 22:03:15.761 25998-25998 CompatChangeReporter    org.example.project                  D  Compat change id reported: 279646685; UID 10218; state: ENABLED
+2026-03-12 22:03:15.791 25998-26023 DisplayManager          org.example.project                  I  Choreographer implicitly registered for the refresh rate.
+2026-03-12 22:03:15.795 25998-25998 example.project         org.example.project                  I  AssetManager2(0x71cee7f6e9b8) locale list changing from [] to [en-US]
+2026-03-12 22:03:15.797 25998-26015 System                  org.example.project                  W  ClassLoader referenced unknown path:
+2026-03-12 22:03:15.797 25998-26015 nativeloader            org.example.project                  D  Configuring clns-10 for other apk . target_sdk_version=36, uses_libraries=, library_path=/data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/lib/x86_64:/data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+2026-03-12 22:03:15.836 25998-25998 ashmem                  org.example.project                  E  Pinning is deprecated since Android Q. Please use trim or other methods.
+2026-03-12 22:03:15.841 25998-26015 example.project         org.example.project                  I  AssetManager2(0x71cee7f72e78) locale list changing from [] to [en-US]
+2026-03-12 22:03:15.861 25998-25998 CompatChangeReporter    org.example.project                  D  Compat change id reported: 309578419; UID 10218; state: ENABLED
+2026-03-12 22:03:15.863 25998-26015 example.project         org.example.project                  W  ClassLoaderContext classpath size mismatch. expected=1, found=13 (DLC[];PCL[base.apk*1257986816]{PCL[/system/framework/org.apache.http.legacy.jar*4247870504]#PCL[/system/framework/com.android.location.provider.jar*1570284764]#PCL[/system/framework/com.android.media.remotedisplay.jar*487574312]#PCL[/system_ext/framework/androidx.window.extensions.jar*1030441313]#PCL[/system_ext/framework/androidx.window.sidecar.jar*3860983653]} | DLC[];PCL[/data/data/org.example.project/code_cache/.overlay/base.apk/classes10.dex*324313539:/data/data/org.example.project/code_cache/.overlay/base.apk/classes11.dex*3435819442:/data/data/org.example.project/code_cache/.overlay/base.apk/classes12.dex*372583228:/data/data/org.example.project/code_cache/.overlay/base.apk/classes13.dex*958773393:/data/data/org.example.project/code_cache/.overlay/base.apk/classes14.dex*908778081:/data/data/org.example.project/code_cache/.overlay/base.apk/classes15.dex*1233542862:/data/data/org.example.project/code_cache/.overlay/base.apk/classes16.dex*1908195024:/data/data/org.example.project/code_cache/.overlay/base.apk/classes4.dex*556123496:/data/data/org.example.project/code_cache/.overlay/base.apk/classes6.dex*21789391:/data/data/org.example.project/code_cache/.overlay/base.apk/classes7.dex*3691755605:/data/data/org.example.project/code_cache/.overlay/base.apk/classes8.dex*2239312245:/data/data/org.example.project/code_cache/.overlay/base.apk/classes9.dex*1830803496:/data/app/~~CNPOEb5BkLKw7AmYnMAMIw==/org.example.project-q_fS9v2LWUoktovm1uF_0Q==/base.apk*1398441430]{PCL[/system/framework/org.apache.http.legacy.jar*4247870504]})
+2026-03-12 22:03:15.864 25998-25998 DesktopModeFlags        org.example.project                  D  Toggle override initialized to: OVERRIDE_UNSET
+2026-03-12 22:03:15.876 25998-26015 example.project         org.example.project                  I  AssetManager2(0x71cee7f6e058) locale list changing from [] to [en-US]
+2026-03-12 22:03:15.877 25998-26015 example.project         org.example.project                  I  AssetManager2(0x71cee7f750d8) locale list changing from [] to [en-US]
+2026-03-12 22:03:15.906 25998-26023 EGL_emulation           org.example.project                  I  Opening libGLESv1_CM_emulation.so
+2026-03-12 22:03:15.909 25998-26023 EGL_emulation           org.example.project                  I  Opening libGLESv2_emulation.so
+2026-03-12 22:03:16.028 25998-25998 example.project         org.example.project                  W  Verification of java.lang.Object androidx.compose.runtime.snapshots.SnapshotKt.overwritable(androidx.compose.runtime.snapshots.StateRecord, androidx.compose.runtime.snapshots.StateObject, androidx.compose.runtime.snapshots.StateRecord, kotlin.jvm.functions.Function1) took 115.262ms (442.47 bytecodes/s) (0B arena alloc)
+2026-03-12 22:03:16.036 25998-26023 HWUI                    org.example.project                  W  Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+2026-03-12 22:03:16.036 25998-26023 HWUI                    org.example.project                  W  Failed to initialize 101010-2 format, error = EGL_SUCCESS
+2026-03-12 22:03:16.068 25998-25998 CompatChangeReporter    org.example.project                  D  Compat change id reported: 352594277; UID 10218; state: ENABLED
+2026-03-12 22:03:16.074 25998-26028 example.project         org.example.project                  I  hiddenapi: Accessing hidden method Ldalvik/system/VMStack;->getStackClass2()Ljava/lang/Class; (runtime_flags=0, domain=core-platform, api=unsupported) from Lm7/aov; (domain=app) using reflection: allowed
+2026-03-12 22:03:16.088 25998-25998 CompatChangeReporter    org.example.project                  D  Compat change id reported: 349153669; UID 10218; state: ENABLED
+2026-03-12 22:03:16.093 25998-25998 HWUI                    org.example.project                  W  Unknown dataspace 0
+2026-03-12 22:03:16.106 25998-26027 example.project         org.example.project                  E  No package ID 6a found for resource ID 0x6a0b0013.
+2026-03-12 22:03:16.112 25998-26027 FA                      org.example.project                  I  App measurement initialized, version: 152008
+2026-03-12 22:03:16.112 25998-26027 FA                      org.example.project                  I  To enable debug logging run: adb shell setprop log.tag.FA VERBOSE
+2026-03-12 22:03:16.112 25998-26027 FA                      org.example.project                  I  To enable faster debug mode event logging run:
+                                                                                                      adb shell setprop debug.firebase.analytics.app org.example.project
+2026-03-12 22:03:16.231 25998-26027 FA                      org.example.project                  I  Tag Manager is not found and thus will not be used
+2026-03-12 22:03:16.537 25998-25998 FirebaseAuth            org.example.project                  D  Notifying id token listeners about user ( cT4dhb6a12dB0KbsJmuL5MMqgSH3 ).
+2026-03-12 22:03:16.569 25998-25998 System.out              org.example.project                  I  [Session] checkSession uid=cT4dhb6a12dB0KbsJmuL5MMqgSH3 rememberMe=true
+2026-03-12 22:03:16.620 25998-26037 DynamiteModule          org.example.project                  W  Local module descriptor class for com.google.android.gms.providerinstaller.dynamite not found.
+2026-03-12 22:03:16.623 25998-26037 DynamiteModule          org.example.project                  I  Considering local module com.google.android.gms.providerinstaller.dynamite:0 and remote module com.google.android.gms.providerinstaller.dynamite:0
+2026-03-12 22:03:16.624 25998-26037 ProviderInstaller       org.example.project                  W  Failed to load providerinstaller module: No acceptable module com.google.android.gms.providerinstaller.dynamite found. Local version is 0 and remote version is 0.
+2026-03-12 22:03:16.633 25998-26037 ApplicationLoaders      org.example.project                  D  Returning zygote-cached class loader: /system/framework/org.apache.http.legacy.jar
+2026-03-12 22:03:16.633 25998-26037 ApplicationLoaders      org.example.project                  D  Returning zygote-cached class loader: /system/framework/com.android.location.provider.jar
+2026-03-12 22:03:16.633 25998-26037 ApplicationLoaders      org.example.project                  D  Returning zygote-cached class loader: /system/framework/com.android.media.remotedisplay.jar
+2026-03-12 22:03:16.633 25998-26037 ApplicationLoaders      org.example.project                  D  Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+2026-03-12 22:03:16.634 25998-26037 ApplicationLoaders      org.example.project                  D  Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+2026-03-12 22:03:16.642 25998-26037 example.project         org.example.project                  W  Loading /data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/oat/x86_64/base.odex non-executable as it requires an image which we failed to load
+2026-03-12 22:03:16.652 25998-26037 nativeloader            org.example.project                  D  Configuring clns-11 for other apk /data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/lib/x86_64:/data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/base.apk!/lib/x86_64, permitted_path=/data:/mnt/expand:/data/user/0/com.google.android.gms
+2026-03-12 22:03:16.702 25998-26040 GoogleApiManager        org.example.project                  E  Failed to get service from broker.  (Fix with AI)
+                                                                                                    java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+                                                                                                    	at android.os.Parcel.createExceptionOrNull(Parcel.java:3340)
+                                                                                                    	at android.os.Parcel.createException(Parcel.java:3324)
+                                                                                                    	at android.os.Parcel.readException(Parcel.java:3307)
+                                                                                                    	at android.os.Parcel.readException(Parcel.java:3249)
+                                                                                                    	at bepc.a(:com.google.android.gms@260438038@26.04.38 (260800-867839860):36)
+                                                                                                    	at bend.z(:com.google.android.gms@260438038@26.04.38 (260800-867839860):143)
+                                                                                                    	at bdtj.run(:com.google.android.gms@260438038@26.04.38 (260800-867839860):42)
+                                                                                                    	at android.os.Handler.handleCallback(Handler.java:995)
+                                                                                                    	at android.os.Handler.dispatchMessage(Handler.java:103)
+                                                                                                    	at csuj.mz(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at csuj.dispatchMessage(:com.google.android.gms@260438038@26.04.38 (260800-867839860):5)
+                                                                                                    	at android.os.Looper.loopOnce(Looper.java:248)
+                                                                                                    	at android.os.Looper.loop(Looper.java:338)
+                                                                                                    	at android.os.HandlerThread.run(HandlerThread.java:85)
+2026-03-12 22:03:16.711 25998-26041 fzke                    org.example.project                  I  Unable to retrieve flag snapshot for com.google.android.gms.providerinstaller#org.example.project, using defaults.
+2026-03-12 22:03:16.713 25998-26040 GoogleApiManager        org.example.project                  W  Not showing notification since connectionResult is not user-facing: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+2026-03-12 22:03:16.720 25998-26039 FlagRegistrar           org.example.project                  W  Failed to register com.google.android.gms.providerinstaller#org.example.project (Fix with AI)
+                                                                                                    fzkq: 17: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+                                                                                                    	at fzks.a(:com.google.android.gms@260438038@26.04.38 (260800-867839860):13)
+                                                                                                    	at gxsb.d(:com.google.android.gms@260438038@26.04.38 (260800-867839860):3)
+                                                                                                    	at gxsd.run(:com.google.android.gms@260438038@26.04.38 (260800-867839860):130)
+                                                                                                    	at gxuk.execute(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at gxsl.f(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at gxsl.m(:com.google.android.gms@260438038@26.04.38 (260800-867839860):99)
+                                                                                                    	at gxsl.r(:com.google.android.gms@260438038@26.04.38 (260800-867839860):17)
+                                                                                                    	at fryw.hz(:com.google.android.gms@260438038@26.04.38 (260800-867839860):35)
+                                                                                                    	at ffcr.run(:com.google.android.gms@260438038@26.04.38 (260800-867839860):12)
+                                                                                                    	at gxuk.execute(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at ffcs.b(:com.google.android.gms@260438038@26.04.38 (260800-867839860):18)
+                                                                                                    	at ffdh.b(:com.google.android.gms@260438038@26.04.38 (260800-867839860):34)
+                                                                                                    	at ffdj.d(:com.google.android.gms@260438038@26.04.38 (260800-867839860):25)
+                                                                                                    	at bdqs.c(:com.google.android.gms@260438038@26.04.38 (260800-867839860):9)
+                                                                                                    	at bdth.q(:com.google.android.gms@260438038@26.04.38 (260800-867839860):48)
+                                                                                                    	at bdth.d(:com.google.android.gms@260438038@26.04.38 (260800-867839860):10)
+                                                                                                    	at bdth.g(:com.google.android.gms@260438038@26.04.38 (260800-867839860):191)
+                                                                                                    	at bdth.onConnectionFailed(:com.google.android.gms@260438038@26.04.38 (260800-867839860):2)
+                                                                                                    	at bdtj.run(:com.google.android.gms@260438038@26.04.38 (260800-867839860):70)
+                                                                                                    	at android.os.Handler.handleCallback(Handler.java:995)
+                                                                                                    	at android.os.Handler.dispatchMessage(Handler.java:103)
+                                                                                                    	at csuj.mz(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at csuj.dispatchMessage(:com.google.android.gms@260438038@26.04.38 (260800-867839860):5)
+                                                                                                    	at android.os.Looper.loopOnce(Looper.java:248)
+                                                                                                    	at android.os.Looper.loop(Looper.java:338)
+                                                                                                    	at android.os.HandlerThread.run(HandlerThread.java:85)
+                                                                                                    Caused by: bdoz: 17: API: Phenotype.API is not available on this device. Connection failed with: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+                                                                                                    	at bemp.a(:com.google.android.gms@260438038@26.04.38 (260800-867839860):15)
+                                                                                                    	at bdqv.a(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at bdqs.c(:com.google.android.gms@260438038@26.04.38 (260800-867839860):5)
+                                                                                                    	... 12 more
+2026-03-12 22:03:16.832 25998-26011 HWUI                    org.example.project                  I  Davey! duration=997ms; Flags=1, FrameTimelineVsyncId=9731542, IntendedVsync=47310645874993, Vsync=47310979208313, InputEventId=0, HandleInputStart=47310995386525, AnimationStart=47310995392788, PerformTraversalsStart=47310995516538, DrawStart=47311613230356, FrameDeadline=47310662541659, FrameStartTime=47310994666777, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=47311616063246, SyncStart=47311653799967, IssueDrawCommandsStart=47311653992908, SwapBuffers=47311656853749, FrameCompleted=47311680837407, DequeueBufferDuration=6840, QueueBufferDuration=516080, GpuCompleted=47311680837407, SwapBuffersCompleted=47311664381781, DisplayPresentTime=0, CommandSubmissionCompleted=47311656853749,
+2026-03-12 22:03:16.836 25998-25998 Choreographer           org.example.project                  I  Skipped 36 frames!  The application may be doing too much work on its main thread.
+2026-03-12 22:03:16.874 25998-25998 InsetsController        org.example.project                  D  hide(ime(), fromIme=false)
+2026-03-12 22:03:16.876 25998-25998 ImeTracker              org.example.project                  I  org.example.project:90d137b3: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2026-03-12 22:03:17.176 25998-26037 nativeloader            org.example.project                  D  Load /data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/base.apk!/lib/x86_64/libconscrypt_gmscore_jni.so using class loader ns clns-11 (caller=/data/app/~~S7n7PWiHWgHPHms5wtBuug==/com.google.android.gms-eESHHorGTDdvQQEbQYgeFQ==/base.apk): ok
+2026-03-12 22:03:17.178 25998-26037 NativeCrypto            org.example.project                  V  Registering com/google/android/gms/org/conscrypt/NativeCrypto's 334 native methods...
+2026-03-12 22:03:17.204 25998-26037 example.project         org.example.project                  I  hiddenapi: Accessing hidden method Ljava/security/spec/ECParameterSpec;->getCurveName()Ljava/lang/String; (runtime_flags=0, domain=core-platform, api=unsupported) from Lcom/google/android/gms/org/conscrypt/Platform; (domain=app) using reflection: allowed
+2026-03-12 22:03:17.227 25998-26037 ProviderInstaller       org.example.project                  I  Installed default security provider GmsCore_OpenSSL
+2026-03-12 22:03:17.421 25998-26057 example.project         org.example.project                  I  hiddenapi: Accessing hidden field Ljava/net/Socket;->impl:Ljava/net/SocketImpl; (runtime_flags=0, domain=core-platform, api=unsupported) from Lcom/google/android/gms/org/conscrypt/Platform; (domain=app) using reflection: allowed
+2026-03-12 22:03:17.621 25998-26002 example.project         org.example.project                  I  Compiler allocated 5042KB to compile void android.view.ViewRootImpl.performTraversals()
+2026-03-12 22:03:17.662 25998-26057 example.project         org.example.project                  I  hiddenapi: Accessing hidden method Ljava/security/spec/ECParameterSpec;->setCurveName(Ljava/lang/String;)V (runtime_flags=0, domain=core-platform, api=unsupported) from Lcom/google/android/gms/org/conscrypt/Platform; (domain=app) using reflection: allowed
+2026-03-12 22:03:18.292 25998-25998 ExoPlayerImpl           org.example.project                  I  Init 4e8e313 [AndroidXMedia3/1.3.1] [emu64xa, sdk_gphone64_x86_64, Google, 36]
+2026-03-12 22:03:18.327 25998-25998 AudioSystem             org.example.project                  D  onNewService: media.audio_policy service obtained 0x71cf87feb0e0
+2026-03-12 22:03:18.329 25998-25998 AudioSystem             org.example.project                  D  getService: checking for service media.audio_policy: 0x71cf87feb0e0
+2026-03-12 22:03:18.348 25998-25998 example.project         org.example.project                  I  hiddenapi: Accessing hidden method Landroid/media/AudioTrack;->getLatency()I (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/media3/exoplayer/audio/AudioTrackPositionTracker; (domain=app) using reflection: allowed
+2026-03-12 22:03:18.401 25998-25998 AudioSystem             org.example.project                  D  onNewServiceWithAdapter: media.audio_flinger service obtained 0x71cec7fa3eb0
+2026-03-12 22:03:18.402 25998-25998 AudioSystem             org.example.project                  D  getService: checking for service media.audio_flinger: 0x71cf87ff0590
+2026-03-12 22:03:18.477 25998-25998 CompatChangeReporter    org.example.project                  D  Compat change id reported: 63938206; UID 10218; state: ENABLED
+2026-03-12 22:03:18.493 25998-25998 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:18.735 25998-26068 EGL_emulation           org.example.project                  E  eglQueryContext 32c0  EGL_BAD_ATTRIBUTE
+2026-03-12 22:03:18.735 25998-26068 EGL_emulation           org.example.project                  E  tid 26068: eglQueryContext(2159): error 0x3004 (EGL_BAD_ATTRIBUTE)
+2026-03-12 22:03:18.737 25998-26065 DMCodecAdapterFactory   org.example.project                  I  Creating an asynchronous MediaCodec adapter for track type video
+2026-03-12 22:03:18.743 25998-26072 CCodec                  org.example.project                  D  allocate(c2.goldfish.h264.decoder)
+2026-03-12 22:03:18.749 25998-26072 ApexCodecsLazy          org.example.project                  I  Failed to load libcom.android.media.swcodec.apexcodecs.so: dlopen failed: library "libcom.android.media.swcodec.apexcodecs.so" not found
+2026-03-12 22:03:18.749 25998-26072 Codec2Client            org.example.project                  I  Available Codec2 services: "default" "software"
+2026-03-12 22:03:18.751 25998-26072 CCodec                  org.example.project                  I  setting up 'default' as default (vendor) store
+2026-03-12 22:03:18.760 25998-26072 CCodec                  org.example.project                  I  Created component [c2.goldfish.h264.decoder] for [c2.goldfish.h264.decoder]
+2026-03-12 22:03:18.762 25998-26072 CCodecConfig            org.example.project                  D  read media type: video/avc
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: algo.buffers.max-count.values
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: output.subscribed-indices.values
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: input.buffers.allocator-ids.values
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: output.buffers.allocator-ids.values
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: algo.buffers.allocator-ids.values
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: output.buffers.pool-ids.values
+2026-03-12 22:03:18.768 25998-26072 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: algo.buffers.pool-ids.values
+2026-03-12 22:03:18.769 25998-26072 ReflectedParamUpdater   org.example.project                  D  ignored struct field coded.color-format.locations
+2026-03-12 22:03:18.769 25998-26072 ReflectedParamUpdater   org.example.project                  D  ignored struct field resources.needed.values
+2026-03-12 22:03:18.769 25998-26072 CCodecConfig            org.example.project                  D  ignoring local param raw.size (0xd2001800) as it is already supported
+2026-03-12 22:03:18.769 25998-26072 CCodecConfig            org.example.project                  D  ignoring local param default.color (0x5200180b) as it is already supported
+2026-03-12 22:03:18.769 25998-26072 ReflectedParamUpdater   org.example.project                  D  ignored struct field raw.hdr-static-info.mastering
+2026-03-12 22:03:18.770 25998-26072 CCodecConfig            org.example.project                  I  query failed after returning 12 values (BAD_INDEX)
+2026-03-12 22:03:18.771 25998-26072 CCodecConfig            org.example.project                  D  c2 config diff is Dict {
+                                                                                                      c2::u32 coded.pl.level = 20496
+                                                                                                      c2::u32 coded.pl.profile = 20481
+                                                                                                      c2::u32 coded.vui.color.matrix = 0
+                                                                                                      c2::u32 coded.vui.color.primaries = 0
+                                                                                                      c2::u32 coded.vui.color.range = 2
+                                                                                                      c2::u32 coded.vui.color.transfer = 0
+                                                                                                      c2::u32 default.color.matrix = 0
+                                                                                                      c2::u32 default.color.primaries = 0
+                                                                                                      c2::u32 default.color.range = 0
+                                                                                                      c2::u32 default.color.transfer = 0
+                                                                                                      c2::u32 input.buffers.max-size.value = 6291456
+                                                                                                      c2::u32 input.delay.value = 0
+                                                                                                      string input.media-type.value = "video/avc"
+                                                                                                      c2::u32 output.delay.value = 8
+                                                                                                      string output.media-type.value = "video/raw"
+                                                                                                      c2::u32 raw.color.matrix = 0
+                                                                                                      c2::u32 raw.color.primaries = 0
+                                                                                                      c2::u32 raw.color.range = 2
+                                                                                                      c2::u32 raw.color.transfer = 0
+                                                                                                      c2::u32 raw.max-size.height = 240
+                                                                                                      c2::u32 raw.max-size.width = 320
+                                                                                                      c2::u32 raw.pixel-format.value = 35
+                                                                                                      c2::i32 raw.rotation.flip = 0
+                                                                                                      c2::i32 raw.rotation.value = 0
+                                                                                                      c2::u32 raw.sar.height = 1
+                                                                                                      c2::u32 raw.sar.width = 1
+                                                                                                      c2::u32 raw.size.height = 240
+                                                                                                      c2::u32 raw.size.width = 320
+                                                                                                      c2:
+2026-03-12 22:03:18.771 25998-26072 ColorUtils              org.example.project                  W  expected specified color aspects (2:0:0:0)
+2026-03-12 22:03:18.777 25998-26071 MediaCodec              org.example.project                  I  MediaCodec will operate in async mode
+2026-03-12 22:03:18.782 25998-26065 MediaCodec              org.example.project                  E  Media Quality Service not found.
+2026-03-12 22:03:18.782 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7f96850, reason connectToSurface
+2026-03-12 22:03:18.782 25998-26071 MediaCodec              org.example.project                  I  [c2.goldfish.h264.decoder] setting surface generation to 26621953
+2026-03-12 22:03:18.782 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7f96850, reason connectToSurface(reconnect)
+2026-03-12 22:03:18.782 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7f96840, reason connectToSurface(reconnect-with-listener)
+2026-03-12 22:03:18.784 25998-26072 CCodec                  org.example.project                  D  [c2.goldfish.h264.decoder] buffers are bound to CCodec for this session
+2026-03-12 22:03:18.785 25998-26072 CCodecConfig            org.example.project                  D  no c2 equivalents for csd-1
+2026-03-12 22:03:18.785 25998-26072 CCodecConfig            org.example.project                  D  no c2 equivalents for log-session-id
+2026-03-12 22:03:18.785 25998-26072 CCodecConfig            org.example.project                  D  no c2 equivalents for native-window
+2026-03-12 22:03:18.785 25998-26072 CCodecConfig            org.example.project                  D  no c2 equivalents for native-window-generation
+2026-03-12 22:03:18.785 25998-26072 CCodecConfig            org.example.project                  D  no c2 equivalents for flags
+2026-03-12 22:03:18.785 25998-26072 CCodecConfig            org.example.project                  D  config failed => CORRUPTED
+2026-03-12 22:03:18.786 25998-26072 CCodecConfig            org.example.project                  D  c2 config diff is   c2::u32 raw.max-size.height = 640
+                                                                                                      c2::u32 raw.max-size.width = 360
+                                                                                                      c2::u32 raw.size.height = 640
+                                                                                                      c2::u32 raw.size.width = 360
+2026-03-12 22:03:18.787 25998-26072 Codec2Client            org.example.project                  W  query -- param skipped: index = 1107298332.
+2026-03-12 22:03:18.787 25998-26072 CCodec                  org.example.project                  D  client requested max input size 67686, which is smaller than what component recommended (6291456); overriding with component recommendation.
+2026-03-12 22:03:18.787 25998-26072 CCodec                  org.example.project                  W  This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+2026-03-12 22:03:18.787 25998-26072 CCodec                  org.example.project                  D  encoding statistics level = 0
+2026-03-12 22:03:18.787 25998-26072 CCodec                  org.example.project                  D  setup formats input: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t height = 640
+                                                                                                      int32_t level = 65536
+                                                                                                      int32_t max-input-size = 6291456
+                                                                                                      string mime = "video/avc"
+                                                                                                      int32_t profile = 65536
+                                                                                                      int32_t width = 360
+                                                                                                      Rect crop(0, 0, 359, 639)
+                                                                                                    }
+2026-03-12 22:03:18.787 25998-26072 CCodec                  org.example.project                  D  setup formats output: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t android._color-format = 2135033992
+                                                                                                      int32_t android._video-scaling = 1
+                                                                                                      int32_t rotation-degrees = 0
+                                                                                                      int32_t color-standard = 4
+                                                                                                      int32_t color-range = 2
+                                                                                                      int32_t color-transfer = 3
+                                                                                                      int32_t sar-height = 1
+                                                                                                      int32_t sar-width = 1
+                                                                                                      Rect crop(0, 0, 359, 639)
+                                                                                                      int32_t width = 360
+                                                                                                      int32_t height = 640
+                                                                                                      int32_t max-height = 640
+                                                                                                      int32_t max-width = 360
+                                                                                                      string mime = "video/raw"
+                                                                                                      int32_t android._dataspace = 259
+                                                                                                      int32_t color-format = 2130708361
+                                                                                                    }
+2026-03-12 22:03:18.787 25998-26072 CCodecConfig            org.example.project                  I  query failed after returning 12 values (BAD_INDEX)
+2026-03-12 22:03:18.789 25998-26065 MediaCodec              org.example.project                  D  keep callback message for reclaim
+2026-03-12 22:03:18.792 25998-26072 Codec2Client            org.example.project                  W  query -- param skipped: index = 1342179345.
+2026-03-12 22:03:18.792 25998-26072 Codec2Client            org.example.project                  W  query -- param skipped: index = 2415921170.
+2026-03-12 22:03:18.792 25998-26072 Codec2Client            org.example.project                  W  query -- param skipped: index = 1610614798.
+2026-03-12 22:03:18.793 25998-26072 Codec2Client            org.example.project                  W  query -- param skipped: index = 2684356609.
+2026-03-12 22:03:18.793 25998-26072 C2Store                 org.example.project                  D  Using DMABUF Heaps
+2026-03-12 22:03:18.795 25998-26072 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] Created input block pool with allocatorID 16 => poolID 17 - OK (0)
+2026-03-12 22:03:18.797 25998-26072 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] Query output surface allocator returned 0 params => BAD_INDEX (6)
+2026-03-12 22:03:18.797 25998-26072 CCodecBufferChannel     org.example.project                  I  [c2.goldfish.h264.decoder#228] Created output block pool with allocatorID 18 => poolID 30 - OK
+2026-03-12 22:03:18.797 25998-26072 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] Configured output block pool ids 30 => OK
+2026-03-12 22:03:18.797 25998-26072 Codec2-Out...ufferQueue org.example.project                  D  remote graphic buffer migration 0/0
+2026-03-12 22:03:18.797 25998-26072 Codec2Client            org.example.project                  D  setOutputSurface -- failed to set consumer usage (6/BAD_INDEX)
+2026-03-12 22:03:18.797 25998-26072 Codec2Client            org.example.project                  D  setOutputSurface -- generation=26621953 consumer usage=0x900
+2026-03-12 22:03:18.802 25998-26072 Codec2Client            org.example.project                  D  Surface configure completed
+2026-03-12 22:03:18.803 25998-26072 DMABUFHEAPS             org.example.project                  I  Using DMA-BUF heap named: system
+2026-03-12 22:03:18.815 25998-26065 DMCodecAdapterFactory   org.example.project                  I  Creating an asynchronous MediaCodec adapter for track type audio
+2026-03-12 22:03:18.820 25998-26080 CCodec                  org.example.project                  D  allocate(c2.android.aac.decoder)
+2026-03-12 22:03:18.823 25998-26080 CCodec                  org.example.project                  I  setting up 'default' as default (vendor) store
+2026-03-12 22:03:18.940 25998-26080 CCodec                  org.example.project                  I  Created component [c2.android.aac.decoder] for [c2.android.aac.decoder]
+2026-03-12 22:03:18.940 25998-26080 CCodecConfig            org.example.project                  D  read media type: audio/mp4a-latm
+2026-03-12 22:03:18.946 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: algo.buffers.max-count.values
+2026-03-12 22:03:18.950 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: output.subscribed-indices.values
+2026-03-12 22:03:18.951 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: input.buffers.allocator-ids.values
+2026-03-12 22:03:18.952 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: output.buffers.allocator-ids.values
+2026-03-12 22:03:18.952 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: algo.buffers.allocator-ids.values
+2026-03-12 22:03:18.953 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: output.buffers.pool-ids.values
+2026-03-12 22:03:18.953 25998-26080 ReflectedParamUpdater   org.example.project                  D  extent() != 1 for single value type: algo.buffers.pool-ids.values
+2026-03-12 22:03:18.961 25998-26080 CCodecConfig            org.example.project                  I  query failed after returning 21 values (BAD_INDEX)
+2026-03-12 22:03:18.961 25998-26080 CCodecConfig            org.example.project                  D  c2 config diff is Dict {
+                                                                                                      c2::u32 coded.aac-packaging.value = 0
+                                                                                                      c2::u32 coded.bitrate.value = 64000
+                                                                                                      c2::u32 coded.pl.level = 0
+                                                                                                      c2::u32 coded.pl.profile = 8192
+                                                                                                      c2::i32 coding.drc.album-mode.value = 0
+                                                                                                      c2::float coding.drc.attenuation-factor.value = 1
+                                                                                                      c2::float coding.drc.boost-factor.value = 1
+                                                                                                      c2::i32 coding.drc.compression-mode.value = 3
+                                                                                                      c2::i32 coding.drc.effect-type.value = 3
+                                                                                                      c2::float coding.drc.encoded-level.value = 0.25
+                                                                                                      c2::float coding.drc.reference-level.value = -16
+                                                                                                      c2::u32 input.buffers.max-size.value = 8192
+                                                                                                      c2::u32 input.delay.value = 0
+                                                                                                      string input.media-type.value = "audio/mp4a-latm"
+                                                                                                      c2::u32 output.delay.value = 2
+                                                                                                      c2::float output.drc.output-loudness.value = 0.25
+                                                                                                      c2::u32 output.large-frame.max-size = 0
+                                                                                                      c2::u32 output.large-frame.threshold-size = 0
+                                                                                                      string output.media-type.value = "audio/raw"
+                                                                                                      c2::u32 raw.channel-count.value = 1
+                                                                                                      c2::u32 raw.channel-mask.value = 0
+                                                                                                      c2::u32 raw.max-channel-count.value = 8
+                                                                                                      c2::u32 raw.sample-rate.value = 44100
+                                                                                                    }
+2026-03-12 22:03:18.966 25998-26080 MediaCodec              org.example.project                  I  MediaCodec will operate in async mode
+2026-03-12 22:03:18.970 25998-26065 MediaCodec              org.example.project                  E  Media Quality Service not found.
+2026-03-12 22:03:18.971 25998-26080 CCodec                  org.example.project                  D  [c2.android.aac.decoder] buffers are bound to CCodec for this session
+2026-03-12 22:03:18.971 25998-26080 CCodecConfig            org.example.project                  D  no c2 equivalents for log-session-id
+2026-03-12 22:03:18.971 25998-26080 CCodecConfig            org.example.project                  D  no c2 equivalents for flags
+2026-03-12 22:03:18.973 25998-26080 CCodecConfig            org.example.project                  D  config failed => CORRUPTED
+2026-03-12 22:03:18.974 25998-26080 CCodecConfig            org.example.project                  D  c2 config diff is   c2::u32 raw.channel-count.value = 2
+                                                                                                      c2::u32 raw.sample-rate.value = 48000
+2026-03-12 22:03:18.976 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 1107298332.
+2026-03-12 22:03:18.976 25998-26080 CCodec                  org.example.project                  D  client requested max input size 1499, which is smaller than what component recommended (8192); overriding with component recommendation.
+2026-03-12 22:03:18.976 25998-26080 CCodec                  org.example.project                  W  This behavior is subject to change. It is recommended that app developers double check whether the requested max input size is in reasonable range.
+2026-03-12 22:03:18.976 25998-26080 CCodec                  org.example.project                  D  encoding statistics level = 0
+2026-03-12 22:03:18.976 25998-26080 CCodec                  org.example.project                  D  setup formats input: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t aac-drc-album-mode = 0
+                                                                                                      int32_t aac-drc-boost-level = 127
+                                                                                                      int32_t aac-drc-cut-level = 127
+                                                                                                      int32_t aac-drc-effect-type = 3
+                                                                                                      int32_t aac-encoded-target-level = -1
+                                                                                                      int32_t aac-max-output-channel_count = 8
+                                                                                                      int32_t aac-target-ref-level = 64
+                                                                                                      int32_t bitrate = 64000
+                                                                                                      int32_t channel-count = 2
+                                                                                                      int32_t channel-mask = 0
+                                                                                                      int32_t level = 0
+                                                                                                      int32_t max-input-size = 8192
+                                                                                                      int32_t max-output-channel-count = 8
+                                                                                                      string mime = "audio/mp4a-latm"
+                                                                                                      int32_t profile = 2
+                                                                                                      int32_t sample-rate = 48000
+                                                                                                    }
+2026-03-12 22:03:18.976 25998-26080 CCodec                  org.example.project                  D  setup formats output: AMessage(what = 0x00000000) = {
+                                                                                                      int32_t aac-drc-album-mode = 0
+                                                                                                      int32_t aac-drc-boost-level = 127
+                                                                                                      int32_t aac-drc-cut-level = 127
+                                                                                                      int32_t aac-drc-effect-type = 3
+                                                                                                      int32_t aac-drc-output-loudness = -1
+                                                                                                      int32_t aac-encoded-target-level = -1
+                                                                                                      int32_t aac-max-output-channel_count = 8
+                                                                                                      int32_t aac-target-ref-level = 64
+                                                                                                      int32_t buffer-batch-max-output-size = 0
+                                                                                                      int32_t buffer-batch-threshold-output-size = 0
+                                                                                                      int32_t channel-count = 2
+                                                                                                      int32_t channel-mask = 0
+                                                                                                      int32_t max-output-channel-count = 8
+                                                                                                      string mime = "audio/raw"
+                                                                                                      int32_t sample-rate = 48000
+                                                                                                      int32_t android._config-pcm-encoding = 2
+                                                                                                    }
+2026-03-12 22:03:18.976 25998-26080 CCodecConfig            org.example.project                  I  query failed after returning 21 values (BAD_INDEX)
+2026-03-12 22:03:18.977 25998-26080 example.project         org.example.project                  E  Failed to query component interface for required system resources: 6
+2026-03-12 22:03:18.980 25998-26065 MediaCodec              org.example.project                  D  keep callback message for reclaim
+2026-03-12 22:03:18.982 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 1342179345.
+2026-03-12 22:03:18.982 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 2415921170.
+2026-03-12 22:03:18.982 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 1610614798.
+2026-03-12 22:03:18.985 25998-26080 CCodecBufferChannel     org.example.project                  D  [c2.android.aac.decoder#900] Created input block pool with allocatorID 16 => poolID 18 - OK (0)
+2026-03-12 22:03:18.987 25998-26080 CCodecBufferChannel     org.example.project                  I  [c2.android.aac.decoder#900] Created output block pool with allocatorID 16 => poolID 64 - OK
+2026-03-12 22:03:18.988 25998-26080 CCodecBufferChannel     org.example.project                  D  [c2.android.aac.decoder#900] Configured output block pool ids 64 => OK
+2026-03-12 22:03:18.996 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7f9f5f0, reason connectToSurface
+2026-03-12 22:03:18.996 25998-26071 MediaCodec              org.example.project                  I  [c2.goldfish.h264.decoder] setting surface generation to 26621954
+2026-03-12 22:03:18.996 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7f9f5f0, reason connectToSurface(reconnect)
+2026-03-12 22:03:18.996 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7f9f5e0, reason connectToSurface(reconnect-with-listener)
+2026-03-12 22:03:18.998 25998-26071 Codec2-Out...ufferQueue org.example.project                  D  remote graphic buffer migration 0/0
+2026-03-12 22:03:18.999 25998-26071 Codec2Client            org.example.project                  D  setOutputSurface -- failed to set consumer usage (6/BAD_INDEX)
+2026-03-12 22:03:19.000 25998-26071 Codec2Client            org.example.project                  D  setOutputSurface -- generation=26621954 consumer usage=0x900
+2026-03-12 22:03:19.018 25998-26071 Codec2Client            org.example.project                  D  Surface configure completed
+2026-03-12 22:03:19.018 25998-26071 CCodecBufferChannel     org.example.project                  I  Using latch times for frame rendered signals - present fences not supported
+2026-03-12 22:03:19.018 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7f96850, reason disconnectFromSurface
+2026-03-12 22:03:19.087 25998-26072 CCodecConfig            org.example.project                  D  c2 config diff is   c2::u32 raw.crop.height = 640
+                                                                                                      c2::u32 raw.crop.left = 0
+                                                                                                      c2::u32 raw.crop.top = 0
+                                                                                                      c2::u32 raw.crop.width = 360
+2026-03-12 22:03:19.144 25998-26080 CCodecConfig            org.example.project                  D  c2 config diff is   c2::u32 raw.channel-mask.value = 12
+2026-03-12 22:03:19.145 25998-26080 CCodecBuffers           org.example.project                  D  [c2.android.aac.decoder#900:Output[N]] popFromStashAndRegister: at 1000000000000us, output format changed to AMessage(what = 0x00000000) = {
+                                                                                                      int32_t aac-drc-album-mode = 0
+                                                                                                      int32_t aac-drc-boost-level = 127
+                                                                                                      int32_t aac-drc-cut-level = 127
+                                                                                                      int32_t aac-drc-effect-type = 3
+                                                                                                      int32_t aac-drc-output-loudness = -1
+                                                                                                      int32_t aac-encoded-target-level = -1
+                                                                                                      int32_t aac-max-output-channel_count = 8
+                                                                                                      int32_t aac-target-ref-level = 64
+                                                                                                      int32_t buffer-batch-max-output-size = 0
+                                                                                                      int32_t buffer-batch-threshold-output-size = 0
+                                                                                                      int32_t channel-count = 2
+                                                                                                      int32_t channel-mask = 12
+                                                                                                      int32_t max-output-channel-count = 8
+                                                                                                      string mime = "audio/raw"
+                                                                                                      int32_t sample-rate = 48000
+                                                                                                      int32_t android._config-pcm-encoding = 2
+                                                                                                    }
+2026-03-12 22:03:19.212   728-826   AppOps                  system_server                        E  attributionTag  not declared in manifest of org.example.project
+2026-03-12 22:03:19.214   728-1253  AppOps                  system_server                        E  attributionTag  not declared in manifest of org.example.project
+2026-03-12 22:03:19.314 25998-26065 AudioTrack              org.example.project                  D  getTimestamp_l(30): device stall time corrected using current time 47314171790036
+2026-03-12 22:03:21.218 25998-26085 ProfileInstaller        org.example.project                  D  Installing profile for org.example.project
+2026-03-12 22:03:24.111 25998-26071 BufferPoolAccessor2.0   org.example.project                  D  bufferpool2 0x71cf47f89478 : 5(31457280 size) total buffers - 4(25165824 size) used buffers - 159/164 (recycle/alloc) - 5/164 (fetch/transfer)
+2026-03-12 22:03:24.236 25998-26080 BufferPoolAccessor2.0   org.example.project                  D  bufferpool2 0x71cf47f84138 : 5(40960 size) total buffers - 1(8192 size) used buffers - 255/260 (recycle/alloc) - 5/259 (fetch/transfer)
+2026-03-12 22:03:26.715 25998-26040 GoogleApiManager        org.example.project                  E  Failed to get service from broker.  (Fix with AI)
+                                                                                                    java.lang.SecurityException: Unknown calling package name 'com.google.android.gms'.
+                                                                                                    	at android.os.Parcel.createExceptionOrNull(Parcel.java:3340)
+                                                                                                    	at android.os.Parcel.createException(Parcel.java:3324)
+                                                                                                    	at android.os.Parcel.readException(Parcel.java:3307)
+                                                                                                    	at android.os.Parcel.readException(Parcel.java:3249)
+                                                                                                    	at bepc.a(:com.google.android.gms@260438038@26.04.38 (260800-867839860):36)
+                                                                                                    	at bend.z(:com.google.android.gms@260438038@26.04.38 (260800-867839860):143)
+                                                                                                    	at bdtj.run(:com.google.android.gms@260438038@26.04.38 (260800-867839860):42)
+                                                                                                    	at android.os.Handler.handleCallback(Handler.java:995)
+                                                                                                    	at android.os.Handler.dispatchMessage(Handler.java:103)
+                                                                                                    	at csuj.mz(:com.google.android.gms@260438038@26.04.38 (260800-867839860):1)
+                                                                                                    	at csuj.dispatchMessage(:com.google.android.gms@260438038@26.04.38 (260800-867839860):5)
+                                                                                                    	at android.os.Looper.loopOnce(Looper.java:248)
+                                                                                                    	at android.os.Looper.loop(Looper.java:338)
+                                                                                                    	at android.os.HandlerThread.run(HandlerThread.java:85)
+2026-03-12 22:03:26.716 25998-26040 GoogleApiManager        org.example.project                  W  Not showing notification since connectionResult is not user-facing: ConnectionResult{statusCode=DEVELOPER_ERROR, resolution=null, message=null, clientMethodKey=null}
+2026-03-12 22:03:29.209 25998-26076 BufferPoolAccessor2.0   org.example.project                  D  bufferpool2 0x71cf47f89478 : 5(31457280 size) total buffers - 5(31457280 size) used buffers - 311/316 (recycle/alloc) - 5/315 (fetch/transfer)
+2026-03-12 22:03:29.532 25998-26080 BufferPoolAccessor2.0   org.example.project                  D  bufferpool2 0x71cf47f84138 : 5(40960 size) total buffers - 1(8192 size) used buffers - 504/509 (recycle/alloc) - 5/508 (fetch/transfer)
+2026-03-12 22:03:30.949 25998-26065 AudioTrack              org.example.project                  D  stop(30): called with 576512 frames delivered
+2026-03-12 22:03:30.953   728-1569  AppOps                  system_server                        E  attributionTag  not declared in manifest of org.example.project
+2026-03-12 22:03:30.954   728-1569  AppOps                  system_server                        E  attributionTag  not declared in manifest of org.example.project
+2026-03-12 22:03:30.985 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7fa96e0, reason connectToSurface
+2026-03-12 22:03:30.985 25998-26071 MediaCodec              org.example.project                  I  [c2.goldfish.h264.decoder] setting surface generation to 26621955
+2026-03-12 22:03:30.985 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7fa96e0, reason connectToSurface(reconnect)
+2026-03-12 22:03:30.985 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7fa96d0, reason connectToSurface(reconnect-with-listener)
+2026-03-12 22:03:30.986 25998-26071 Codec2-Out...ufferQueue org.example.project                  D  remote graphic buffer migration 9/9
+2026-03-12 22:03:30.986 25998-26071 Codec2Client            org.example.project                  D  setOutputSurface -- failed to set consumer usage (6/BAD_INDEX)
+2026-03-12 22:03:30.986 25998-26071 Codec2Client            org.example.project                  D  setOutputSurface -- generation=26621955 consumer usage=0x900
+2026-03-12 22:03:30.996 25998-26071 Codec2Client            org.example.project                  D  Surface configure completed
+2026-03-12 22:03:30.996 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7f9f5f0, reason disconnectFromSurface
+2026-03-12 22:03:31.020 25998-25998 ExoPlayerImpl           org.example.project                  I  Release 4e8e313 [AndroidXMedia3/1.3.1] [emu64xa, sdk_gphone64_x86_64, Google, 36] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor, media3.ui]
+2026-03-12 22:03:31.030 25998-26065 MediaCodec              org.example.project                  D  keep callback message for reclaim
+2026-03-12 22:03:31.032 25998-26071 CCodecConfig            org.example.project                  I  query failed after returning 12 values (BAD_INDEX)
+2026-03-12 22:03:31.036 25998-26071 Codec2Client            org.example.project                  W  query -- param skipped: index = 1342179345.
+2026-03-12 22:03:31.037 25998-26071 Codec2Client            org.example.project                  W  query -- param skipped: index = 2415921170.
+2026-03-12 22:03:31.037 25998-26071 Codec2Client            org.example.project                  W  query -- param skipped: index = 1610614798.
+2026-03-12 22:03:31.045 25998-26065 MediaCodec              org.example.project                  D  keep callback message for reclaim
+2026-03-12 22:03:31.046 25998-26080 CCodecConfig            org.example.project                  I  query failed after returning 21 values (BAD_INDEX)
+2026-03-12 22:03:31.050 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 1342179345.
+2026-03-12 22:03:31.050 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 2415921170.
+2026-03-12 22:03:31.050 25998-26080 Codec2Client            org.example.project                  W  query -- param skipped: index = 1610614798.
+2026-03-12 22:03:31.061 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7f8e120, reason connectToSurface
+2026-03-12 22:03:31.061 25998-26071 MediaCodec              org.example.project                  I  [c2.goldfish.h264.decoder] setting surface generation to 26621956
+2026-03-12 22:03:31.061 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7f8e120, reason connectToSurface(reconnect)
+2026-03-12 22:03:31.061 25998-26071 SurfaceUtils            org.example.project                  D  connecting to surface 0x71cea7f8e110, reason connectToSurface(reconnect-with-listener)
+2026-03-12 22:03:31.061 25998-26071 Codec2-Out...ufferQueue org.example.project                  D  remote graphic buffer migration 0/0
+2026-03-12 22:03:31.062 25998-26071 Codec2Client            org.example.project                  D  setOutputSurface -- failed to set consumer usage (6/BAD_INDEX)
+2026-03-12 22:03:31.062 25998-26071 Codec2Client            org.example.project                  D  setOutputSurface -- generation=26621956 consumer usage=0x900
+2026-03-12 22:03:31.071 25998-26071 Codec2Client            org.example.project                  D  Surface configure completed
+2026-03-12 22:03:31.071 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7fa96e0, reason disconnectFromSurface
+2026-03-12 22:03:31.072 25998-26071 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.073 25998-26071 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.073 25998-26071 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.073 25998-26071 CCodecBufferChannel     org.example.project                  D  [c2.goldfish.h264.decoder#228] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.145 25998-26072 hw-BpHwBinder           org.example.project                  I  onLastStrongRef automatically unlinking death recipients
+2026-03-12 22:03:31.147 25998-26071 SurfaceUtils            org.example.project                  D  disconnecting from surface 0x71cea7f8e120, reason disconnectFromSurface
+2026-03-12 22:03:31.152 25998-26080 CCodecBufferChannel     org.example.project                  D  [c2.android.aac.decoder#900] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.154 25998-26080 CCodecBufferChannel     org.example.project                  D  [c2.android.aac.decoder#900] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.156 25998-26080 CCodecBufferChannel     org.example.project                  D  [c2.android.aac.decoder#900] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.156 25998-26080 CCodecBufferChannel     org.example.project                  D  [c2.android.aac.decoder#900] MediaCodec discarded an unknown buffer
+2026-03-12 22:03:31.158 25998-26080 hw-BpHwBinder           org.example.project                  I  onLastStrongRef automatically unlinking death recipients
+2026-03-12 22:03:31.261 25998-25998 System.out              org.example.project                  I  [AuthViewModel] refreshUser — profilePhotoUrl=https://firebasestorage.googleapis.com/v0/b/rentout-12239.firebasestorage.app/o/profile_photos%2FcT4dhb6a12dB0KbsJmuL5MMqgSH3%2Fprofile.jpg?alt=media&token=9fbc31a1-3c96-4975-97ff-99e1a30c789d
+2026-03-12 22:03:35.327 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 0 unlocked IDs (0 from txns + 0 optimistic)
+2026-03-12 22:03:35.328 25998-25998 System.out              org.example.project                  I  🔄 TenantViewModel: loadTransactions called for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:03:35.329 25998-26010 HWUI                    org.example.project                  I  Davey! duration=1118ms; Flags=0, FrameTimelineVsyncId=9734924, IntendedVsync=47329062540923, Vsync=47329079207589, InputEventId=0, HandleInputStart=47329088958205, AnimationStart=47329089017505, PerformTraversalsStart=47329281828805, DrawStart=47330144497305, FrameDeadline=47329129207587, FrameStartTime=47329088904505, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=47330171518405, SyncStart=47330171767005, IssueDrawCommandsStart=47330171948705, SwapBuffers=47330172630705, FrameCompleted=47330181226205, DequeueBufferDuration=43700, QueueBufferDuration=398400, GpuCompleted=47330181226205, SwapBuffersCompleted=47330174105705, DisplayPresentTime=0, CommandSubmissionCompleted=47330172630705,
+2026-03-12 22:03:35.356 25998-25998 Choreographer           org.example.project                  I  Skipped 66 frames!  The application may be doing too much work on its main thread.
+2026-03-12 22:03:35.499 25998-26106 HWUI                    org.example.project                  W  Failed to choose config with EGL_SWAP_BEHAVIOR_PRESERVED, retrying without...
+2026-03-12 22:03:35.499 25998-26106 HWUI                    org.example.project                  W  Failed to initialize 101010-2 format, error = EGL_SUCCESS
+2026-03-12 22:03:35.626 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:35.678 25998-26010 HWUI                    org.example.project                  I  Davey! duration=1403ms; Flags=0, FrameTimelineVsyncId=9734932, IntendedVsync=47329112540921, Vsync=47330212540877, InputEventId=0, HandleInputStart=47330215276505, AnimationStart=47330215395405, PerformTraversalsStart=47330312874805, DrawStart=47330385990005, FrameDeadline=47330212540877, FrameStartTime=47330213756405, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=47330394705005, SyncStart=47330409065505, IssueDrawCommandsStart=47330409254105, SwapBuffers=47330525948305, FrameCompleted=47330530476805, DequeueBufferDuration=46100, QueueBufferDuration=411300, GpuCompleted=47330530476805, SwapBuffersCompleted=47330527397005, DisplayPresentTime=0, CommandSubmissionCompleted=47330525948305,
+2026-03-12 22:03:35.816 25998-26075 BufferPoolAccessor2.0   org.example.project                  D  bufferpool2 0x71cf47f84138 : 0(0 size) total buffers - 0(0 size) used buffers - 570/575 (recycle/alloc) - 5/566 (fetch/transfer)
+2026-03-12 22:03:35.816 25998-26075 BufferPoolAccessor2.0   org.example.project                  D  evictor expired: 1, evicted: 1
+2026-03-12 22:03:35.902 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:35.976 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:36.085 25998-25998 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:03:36.094 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:03:36.097 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:03:36.100 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:03:36.817 25998-26075 BufferPoolAccessor2.0   org.example.project                  D  bufferpool2 0x71cf47f89478 : 0(0 size) total buffers - 0(0 size) used buffers - 362/367 (recycle/alloc) - 5/362 (fetch/transfer)
+2026-03-12 22:03:36.817 25998-26075 BufferPoolAccessor2.0   org.example.project                  D  evictor expired: 1, evicted: 1
+2026-03-12 22:03:37.238 25998-25998 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:03:37.240 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:03:38.396 25998-25998 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:03:40.544 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:40.981 25998-26002 example.project         org.example.project                  I  Compiler allocated 9932KB to compile void org.example.project.ui.components.PropertyCardKt$PropertyCard$3.invoke(androidx.compose.foundation.layout.ColumnScope, androidx.compose.runtime.Composer, int)
+2026-03-12 22:03:41.019 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:41.203 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:45.531 25998-26103 HWUI                    org.example.project                  W  Image decoding logging dropped!
+2026-03-12 22:03:45.591 25998-26003 example.project         org.example.project                  W  Cleared Reference was only reachable from finalizer (only reported once)
+2026-03-12 22:03:45.641 25998-26003 example.project         org.example.project                  I  NativeAlloc concurrent mark compact GC freed 10237KB AllocSpace bytes, 75(5052KB) LOS objects, 49% free, 10MB/20MB, paused 2.745ms,4.599ms total 108.988ms
+2026-03-12 22:03:52.649 25998-25998 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:03:52.653 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:03:52.657 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:03:52.660 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:03:53.725 25998-25998 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:03:53.725 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:03:54.793 25998-25998 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:04:09.071 25998-25998 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:04:09.075 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:04:09.079 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:04:09.084 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:04:10.135 25998-25998 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:04:10.135 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:04:11.197 25998-25998 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:04:25.490 25998-25998 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:04:25.495 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:04:25.498 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:04:25.501 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:04:26.570 25998-25998 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:04:26.570 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:04:27.649 25998-25998 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:04:41.939 25998-25998 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:04:41.943 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:04:41.946 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:04:41.953 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:04:43.003 25998-25998 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:04:43.004 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:04:44.084 25998-25998 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched
+2026-03-12 22:04:58.157 25998-26003 example.project         org.example.project                  I  Background concurrent mark compact GC freed 10MB AllocSpace bytes, 0(0B) LOS objects, 49% free, 10MB/20MB, paused 4.436ms,8.675ms total 132.168ms
+2026-03-12 22:04:58.437 25998-25998 System.out              org.example.project                  I  📸 TenantViewModel: Got 3 docs from Firestore for tenantId=cT4dhb6a12dB0KbsJmuL5MMqgSH3
+2026-03-12 22:04:58.449 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx Ee9kWdwoOl9HbDk6YiYf: $10.0 USD [success] createdAt=1773240487410
+2026-03-12 22:04:58.454 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx xcV6frDsbPza4rjhGgBr: $10.0 USD [success] createdAt=1773329076074
+2026-03-12 22:04:58.461 25998-25998 System.out              org.example.project                  I  ✅ Parsed tx zSbjsmz6IUDXOMJcJEXe: $10.0 USD [success] createdAt=1773259571494
+2026-03-12 22:04:59.584 25998-25998 System.out              org.example.project                  I  🎯 TenantViewModel: Emitting 3 transactions to UI
+2026-03-12 22:04:59.584 25998-25998 System.out              org.example.project                  I  🔓 TenantViewModel: 3 unlocked IDs (3 from txns + 0 optimistic)
+2026-03-12 22:05:00.797 25998-25998 System.out              org.example.project                  I  🏠 TenantViewModel: 3 unlocked property docs fetched

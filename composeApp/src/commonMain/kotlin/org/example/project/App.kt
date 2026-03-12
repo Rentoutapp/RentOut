@@ -618,17 +618,25 @@ fun App() {
                     AddPropertyScreen(
                         formState            = formState,
                         onSubmit             = { updated: org.example.project.data.model.Property ->
-                            // Preserve existing metadata when updating
+                            // Preserve existing images — keepImageUrls holds all current
+                            // remote URLs so updateProperty() does not wipe them when
+                            // no new images are picked during a metadata-only edit.
+                            val currentImages = property.imageUrls.ifEmpty {
+                                listOfNotNull(property.imageUrl.takeIf { it.isNotBlank() })
+                            }
                             propertyViewModel.updateProperty(
-                                updated.copy(
+                                property      = updated.copy(
                                     id           = property.id,
                                     landlordId   = property.landlordId,
                                     landlordName = property.landlordName,
                                     imageUrl     = property.imageUrl,
+                                    imageUrls    = currentImages,
                                     isVerified   = property.isVerified,
                                     createdAt    = property.createdAt,
                                     status       = property.status
-                                )
+                                ),
+                                keepImageUrls = currentImages,
+                                newImageBytes = emptyList()
                             )
                         },
                         onBack               = { navController.popBackStack() },

@@ -416,31 +416,58 @@ class PropertyViewModel : ViewModel() {
     // ── Load approved tenant-visible properties — real-time Firestore listener ─
     // Pushes updates instantly whenever admin approves / rejects a listing,
     // so tenants always see the current state without relaunching the app.
+    //
+    // Resilience notes:
+    //  • Per-document try/catch prevents one bad document from crashing the
+    //    entire listener — that document is silently skipped.
+    //  • The outer catch restarts the listener after a 3-second delay so
+    //    transient network errors are self-healing.
+    //  • We explicitly filter out non-approved documents client-side as a
+    //    safety net in case the Firestore query index is not yet ready.
     fun loadTenantPropertiesFromFirestore() {
         tenantListenerJob?.cancel()
         tenantListenerJob = viewModelScope.launch {
             _tenantProperties.value = PropertyListState.Loading
-            Firebase.firestore
-                .collection("properties")
-                .where { "status" equalTo "approved" }
-                .snapshots
-                .catch { e ->
+            var retryDelay = 3_000L
+            while (true) {
+                try {
+                    Firebase.firestore
+                        .collection("properties")
+                        .where { "status" equalTo "approved" }
+                        .snapshots
+                        .collect { snapshot ->
+                            retryDelay = 3_000L // reset on successful snapshot
+                            val props = snapshot.documents.mapNotNull { docSnapshot ->
+                                try {
+                                    val prop = docSnapshot.data(Property.serializer())
+                                    // Safety net: skip any non-approved docs that
+                                    // slip through (e.g. index not yet consistent)
+                                    if (prop.status != "approved") return@mapNotNull null
+                                    // Normalise imageUrls for backward compatibility
+                                    if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
+                                        prop.copy(imageUrls = listOf(prop.imageUrl))
+                                    } else prop
+                                } catch (docEx: Exception) {
+                                    // Skip malformed documents — don't crash the listener
+                                    println("⚠️ [Tenant] Skipping malformed property doc ${docSnapshot.id}: ${docEx.message}")
+                                    null
+                                }
+                            }
+                            _tenantProperties.value =
+                                if (props.isEmpty()) PropertyListState.Empty
+                                else PropertyListState.Success(props)
+                        }
+                    // collect() returned normally — exit the retry loop
+                    break
+                } catch (e: Exception) {
+                    println("⚠️ [Tenant] Property listener error: ${e.message}. Retrying in ${retryDelay}ms…")
                     _tenantProperties.value = PropertyListState.Error(
                         e.message ?: "Failed to load listings. Check your connection."
                     )
+                    kotlinx.coroutines.delay(retryDelay)
+                    retryDelay = minOf(retryDelay * 2, 30_000L) // exponential back-off, max 30s
                 }
-                .collect { snapshot ->
-                    val props = snapshot.documents.map { doc ->
-                        val prop = doc.data(Property.serializer())
-                        // If imageUrls is empty but imageUrl exists, populate list for consistency
-                        if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
-                            prop.copy(imageUrls = listOf(prop.imageUrl))
-                        } else prop
-                    }
-                    _tenantProperties.value =
-                        if (props.isEmpty()) PropertyListState.Empty
-                        else PropertyListState.Success(props)
-                }
+            }
         }
     }
 

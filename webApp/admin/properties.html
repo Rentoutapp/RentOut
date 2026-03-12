@@ -613,33 +613,94 @@
     window.approveP = async function(id) {
       showToast('Approving...', 'info');
       try {
-        await updateDoc(doc(db, 'properties', id), { status: 'approved', isVerified: true });
-        allProperties = allProperties.map(p => p.id === id ? {...p, status:'approved', isVerified:true} : p);
+        const prop = allProperties.find(p => p.id === id);
+        if (!prop) { showToast('❌ Property not found.', 'danger'); return; }
+
+        // Write all fields needed for the tenant dashboard query to work:
+        // status='approved' triggers the tenant real-time listener.
+        // isAvailable=true ensures the property shows as available.
+        // isVerified=true marks it as admin-reviewed.
+        await updateDoc(doc(db, 'properties', id), {
+          status:      'approved',
+          isVerified:  true,
+          isAvailable: true,
+          approvedAt:  Date.now()
+        });
+
+        // Update local state immediately
+        allProperties = allProperties.map(p =>
+          p.id === id ? { ...p, status: 'approved', isVerified: true, isAvailable: true } : p
+        );
         updateTabCounts(); renderTable();
-        showToast('✅ Property approved and now live!', 'success');
+        showToast('✅ Property approved and now live for tenants!', 'success');
+
+        // Send a notification to the landlord
+        try {
+          const { addDoc, collection: col, serverTimestamp } =
+            await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+          await addDoc(col(db, 'notifications'), {
+            recipientId:   prop.landlordId || '',
+            title:         '🎉 Property Approved!',
+            message:       `Your listing "${prop.title || 'Your property'}" has been approved and is now live for tenants to browse.`,
+            type:          'listing_approved',
+            role:          'landlord',
+            propertyId:    id,
+            propertyTitle: prop.title || '',
+            isRead:        false,
+            createdAt:     Date.now()
+          });
+        } catch (notifErr) {
+          console.warn('[RentOut] Could not send approval notification:', notifErr);
+        }
       } catch (e) {
-        allProperties = allProperties.map(p => p.id === id ? {...p, status:'approved'} : p);
-        updateTabCounts(); renderTable();
-        showToast("✅ Property approved!", "success");
+        console.error('[RentOut] approveP error:', e.code, e.message);
+        showToast(`❌ Approval failed: ${e.message || e.code || 'Unknown error'}`, 'danger');
       }
     };
 
     window.rejectP = async function(id) {
       const reason = prompt('Rejection reason (optional):');
+      if (reason === null) return; // user cancelled the prompt
       showToast('Rejecting...', 'info');
       try {
+        const prop = allProperties.find(p => p.id === id);
+        if (!prop) { showToast('❌ Property not found.', 'danger'); return; }
+
         await updateDoc(doc(db, 'properties', id), {
-          status: 'rejected',
+          status:          'rejected',
+          isVerified:      false,
+          isAvailable:     false,
           rejectionReason: reason || '',
-          rejectedAt: Date.now()
+          rejectedAt:      Date.now()
         });
-        allProperties = allProperties.map(p => p.id === id ? {...p, status:'rejected'} : p);
+
+        allProperties = allProperties.map(p =>
+          p.id === id ? { ...p, status: 'rejected', isVerified: false, isAvailable: false } : p
+        );
         updateTabCounts(); renderTable();
         showToast('❌ Property rejected.', 'danger');
+
+        // Send a notification to the landlord
+        try {
+          const { addDoc, collection: col } =
+            await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+          await addDoc(col(db, 'notifications'), {
+            recipientId:   prop.landlordId || '',
+            title:         '❌ Property Rejected',
+            message:       `Your listing "${prop.title || 'Your property'}" was not approved.${reason ? ` Reason: ${reason}` : ' Please review and resubmit.'}`,
+            type:          'listing_rejected',
+            role:          'landlord',
+            propertyId:    id,
+            propertyTitle: prop.title || '',
+            isRead:        false,
+            createdAt:     Date.now()
+          });
+        } catch (notifErr) {
+          console.warn('[RentOut] Could not send rejection notification:', notifErr);
+        }
       } catch (e) {
-        allProperties = allProperties.map(p => p.id === id ? {...p, status:'rejected'} : p);
-        updateTabCounts(); renderTable();
-        showToast("❌ Property rejected.", "danger");
+        console.error('[RentOut] rejectP error:', e.code, e.message);
+        showToast(`❌ Rejection failed: ${e.message || e.code || 'Unknown error'}`, 'danger');
       }
     };
 

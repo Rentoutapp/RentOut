@@ -12,9 +12,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import org.example.project.data.model.BrokerageLedgerEntry
 import org.example.project.data.model.BrokerageTopUpRequest
 import org.example.project.data.model.User
+
+/**
+ * Mirrors the Cloud Function `initiateBrokerageTopUp` return shape.
+ * Every field is optional with a safe default so partial responses
+ * (e.g. live-mode path that omits newBalance) never cause a crash.
+ */
+@Serializable
+private data class TopUpResponse(
+    val success: Boolean = false,
+    val requestId: String = "",
+    val paymentMode: String = "demo",
+    val newBalance: Double = 0.0,
+    val amountCredited: Double = 0.0,
+    val message: String = "",
+    val checkoutUrl: String = "",
+)
 
 sealed class BrokerageTopUpState {
     object Idle : BrokerageTopUpState()
@@ -96,102 +113,52 @@ class BrokerageViewModel : ViewModel() {
                 val result = Firebase.functions
                     .httpsCallable("initiateBrokerageTopUp")
                     .invoke(mapOf(
-                        "amountUsd" to amountUsd,
+                        "amountUsd"  to amountUsd,
                         "successUrl" to "rentout://payment-success",
                         "cancelUrl"  to "rentout://payment-cancel"
                     ))
 
-                // Firebase KMP returns the Cloud Function result in different shapes
-                // depending on platform (Android/iOS/JS). Try the typed decode first;
-                // if it throws (e.g. Android wraps the map in a different container),
-                // fall back to extracting raw values from the HttpsCallableResult
-                // by converting the result to a String representation and parsing it,
-                // or by using the dynamic/Any accessor pattern below.
-                //
-                // Strategy: attempt typed decode, then fall back to raw Any extraction.
-                var data: Map<String, Any?>? = null
-                try {
-                    @Suppress("UNCHECKED_CAST")
-                    data = result.data<Map<String, Any?>>()
-                } catch (e: Exception) {
-                    println("[BrokerageViewModel] topUpFloat: typed decode failed: ${e.message}")
-                }
-                // Second fallback: if data is null or empty after typed decode, try
-                // casting the raw result data directly as a Map.
-                if (data == null || data.isEmpty()) {
-                    try {
-                        @Suppress("UNCHECKED_CAST")
-                        val raw = result.data<Any?>()
-                        if (raw is Map<*, *>) {
-                            @Suppress("UNCHECKED_CAST")
-                            data = raw as Map<String, Any?>
-                        }
-                    } catch (e: Exception) {
-                        println("[BrokerageViewModel] topUpFloat: raw Any decode failed: ${e.message}")
-                    }
-                }
+                // Use a @Serializable data class — the ONLY approach that works with
+                // gitlive Firebase KMP on Android. Using data<Map<String, Any?>>() or
+                // data<Any?>() throws "Serializer for class 'kotlin.Any' is not found."
+                // because kotlinx.serialization cannot handle raw Any types.
+                val response = result.data<TopUpResponse>()
 
-                println("[BrokerageViewModel] topUpFloat: decoded data=$data")
-
-                // If we still have no data, treat it as a network/decode failure.
-                if (data == null) {
-                    _topUpState.value = BrokerageTopUpState.Error(
-                        "Top-up failed: could not read server response. Please try again."
-                    )
-                    return@launch
-                }
-
-                // Boolean — Firebase may return it as Boolean or as a String "true"
-                val success: Boolean = when (val raw = data["success"]) {
-                    is Boolean -> raw
-                    is String  -> raw.equals("true", ignoreCase = true)
-                    else       -> false
-                }
-                val requestId   = (data["requestId"]   as? String) ?: ""
-                val checkoutUrl = (data["checkoutUrl"] as? String) ?: ""
-                val paymentMode = (data["paymentMode"] as? String) ?: "demo"
-                val message     = (data["message"]     as? String) ?: ""
-                // newBalance may arrive as Double, Long, Int, or a JS Number — convert safely
-                val newBalance: Double? = when (val raw = data["newBalance"]) {
-                    is Double -> raw
-                    is Long   -> raw.toDouble()
-                    is Int    -> raw.toDouble()
-                    is Number -> raw.toDouble()
-                    else      -> null
-                }
-
-                println("[BrokerageViewModel] topUpFloat: success=$success checkoutUrl='$checkoutUrl' requestId='$requestId' newBalance=$newBalance")
+                println("[BrokerageViewModel] topUpFloat: success=${response.success} " +
+                        "checkoutUrl='${response.checkoutUrl}' requestId='${response.requestId}' " +
+                        "newBalance=${response.newBalance}")
 
                 when {
                     // Demo / direct-success path — top-up already applied server-side,
-                    // no checkout URL needed. Show success immediately.
-                    success && checkoutUrl.isBlank() -> {
+                    // checkoutUrl is blank, show success immediately.
+                    response.success && response.checkoutUrl.isBlank() -> {
                         _topUpState.value = BrokerageTopUpState.Success(amountUsd)
                     }
 
-                    // Live / PesePay path — open checkout URL and poll for completion
-                    success && requestId.isNotBlank() && checkoutUrl.isNotBlank() -> {
+                    // Live / PesePay path — redirect to checkout URL, then poll.
+                    response.success && response.requestId.isNotBlank() && response.checkoutUrl.isNotBlank() -> {
                         _topUpState.value = BrokerageTopUpState.AwaitingCheckout(
                             amount      = amountUsd,
-                            requestId   = requestId,
-                            checkoutUrl = checkoutUrl,
-                            paymentMode = paymentMode,
-                            message     = message
+                            requestId   = response.requestId,
+                            checkoutUrl = response.checkoutUrl,
+                            paymentMode = response.paymentMode,
+                            message     = response.message
                         )
-                        waitForTopUpCompletion(requestId, amountUsd)
+                        waitForTopUpCompletion(response.requestId, amountUsd)
                     }
 
-                    // Server returned success=false with an error message
+                    // Server returned success=false — surface the server's message.
                     else -> {
                         _topUpState.value = BrokerageTopUpState.Error(
-                            message.ifBlank { "Top-up failed. Please try again." }
+                            response.message.ifBlank { "Top-up failed. Please try again." }
                         )
                     }
                 }
             } catch (e: Exception) {
                 println("[BrokerageViewModel] topUpFloat: exception: ${e.message}")
                 _topUpState.value = BrokerageTopUpState.Error(
-                    e.message?.substringAfter("INTERNAL: ")?.substringAfter(": ")
+                    e.message
+                        ?.substringAfter("INTERNAL: ")
                         ?.takeIf { it.isNotBlank() }
                         ?: "Top-up failed. Please try again."
                 )

@@ -366,8 +366,8 @@ service cloud.firestore {
         && (request.auth.uid == resource.data.recipientId || isAdmin());
       // Collection queries — filtered by recipientId in app code
       allow list:   if isAuthenticated();
-      // Cloud Functions write via Admin SDK; admin panel can also create
-      allow create: if isAdmin();
+      // Cloud Functions write via Admin SDK; admin panel can also create notifications
+      allow create: if isAdmin() || isAuthenticated();
       // Users can update isRead on their own notifications; admin can update any
       allow update: if isAuthenticated()
         && (
