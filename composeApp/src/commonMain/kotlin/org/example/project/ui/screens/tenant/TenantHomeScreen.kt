@@ -42,6 +42,7 @@ import org.example.project.data.model.Transaction
 import org.example.project.data.model.User
 import org.example.project.data.model.ZIMBABWE_TOWNS
 import org.example.project.data.model.suburbsForTown
+import org.example.project.presentation.ALL_TOWNS
 import org.example.project.presentation.PropertyFilter
 import org.example.project.presentation.PropertyListState
 import org.example.project.presentation.SortOption
@@ -92,7 +93,7 @@ fun TenantHomeScreen(
     onLogout: () -> Unit,
     applyFilters: (List<Property>, String, String, PropertyFilter) -> List<Property> = { props, query, city, _ ->
         props.filter { p ->
-            (city.isBlank() || city == "All" || p.city.equals(city, ignoreCase = true)) &&
+            (city.isBlank() || city.equals(ALL_TOWNS, ignoreCase = true) || p.city.equals(city, ignoreCase = true)) &&
             (query.isBlank() || p.title.contains(query, ignoreCase = true))
         }
     }
@@ -141,7 +142,7 @@ fun TenantHomeScreen(
             onApply = { newFilter -> onFilterChange(newFilter); showFilterSheet = false },
             onApplyCity = { city -> onCityChange(city) },
             onDismiss = { showFilterSheet = false },
-            onReset = { onClearFilter(); onCityChange("All"); showFilterSheet = false }
+            onReset = { onClearFilter(); onCityChange(ALL_TOWNS); showFilterSheet = false }
         )
     }
 
@@ -402,12 +403,12 @@ fun TenantHomeScreen(
                         }
 
                         // ── Active filter chips ───────────────────────────────
-                        val isAllTowns = selectedCity.isBlank() || selectedCity == "All"
+                        val isAllTowns = selectedCity.isBlank() || selectedCity.equals(ALL_TOWNS, ignoreCase = true)
                         if (activeFilter.isActive || !isAllTowns) {
                             Spacer(Modifier.height(10.dp))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 8.dp)) {
                                 if (!isAllTowns) item {
-                                    ActiveFilterChip("📍 $selectedCity", onRemove = { onCityChange("All") })
+                                    ActiveFilterChip("📍 $selectedCity", onRemove = { onCityChange(ALL_TOWNS) })
                                 }
                                 if (activeFilter.minPrice != null || activeFilter.maxPrice != null) item {
                                     ActiveFilterChip("$${activeFilter.minPrice?.toInt() ?: 0}–$${activeFilter.maxPrice?.toInt()?.toString() ?: "∞"}", onRemove = { onFilterChange(activeFilter.copy(minPrice = null, maxPrice = null)) })
@@ -447,7 +448,7 @@ fun TenantHomeScreen(
 
             // ── Results bar ────────────────────────────────────────────────────
             item {
-                val isAllTowns = selectedCity.isBlank() || selectedCity == "All"
+                val isAllTowns = selectedCity.isBlank() || selectedCity.equals(ALL_TOWNS, ignoreCase = true)
                 Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
@@ -487,13 +488,16 @@ fun TenantHomeScreen(
                         Spacer(Modifier.height(16.dp))
                         Text("No properties found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TenantSlate)
                         Text("Try adjusting your search or filters", color = TenantSlateLight, fontSize = 14.sp)
-                        if (searchQuery.isNotEmpty() || selectedCity != "All" || activeFilter.isActive) {
+                        if (searchQuery.isNotEmpty() || !selectedCity.equals(ALL_TOWNS, ignoreCase = true) || activeFilter.isActive) {
                             Spacer(Modifier.height(16.dp))
-                            RentOutSecondaryButton("Clear All Filters", onClick = { onSearchQueryChange(""); onCityChange("All"); onClearFilter() })
+                            RentOutSecondaryButton("Clear All Filters", onClick = { onSearchQueryChange(""); onCityChange(ALL_TOWNS); onClearFilter() })
                         }
                     }
                 }
-                else -> items(filtered, key = { it.id }) { property ->
+                else -> items(
+                    items = filtered,
+                    key = { property -> property.id.ifBlank { "fallback-${property.createdAt}-${property.title}-${property.location}" } }
+                ) { property ->
                     PropertyCard(
                         property = property,
                         onClick = { onPropertyClick(property) },
@@ -515,7 +519,7 @@ private fun TenantTownPickerDialog(
     onDismiss: () -> Unit
 ) {
     var search by remember { mutableStateOf("") }
-    val isAllTowns = selectedTown.isBlank() || selectedTown == "All"
+    val isAllTowns = selectedTown.isBlank() || selectedTown.equals(ALL_TOWNS, ignoreCase = true)
 
     val filtered = remember(search) {
         if (search.isBlank()) ZIMBABWE_TOWNS
@@ -675,7 +679,7 @@ private fun TenantTownPickerDialog(
                             color = MaterialTheme.colorScheme.outline.copy(0.15f)
                         )
 
-                        // "Gweru — default" banner when nothing is selected yet
+                        // Launch-city note when browsing all towns
                         if (isAllTowns) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -693,7 +697,7 @@ private fun TenantTownPickerDialog(
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 Text(
-                                    "Gweru is our launch city — most listings are here!",
+                                    "Gweru is one of our launch cities — browse all towns or pick one below.",
                                     fontSize = 11.sp,
                                     color = RentOutColors.Secondary,
                                     fontWeight = FontWeight.Medium
@@ -736,7 +740,7 @@ private fun TenantTownPickerDialog(
                                     ) { onSelect(town.name) }
                                     .padding(horizontal = 20.dp, vertical = 12.dp)
                             ) {
-                                // Icon with "Gweru = default" badge
+                                // Highlight launch city without making it the default filter
                                 Box {
                                     Box(
                                         modifier = Modifier
@@ -755,7 +759,7 @@ private fun TenantTownPickerDialog(
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
-                                    // "Default" star badge for Gweru
+                                    // Launch-city star badge for Gweru
                                     if (town.name == "Gweru") {
                                         Box(
                                             modifier = Modifier
@@ -929,15 +933,15 @@ private fun PropertyFilterSheet(
             ) {
                 // ── 0. Town / City ────────────────────────────────────────────
                 FilterSection(title = "Town / City", icon = Icons.Default.LocationCity) {
-                    val towns = listOf("All") + org.example.project.data.model.ZIMBABWE_TOWNS.map { it.name }
+                    val towns = listOf(ALL_TOWNS) + org.example.project.data.model.ZIMBABWE_TOWNS.map { it.name }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         // "All Towns" chip
-                        val isAll = draftCity.isBlank() || draftCity == "All"
+                        val isAll = draftCity.isBlank() || draftCity.equals(ALL_TOWNS, ignoreCase = true)
                         Row(
                             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                                 .background(if (isAll) RentOutColors.Primary.copy(0.10f) else MaterialTheme.colorScheme.surfaceVariant)
                                 .border(if (isAll) 1.5.dp else 0.dp, if (isAll) RentOutColors.Primary else Color.Transparent, RoundedCornerShape(12.dp))
-                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { draftCity = "All" }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { draftCity = ALL_TOWNS }
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)

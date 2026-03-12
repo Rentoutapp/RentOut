@@ -248,6 +248,7 @@ fun AddPropertyScreen(
     val isResidential = classification == "Residential"
     val isRoomType    = propType == "Room"
     val isLoading     = formState is PropertyFormState.Uploading
+    val uploadState   = formState as? PropertyFormState.Uploading
     val scrollState   = rememberScrollState()
 
     // â”€â”€ Back button animation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1077,9 +1078,10 @@ fun AddPropertyScreen(
 
                     // â”€â”€ Submit / Save & continue button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                     AddImagesButton(
-                        isLoading  = isLoading,
-                        isEditMode = isEditMode,
-                        onClick    = {
+                        isLoading   = isLoading,
+                        isEditMode  = isEditMode,
+                        uploadState = uploadState,
+                        onClick     = {
                             if (isEditMode) {
                                 buildAndValidate { builtProperty -> onSubmit(builtProperty) }
                             } else {
@@ -3491,6 +3493,7 @@ private fun ExistingImagesGallery(
 private fun AddImagesButton(
     isLoading: Boolean,
     isEditMode: Boolean = false,
+    uploadState: PropertyFormState.Uploading? = null,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -3501,33 +3504,78 @@ private fun AddImagesButton(
         label = "submit_scale"
     )
 
-    Button(
-        onClick = onClick,
-        enabled = !isLoading,
-        modifier = Modifier
-            .fillMaxWidth()
-            .scale(scale)
-            .height(54.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary),
-        interactionSource = interactionSource
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
-                color = Color.White,
-                strokeWidth = 2.5.dp
-            )
-            Spacer(Modifier.width(10.dp))
-            Text("Saving...", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        } else if (isEditMode) {
-            Icon(Icons.Default.Save, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Save Changes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        } else {
-            Icon(Icons.Default.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Save & Add Photos", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    // Derive progress fraction for the animated indicator
+    val progressFraction = if (uploadState != null && uploadState.total > 0)
+        uploadState.uploaded.toFloat() / uploadState.total.toFloat()
+    else 0f
+    val animatedProgress by animateFloatAsState(
+        targetValue = progressFraction,
+        animationSpec = tween(durationMillis = 10_000, easing = LinearEasing),
+        label = "upload_progress"
+    )
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = onClick,
+            enabled = !isLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .scale(scale)
+                .height(54.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = RentOutColors.Primary),
+            interactionSource = interactionSource
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = Color.White,
+                    strokeWidth = 2.5.dp
+                )
+                Spacer(Modifier.width(10.dp))
+                val progressText = when {
+                    uploadState != null && uploadState.total > 0 ->
+                        "Uploading ${uploadState.uploaded} of ${uploadState.total}…"
+                    else -> "Saving…"
+                }
+                Text(progressText, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            } else if (isEditMode) {
+                Icon(Icons.Default.Save, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Save Changes", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            } else {
+                Icon(Icons.Default.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Save & Add Photos", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+
+        // Progress bar — only visible while uploading images (total > 0)
+        AnimatedVisibility(
+            visible = isLoading && uploadState != null && uploadState.total > 0,
+            enter = fadeIn() + expandVertically(),
+            exit  = fadeOut() + shrinkVertically()
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                LinearProgressIndicator(
+                    progress = animatedProgress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp)),
+                    color = RentOutColors.Secondary,
+                    trackColor = RentOutColors.Primary.copy(alpha = 0.2f)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (uploadState != null && uploadState.total > 0)
+                        "${uploadState.uploaded} of ${uploadState.total} photo${if (uploadState.total > 1) "s" else ""} uploaded"
+                    else "Saving property details…",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
         }
     }
 }

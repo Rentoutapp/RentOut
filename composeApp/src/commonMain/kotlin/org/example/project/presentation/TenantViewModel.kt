@@ -85,7 +85,14 @@ class TenantViewModel : ViewModel() {
                 val props = merged.mapNotNull { pid ->
                     try {
                         val doc = db.collection("properties").document(pid).get()
-                        if (doc.exists) doc.data(Property.serializer()) else null
+                        if (doc.exists) {
+                            val property = doc.data(Property.serializer())
+                            if (property.imageUrls.isEmpty() && property.imageUrl.isNotBlank()) {
+                                property.copy(id = doc.id, imageUrls = listOf(property.imageUrl))
+                            } else {
+                                property.copy(id = doc.id)
+                            }
+                        } else null
                     } catch (_: Exception) { null }
                 }
                 _unlockedProperties.value = props
@@ -259,7 +266,14 @@ class TenantViewModel : ViewModel() {
         return uniqueIds.associateWith { propertyId ->
             runCatching {
                 val doc = db.collection("properties").document(propertyId).get()
-                if (doc.exists) doc.data(Property.serializer()) else null
+                if (doc.exists) {
+                    val property = doc.data(Property.serializer())
+                    if (property.imageUrls.isEmpty() && property.imageUrl.isNotBlank()) {
+                        property.copy(id = doc.id, imageUrls = listOf(property.imageUrl))
+                    } else {
+                        property.copy(id = doc.id)
+                    }
+                } else null
             }.getOrNull()
         }.mapNotNull { (id, property) -> property?.let { id to it } }.toMap()
     }

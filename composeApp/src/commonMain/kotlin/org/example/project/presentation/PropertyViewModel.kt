@@ -7,11 +7,15 @@ import dev.gitlive.firebase.auth.auth
 import dev.gitlive.firebase.firestore.firestore
 import dev.gitlive.firebase.storage.storage
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.example.project.data.model.Property
 import org.example.project.ui.util.PickedImage
 import org.example.project.ui.util.buildStorageData
@@ -33,6 +37,8 @@ enum class SortOption(val label: String) {
 }
 
 // ── Filter state — all real estate relevant dimensions ────────────────────────
+const val ALL_TOWNS = "All"
+
 data class PropertyFilter(
     val minPrice: Double? = null,           // null = no lower bound
     val maxPrice: Double? = null,           // null = no upper bound
@@ -77,7 +83,8 @@ data class PropertyFilter(
 
 sealed class PropertyFormState {
     object Idle      : PropertyFormState()
-    object Uploading : PropertyFormState()
+    /** uploaded = how many images have finished; total = how many were picked */
+    data class Uploading(val uploaded: Int = 0, val total: Int = 0) : PropertyFormState()
     object Success   : PropertyFormState()
     data class Error(val message: String) : PropertyFormState()
 }
@@ -132,6 +139,27 @@ data class PropertyDraft(
 
 class PropertyViewModel : ViewModel() {
 
+    // Canonicalise Firestore documents so the UI always uses the document ID as
+    // the source of truth. Older/malformed docs may have a blank or duplicate
+    // `id` field stored in the payload, which breaks LazyColumn item keys and
+    // can make the header count differ from the number of rendered cards.
+    private fun canonicalizeProperty(documentId: String, property: Property): Property {
+        val normalized = property.copy(id = documentId)
+        return if (normalized.imageUrls.isEmpty() && normalized.imageUrl.isNotBlank()) {
+            normalized.copy(imageUrls = listOf(normalized.imageUrl))
+        } else normalized
+    }
+
+    private fun dedupeProperties(properties: List<Property>): List<Property> =
+        properties
+            .groupBy { it.id }
+            .mapNotNull { (_, group) ->
+                group.maxByOrNull { prop ->
+                    maxOf(prop.approvedAt, prop.createdAt)
+                }
+            }
+            .sortedByDescending { maxOf(it.approvedAt, it.createdAt) }
+
     private val _landlordProperties = MutableStateFlow<PropertyListState>(PropertyListState.Loading)
     val landlordProperties: StateFlow<PropertyListState> = _landlordProperties.asStateFlow()
 
@@ -147,7 +175,9 @@ class PropertyViewModel : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    private val _selectedCity = MutableStateFlow("Gweru")
+    // Tenant browsing must default to all towns. Using a real city here
+    // silently hides approved properties from every other town.
+    private val _selectedCity = MutableStateFlow(ALL_TOWNS)
     val selectedCity: StateFlow<String> = _selectedCity.asStateFlow()
 
     private val _propertyFilter = MutableStateFlow(PropertyFilter())
@@ -166,7 +196,7 @@ class PropertyViewModel : ViewModel() {
         var result = properties
 
         // City / town filter
-        if (city.isNotBlank() && city != "All") {
+        if (city.isNotBlank() && !city.equals(ALL_TOWNS, ignoreCase = true)) {
             result = result.filter { p ->
                 p.city.equals(city, ignoreCase = true) ||
                 p.location.contains(city, ignoreCase = true)
@@ -261,7 +291,15 @@ class PropertyViewModel : ViewModel() {
     }
 
     fun setSearchQuery(query: String) { _searchQuery.value = query }
-    fun setSelectedCity(city: String) { _selectedCity.value = city }
+    fun setSelectedCity(city: String) {
+        _selectedCity.value = city.trim().ifBlank { ALL_TOWNS }
+    }
+
+    fun resetTenantBrowseState() {
+        _searchQuery.value = ""
+        _selectedCity.value = ALL_TOWNS
+        _propertyFilter.value = PropertyFilter()
+    }
 
     fun selectProperty(property: Property) { _selectedProperty.value = property }
     fun clearSelectedProperty() { _selectedProperty.value = null }
@@ -276,10 +314,7 @@ class PropertyViewModel : ViewModel() {
             val result = runCatching {
                 val doc = Firebase.firestore.collection("properties").document(propertyId).get()
                 if (doc.exists) {
-                    val property = doc.data(Property.serializer())
-                    if (property.imageUrls.isEmpty() && property.imageUrl.isNotBlank()) {
-                        property.copy(imageUrls = listOf(property.imageUrl))
-                    } else property
+                    canonicalizeProperty(doc.id, doc.data(Property.serializer()))
                 } else null
             }.getOrNull()
 
@@ -310,9 +345,11 @@ class PropertyViewModel : ViewModel() {
     }
 
     // ── Submit new property with images to Firestore + Storage ────────────────
+    // Images are uploaded IN PARALLEL using async/awaitAll. A Mutex guards the
+    // progress counter so concurrent coroutines never corrupt the count.
     fun submitProperty(property: Property, imageBytes: List<ByteArray> = emptyList()) {
         viewModelScope.launch {
-            _formState.value = PropertyFormState.Uploading
+            _formState.value = PropertyFormState.Uploading(uploaded = 0, total = imageBytes.size)
             try {
                 val auth    = Firebase.auth
                 val db      = Firebase.firestore
@@ -321,23 +358,43 @@ class PropertyViewModel : ViewModel() {
 
                 val docRef = db.collection("properties").document(generateId())
 
-                val imageUrls = imageBytes.mapIndexed { index, bytes ->
-                    val ref = storage.reference("property_images/$uid/${docRef.id}/$index.jpg")
-                    ref.putData(buildStorageData(bytes))
-                    ref.getDownloadUrl()
-                }
+                // ── Parallel upload ────────────────────────────────────────────
+                val progressMutex = Mutex()
+                var uploadedCount  = 0
 
-                val userDoc         = db.collection("users").document(uid).get()
-                val agentProfileName = userDoc.get("name") as? String ?: ""
-                val providerSubtype = userDoc.get("providerSubtype") as? String ?: ""
-                val companyLogoUrl  = userDoc.get("companyLogoUrl") as? String ?: ""
-                val brokerageIsFrozen = userDoc.get("brokerageIsFrozen") as? Boolean ?: false
-                val brokerageBalance  = userDoc.get("brokerageFloatBalanceUsd") as? Double ?: 0.0
-                val minimumFloat      = userDoc.get("brokerageMinimumFloatUsd") as? Double ?: 40.0
+                val imageUrls: List<String> = imageBytes
+                    .mapIndexed { index, bytes ->
+                        async {
+                            val ref = storage.reference(
+                                "property_images/$uid/${docRef.id}/$index.jpg"
+                            )
+                            ref.putData(buildStorageData(bytes))
+                            val url = ref.getDownloadUrl()
+                            // Thread-safe progress update
+                            progressMutex.withLock {
+                                uploadedCount++
+                                _formState.value = PropertyFormState.Uploading(
+                                    uploaded = uploadedCount,
+                                    total    = imageBytes.size
+                                )
+                            }
+                            Pair(index, url)
+                        }
+                    }
+                    .awaitAll()
+                    // Sort by original index so imageUrls order matches picked order
+                    .sortedBy { it.first }
+                    .map { it.second }
 
-                // For agent listings: the agent manually enters the landlord's name and phone.
-                // We store those in landlordName and contactNumber so tenants see the real landlord.
-                // For landlord/brokerage listings: landlordName = the signed-in user's profile name.
+                // ── Firestore metadata fetch & write ──────────────────────────
+                val userDoc           = db.collection("users").document(uid).get()
+                val agentProfileName  = userDoc.get("name")                      as? String  ?: ""
+                val providerSubtype   = userDoc.get("providerSubtype")            as? String  ?: ""
+                val companyLogoUrl    = userDoc.get("companyLogoUrl")             as? String  ?: ""
+                val brokerageIsFrozen = userDoc.get("brokerageIsFrozen")          as? Boolean ?: false
+                val brokerageBalance  = userDoc.get("brokerageFloatBalanceUsd")   as? Double  ?: 0.0
+                val minimumFloat      = userDoc.get("brokerageMinimumFloatUsd")   as? Double  ?: 40.0
+
                 val resolvedLandlordName = if (providerSubtype == "agent") {
                     property.landlordName.ifBlank { agentProfileName }
                 } else {
@@ -345,28 +402,25 @@ class PropertyViewModel : ViewModel() {
                 }
 
                 val finalProperty = property.copy(
-                    id                = docRef.id,
-                    landlordId        = uid,
-                    landlordName      = resolvedLandlordName,
-                    providerSubtype   = providerSubtype,
-                    // For agent listings, contactNumber already holds the landlord's phone
-                    // (set from draft.contact in AddPropertyScreen). Keep it as-is.
-                    brokerageLogoUrl  = if (providerSubtype == "brokerage") companyLogoUrl else "",
+                    id                     = docRef.id,
+                    landlordId             = uid,
+                    landlordName           = resolvedLandlordName,
+                    providerSubtype        = providerSubtype,
+                    brokerageLogoUrl       = if (providerSubtype == "brokerage") companyLogoUrl else "",
                     brokerageUnlockEnabled = providerSubtype != "brokerage" || !brokerageIsFrozen,
                     brokerageFreezeReason  = if (providerSubtype == "brokerage" && brokerageIsFrozen) {
-                        "Tenant unlocks are temporarily frozen while your insurance float is below $$minimumFloat. Current balance: $$brokerageBalance"
+                        "Tenant unlocks are temporarily frozen while your insurance float is " +
+                        "below \$$minimumFloat. Current balance: \$$brokerageBalance"
                     } else "",
-                    imageUrl          = imageUrls.firstOrNull() ?: "",
-                    imageUrls         = imageUrls,
-                    status            = "pending",
-                    isVerified        = false,
-                    createdAt         = System.currentTimeMillis()
+                    imageUrl               = imageUrls.firstOrNull() ?: "",
+                    imageUrls              = imageUrls,
+                    status                 = "pending",
+                    isVerified             = false,
+                    createdAt              = System.currentTimeMillis()
                 )
 
                 docRef.set(finalProperty)
-                // Real-time listener on the landlord query will reflect the new doc automatically
                 _formState.value = PropertyFormState.Success
-                // Clear persisted images now that submission succeeded
                 _draft.value = _draft.value.copy(pickedImages = emptyList())
             } catch (e: Exception) {
                 _formState.value = PropertyFormState.Error(e.message ?: "Failed to submit property")
@@ -391,13 +445,11 @@ class PropertyViewModel : ViewModel() {
                     )
                 }
                 .collect { snapshot ->
-                    val props = snapshot.documents.map { doc ->
-                        val prop = doc.data(Property.serializer())
-                        // If imageUrls is empty but imageUrl exists, populate list for consistency
-                        if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
-                            prop.copy(imageUrls = listOf(prop.imageUrl))
-                        } else prop
-                    }
+                    val props = dedupeProperties(
+                        snapshot.documents.map { doc ->
+                            canonicalizeProperty(doc.id, doc.data(Property.serializer()))
+                        }
+                    )
                     _landlordProperties.value =
                         if (props.isEmpty()) PropertyListState.Empty
                         else PropertyListState.Success(props)
@@ -437,22 +489,25 @@ class PropertyViewModel : ViewModel() {
                         .snapshots
                         .collect { snapshot ->
                             retryDelay = 3_000L // reset on successful snapshot
-                            val props = snapshot.documents.mapNotNull { docSnapshot ->
-                                try {
-                                    val prop = docSnapshot.data(Property.serializer())
-                                    // Safety net: skip any non-approved docs that
-                                    // slip through (e.g. index not yet consistent)
-                                    if (prop.status != "approved") return@mapNotNull null
-                                    // Normalise imageUrls for backward compatibility
-                                    if (prop.imageUrls.isEmpty() && prop.imageUrl.isNotBlank()) {
-                                        prop.copy(imageUrls = listOf(prop.imageUrl))
-                                    } else prop
-                                } catch (docEx: Exception) {
-                                    // Skip malformed documents — don't crash the listener
-                                    println("⚠️ [Tenant] Skipping malformed property doc ${docSnapshot.id}: ${docEx.message}")
-                                    null
+                            val props = dedupeProperties(
+                                snapshot.documents.mapNotNull { docSnapshot ->
+                                    try {
+                                        val prop = canonicalizeProperty(
+                                            docSnapshot.id,
+                                            docSnapshot.data(Property.serializer())
+                                        )
+                                        // Safety net: skip any non-approved docs that
+                                        // slip through (e.g. index not yet consistent)
+                                        if (prop.status != "approved") return@mapNotNull null
+                                        prop
+                                    } catch (docEx: Exception) {
+                                        // Skip malformed documents — don't crash the listener
+                                        println("⚠️ [Tenant] Skipping malformed property doc ${docSnapshot.id}: ${docEx.message}")
+                                        null
+                                    }
                                 }
-                            }
+                            )
+                            println("🏠 [Tenant] Rendering ${props.size} canonical approved properties")
                             _tenantProperties.value =
                                 if (props.isEmpty()) PropertyListState.Empty
                                 else PropertyListState.Success(props)
@@ -509,7 +564,7 @@ class PropertyViewModel : ViewModel() {
         newImageBytes: List<ByteArray> = emptyList()
     ) {
         viewModelScope.launch {
-            _formState.value = PropertyFormState.Uploading
+            _formState.value = PropertyFormState.Uploading(uploaded = 0, total = newImageBytes.size)
             try {
                 println("📝 PropertyViewModel.updateProperty() called")
                 println("   Property ID: ${property.id}")

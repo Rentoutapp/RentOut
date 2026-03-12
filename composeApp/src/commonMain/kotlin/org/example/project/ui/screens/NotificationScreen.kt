@@ -45,7 +45,7 @@ private val NavyLight = Color(0xFF1A3F6F)
 private val AccentRed = Color(0xFFE53935)
 
 // ── Tab selection ─────────────────────────────────────────────────────────────
-private enum class NotifTab { UNREAD, ALL }
+private enum class NotifTab { UNREAD, READ, ALL }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Main NotificationScreen
@@ -67,10 +67,15 @@ fun NotificationScreen(
 
     LaunchedEffect(Unit) { visible = true }
 
-    // Switch to ALL tab when there are no unread notifications
-    LaunchedEffect(unreadCount) {
-        if (unreadCount == 0 && activeTab == NotifTab.UNREAD) {
-            activeTab = NotifTab.ALL
+    // Switch away from tabs that no longer have content.
+    LaunchedEffect(state, unreadCount, activeTab) {
+        val notifications = (state as? NotificationListState.Success)?.notifications.orEmpty()
+        val readCount = notifications.count { it.isRead }
+        when {
+            activeTab == NotifTab.UNREAD && unreadCount == 0 && readCount > 0 -> activeTab = NotifTab.READ
+            activeTab == NotifTab.UNREAD && unreadCount == 0 -> activeTab = NotifTab.ALL
+            activeTab == NotifTab.READ && readCount == 0 && unreadCount > 0 -> activeTab = NotifTab.UNREAD
+            activeTab == NotifTab.READ && readCount == 0 -> activeTab = NotifTab.ALL
         }
     }
 
@@ -81,6 +86,7 @@ fun NotificationScreen(
         topBar = {
             NotificationTopBar(
                 unreadCount  = unreadCount,
+                readCount    = (state as? NotificationListState.Success)?.notifications?.count { it.isRead } ?: 0,
                 activeTab    = activeTab,
                 onTabSelect  = { activeTab = it },
                 onBack       = onBack,
@@ -102,9 +108,10 @@ fun NotificationScreen(
                 )
                 is NotificationListState.Success -> {
                     val unread = s.notifications.filter { !it.isRead }
-                    val read   = s.notifications.filter {  it.isRead }
+                    val read   = s.notifications.filter { it.isRead }
                     val displayed = when (activeTab) {
                         NotifTab.UNREAD -> unread
+                        NotifTab.READ   -> read
                         NotifTab.ALL    -> s.notifications
                     }
 
@@ -175,6 +182,7 @@ fun NotificationScreen(
 @Composable
 private fun NotificationTopBar(
     unreadCount:  Int,
+    readCount:    Int,
     activeTab:    NotifTab,
     onTabSelect:  (NotifTab) -> Unit,
     onBack:       () -> Unit,
@@ -285,7 +293,7 @@ private fun NotificationTopBar(
             }
         }
 
-        // ── Row 2: Unread / All tabs ──────────────────────────────────────────
+        // ── Row 2: Unread / Read / All tabs ───────────────────────────────────
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -300,8 +308,14 @@ private fun NotificationTopBar(
                 onClick  = { onTabSelect(NotifTab.UNREAD) }
             )
             NotifTabPill(
+                label    = "Read",
+                count    = readCount,
+                selected = activeTab == NotifTab.READ,
+                onClick  = { onTabSelect(NotifTab.READ) }
+            )
+            NotifTabPill(
                 label    = "All",
-                count    = null,
+                count    = unreadCount + readCount,
                 selected = activeTab == NotifTab.ALL,
                 onClick  = { onTabSelect(NotifTab.ALL) }
             )
@@ -394,7 +408,11 @@ private fun NotifSummaryRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         SummaryChip(
-            label  = if (activeTab == NotifTab.UNREAD) "Showing unread" else "$total total",
+            label  = when (activeTab) {
+                NotifTab.UNREAD -> "Showing unread"
+                NotifTab.READ -> "Showing read"
+                NotifTab.ALL -> "$total total"
+            },
             color  = RentOutColors.Primary,
             isDark = isDark
         )
@@ -406,7 +424,7 @@ private fun NotifSummaryRow(
                 isBold = true
             )
         }
-        if (readCount > 0 && activeTab == NotifTab.ALL) {
+        if (readCount > 0 && activeTab != NotifTab.READ) {
             SummaryChip(
                 label  = "$readCount read",
                 color  = Color(0xFF718096),
@@ -782,20 +800,32 @@ private fun EmptyTabState(tab: NotifTab, modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(40.dp)
         ) {
-            Text(if (tab == NotifTab.UNREAD) "✅" else "🔔", fontSize = 52.sp)
+            Text(
+                when (tab) {
+                    NotifTab.UNREAD -> "✅"
+                    NotifTab.READ -> "📖"
+                    NotifTab.ALL -> "🔔"
+                },
+                fontSize = 52.sp
+            )
             Spacer(Modifier.height(16.dp))
             Text(
-                if (tab == NotifTab.UNREAD) "No unread notifications" else "No notifications yet",
+                when (tab) {
+                    NotifTab.UNREAD -> "No unread notifications"
+                    NotifTab.READ -> "No read notifications"
+                    NotifTab.ALL -> "No notifications yet"
+                },
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                if (tab == NotifTab.UNREAD)
-                    "You've read everything. Switch to All to see past notifications."
-                else
-                    "When something important happens, you'll see it here.",
+                when (tab) {
+                    NotifTab.UNREAD -> "You've read everything. Switch to Read or All to see past notifications."
+                    NotifTab.READ -> "Notifications you mark as read will appear here."
+                    NotifTab.ALL -> "When something important happens, you'll see it here."
+                },
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

@@ -29,10 +29,20 @@ data class ZimTown(val name: String, val suburbs: List<String>)
 val ZIMBABWE_TOWNS: List<ZimTown> = listOf(
 
     ZimTown("Gweru", listOf(
-        "Ascot", "Babourfields", "Boggie", "Chachacha", "Donnington",
-        "Gwelo Estate", "Kopje", "Mkoba", "Montrose", "Municipal Area",
-        "Nehanda", "Northlea", "Ridgemont", "Senga", "Southdowns",
-        "Thornhill", "Woodlands", "Mambo", "Rhode",  "Warren Park"
+        "Adelaide Park", "Ascot", "Ascot Extension", "Athlone",
+        "Babourfields", "Boggie", "Bridgewood (Mega City)", "Chachacha",
+        "Charlton Park", "Claremont Park", "Clifton Park", "Clydesdale",
+        "Daylesford", "Donnington", "Gweru East", "Gwelo Estate",
+        "Harben Park", "Hertfordshire Phase 1", "Hertfordshire Phase 2", "Ivene", "Kopje",
+        "Lynfield (Lingfield)", "Lundi Park", "Mambo", "Mkoba",
+        "Mkoba (Sections 1 through 21)", "Montrose", "Mtausi Park",
+        "Mtapa", "Municipal Area", "Munhumutapa", "Nashville",
+        "Nehanda", "Nehosho", "New Christmas Gift", "Northgate Heights",
+        "Northlea", "Randolph", "Rhode", "Ridgemont", "Riverside",
+        "Tatenda Park",
+        "Senga", "Shamrock Park", "Southdowns", "Southview",
+        "Thornhill", "Tinshel", "Westview Estate", "Windsor Park",
+        "Woodlands", "Woodlands Park", "Warren Park"
     )),
 
     ZimTown("Harare", listOf(

@@ -531,9 +531,11 @@ fun PropertyDetailScreen(
                 } else {
                     val brokerageBlocked = resolvedProviderSubtype == "brokerage" && !property.brokerageUnlockEnabled
                     val canUnlock = property.isAvailable && !brokerageBlocked
+                    // Width is capped so the button never pushes into the price column.
+                    // Text wraps across two compact lines — no single-line overflow.
                     Box(
                         modifier = Modifier
-                            .height(54.dp)
+                            .widthIn(max = 160.dp)
                             .shadow(6.dp, RoundedCornerShape(16.dp))
                             .clip(RoundedCornerShape(16.dp))
                             .background(
@@ -545,7 +547,7 @@ fun PropertyDetailScreen(
                                 indication = null,
                                 enabled = canUnlock
                             ) { if (canUnlock) onUnlock() }
-                            .padding(horizontal = 20.dp),
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
@@ -556,17 +558,19 @@ fun PropertyDetailScreen(
                                 if (canUnlock) Icons.Default.LockOpen else Icons.Default.Lock,
                                 null,
                                 tint = if (canUnlock) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 when {
-                                    brokerageBlocked -> "Brokerage temporarily frozen"
-                                    property.isAvailable -> "Unlock — \$10"
+                                    brokerageBlocked -> "Brokerage\nFrozen"
+                                    property.isAvailable -> "Unlock Details\n& Directions — \$10"
                                     else -> "Unavailable"
                                 },
                                 color = if (canUnlock) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp,
+                                maxLines = 2
                             )
                         }
                     }
@@ -1582,29 +1586,45 @@ private fun TenantContactAndDirectionsContent(
                 }
 
                 Spacer(Modifier.height(2.dp))
-                if (property.isAvailable) {
-                    val unlockButtonText = when {
-                        isBrokerage -> "🔑 Unlock Broker & Office Details — \$10"
-                        isAgent     -> "🔑 Unlock Agent & Landlord Details — \$10"
-                        else        -> "🔑 Unlock Landlord Contact — \$10"
-                    }
-                    RentOutPrimaryButton(
-                        text = unlockButtonText,
-                        onClick = onUnlock,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                } else {
+                if (!property.isAvailable) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = RentOutColors.StatusRejected.copy(alpha = 0.08f)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            "🔴 This property is no longer available",
+                            "🚫 This property is no longer available",
                             modifier = Modifier.padding(12.dp),
                             color = RentOutColors.StatusRejected,
                             fontSize = 14.sp, fontWeight = FontWeight.Medium
                         )
+                    }
+                } else {
+                    // Inform the user that the single unlock button is in the
+                    // Directions section below — avoids a confusing double-button UX.
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = RentOutColors.Primary.copy(alpha = 0.07f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = RentOutColors.Primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                "Scroll down to unlock contact details & directions together for \$10",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = RentOutColors.Primary
+                            )
+                        }
                     }
                 }
             }
@@ -1788,18 +1808,20 @@ private fun TenantDirectionsContent(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // Unlock button with press animation
-                    val interactionSource = remember { MutableInteractionSource() }
-                    val isPressed by interactionSource.collectIsPressedAsState()
-                    val btnScale by animateFloatAsState(
-                        targetValue = if (isPressed) 0.95f else 1f,
+                    // ── Single unified unlock button at the bottom of directions ──
+                    // This is the ONE place the user pays — it unlocks both the
+                    // brokerage/agent/landlord contact details AND the directions.
+                    val dirInteractionSource = remember { MutableInteractionSource() }
+                    val dirIsPressed by dirInteractionSource.collectIsPressedAsState()
+                    val dirBtnScale by animateFloatAsState(
+                        targetValue = if (dirIsPressed) 0.95f else 1f,
                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
                         label = "unlock_btn_scale"
                     )
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .scale(btnScale)
+                            .scale(dirBtnScale)
                             .shadow(8.dp, RoundedCornerShape(16.dp))
                             .clip(RoundedCornerShape(16.dp))
                             .background(
@@ -1808,7 +1830,7 @@ private fun TenantDirectionsContent(
                                 )
                             )
                             .clickable(
-                                interactionSource = interactionSource,
+                                interactionSource = dirInteractionSource,
                                 indication = null,
                                 enabled = property.isAvailable
                             ) { if (property.isAvailable) onUnlock() }
@@ -1821,7 +1843,7 @@ private fun TenantDirectionsContent(
                         ) {
                             Icon(Icons.Default.LockOpen, null, tint = Color.White, modifier = Modifier.size(20.dp))
                             Text(
-                                "Unlock Directions — ${'$'}10",
+                                "Unlock Details & Directions — \$10",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
@@ -1832,7 +1854,7 @@ private fun TenantDirectionsContent(
                     Spacer(Modifier.height(8.dp))
 
                     Text(
-                        "One-time payment · Unlocks contacts & directions",
+                        "One-time \$10 payment · Unlocks contact details + GPS directions",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

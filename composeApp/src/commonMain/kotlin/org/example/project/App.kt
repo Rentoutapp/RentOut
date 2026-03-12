@@ -261,6 +261,7 @@ fun App() {
                         }
                     },
                     onNavigateToTenant = {
+                        propertyViewModel.resetTenantBrowseState()
                         propertyViewModel.loadTenantPropertiesFromFirestore()
                         navController.navigate(NavRoutes.TENANT_HOME) {
                             popUpTo(NavRoutes.SPLASH) { inclusive = true }

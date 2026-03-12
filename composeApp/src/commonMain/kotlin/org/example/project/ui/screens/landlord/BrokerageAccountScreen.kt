@@ -8,9 +8,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,6 +62,52 @@ fun BrokerageAccountScreen(
     val unlockDeductionCount = ledgerEntries.count { it.type == "unlock_deduction" }
     val safeRange = (user.brokerageFloatBalanceUsd - user.brokerageMinimumFloatUsd).coerceAtLeast(0.0)
     val lastUpdated = listOf(user.brokerageLastDeductionAt, user.brokerageLastTopUpAt).maxOrNull() ?: 0L
+    val financeOverviewItems = remember(user, unlockDeductionCount, totalDeductions, totalTopUps, lastUpdated, safeRange) {
+        listOf(
+            BrokerageOverviewItem(
+                title = "Unlock deductions",
+                value = unlockDeductionCount.toString(),
+                icon = Icons.Default.Payments,
+                tint = RentOutColors.IconRose
+            ),
+            BrokerageOverviewItem(
+                title = "Total debited",
+                value = "$${"%.2f".format(totalDeductions)}",
+                icon = Icons.Default.TrendingDown,
+                tint = RentOutColors.IconAmber
+            ),
+            BrokerageOverviewItem(
+                title = "Top-ups",
+                value = "$${"%.2f".format(totalTopUps)}",
+                icon = Icons.Default.Savings,
+                tint = RentOutColors.StatusApproved
+            ),
+            BrokerageOverviewItem(
+                title = "Last update",
+                value = formatBrokerageDate(lastUpdated),
+                icon = Icons.Default.Schedule,
+                tint = RentOutColors.IconPurple
+            ),
+            BrokerageOverviewItem(
+                title = "Subscription",
+                value = "$${"%.0f".format(user.brokerageSubscriptionFeeUsd)}",
+                icon = Icons.Default.AccountBalanceWallet,
+                tint = RentOutColors.Primary
+            ),
+            BrokerageOverviewItem(
+                title = "Minimum float",
+                value = "$${"%.0f".format(user.brokerageMinimumFloatUsd)}",
+                icon = Icons.Default.Security,
+                tint = RentOutColors.Secondary
+            ),
+            BrokerageOverviewItem(
+                title = "Safe buffer",
+                value = "$${"%.2f".format(safeRange)}",
+                icon = Icons.Default.Shield,
+                tint = if (safeRange > 0.0) RentOutColors.StatusApproved else RentOutColors.IconAmber
+            )
+        )
+    }
 
     LaunchedEffect(topUpState) {
         when (val state = topUpState) {
@@ -294,20 +343,34 @@ fun BrokerageAccountScreen(
                 visible = visible,
                 enter = fadeIn(tween(600, delayMillis = 200)) + slideInVertically(tween(600, delayMillis = 200)) { 30 }
             ) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(
-                        "Finance Overview",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        BrokerageInsightCard(Modifier.weight(1f), "Unlock deductions", unlockDeductionCount.toString(), Icons.Default.Payments, RentOutColors.IconRose)
-                        BrokerageInsightCard(Modifier.weight(1f), "Total debited", "$${"%.2f".format(totalDeductions)}", Icons.Default.TrendingDown, RentOutColors.IconAmber)
+                Column(modifier = Modifier.padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Text(
+                            "Finance Overview",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Swipe horizontally to review every finance metric.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                        BrokerageInsightCard(Modifier.weight(1f), "Top-ups", "$${"%.2f".format(totalTopUps)}", Icons.Default.Savings, RentOutColors.StatusApproved)
-                        BrokerageInsightCard(Modifier.weight(1f), "Last update", formatBrokerageDate(lastUpdated), Icons.Default.Schedule, RentOutColors.IconPurple)
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(financeOverviewItems) { item ->
+                            BrokerageInsightCard(
+                                Modifier.width(220.dp),
+                                item.title,
+                                item.value,
+                                item.icon,
+                                item.tint
+                            )
+                        }
                     }
                 }
             }
@@ -359,6 +422,13 @@ fun BrokerageAccountScreen(
     }
 }
 
+private data class BrokerageOverviewItem(
+    val title: String,
+    val value: String,
+    val icon: ImageVector,
+    val tint: Color
+)
+
 @Composable
 fun BrokeragePaymentHistoryScreen(
     user: User,
@@ -384,32 +454,64 @@ fun BrokeragePaymentHistoryScreen(
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(RentOutColors.PrimaryDark, RentOutColors.Primary)))
-                    .statusBarsPadding()
-                    .padding(20.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FilledTonalIconButton(
-                        onClick = onBack,
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                            containerColor = Color.White.copy(alpha = 0.16f),
-                            contentColor = Color.White
+            // ── Subtle header: short gradient strip for back/title,
+            // then chips sit on the page background for full contrast ──────────
+            Column {
+                // Title strip — softened gradient, less dominant
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    RentOutColors.Primary.copy(alpha = 0.92f),
+                                    RentOutColors.Primary.copy(alpha = 0.72f)
+                                )
+                            )
                         )
-                    ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                    Text("Brokerage Payment History", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "${ledgerEntries.size} finance records • ${user.companyName.ifBlank { user.name }}",
-                        color = Color.White.copy(alpha = 0.86f)
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        HistoryFilterChip("All", selectedFilter == "all") { selectedFilter = "all" }
-                        HistoryFilterChip("Debits", selectedFilter == "debits") { selectedFilter = "debits" }
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        FilledTonalIconButton(
+                            onClick = onBack,
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = Color.White.copy(alpha = 0.20f),
+                                contentColor = Color.White
+                            )
+                        ) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        Text(
+                            "Finance Records",
+                            color = Color.White,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            "${ledgerEntries.size} records • ${user.companyName.ifBlank { user.name }}",
+                            color = Color.White.copy(alpha = 0.90f),
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                // ── Filter chips on surface background — always high contrast ──
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        HistoryFilterChip("All",     selectedFilter == "all")     { selectedFilter = "all" }
+                        HistoryFilterChip("Debits",  selectedFilter == "debits")  { selectedFilter = "debits" }
                         HistoryFilterChip("Credits", selectedFilter == "credits") { selectedFilter = "credits" }
                         HistoryFilterChip("Unlocks", selectedFilter == "unlocks") { selectedFilter = "unlocks" }
-                        HistoryFilterChip("Top-ups", selectedFilter == "topups") { selectedFilter = "topups" }
+                        HistoryFilterChip("Top-ups", selectedFilter == "topups")  { selectedFilter = "topups" }
                     }
                 }
             }
@@ -431,23 +533,82 @@ fun BrokeragePaymentHistoryScreen(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Recent balance movement", fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                        lastFour.reversed().forEach { entry ->
-                            val ratio = if (user.brokerageSubscriptionFeeUsd > 0) (entry.balanceAfter / user.brokerageSubscriptionFeeUsd).coerceIn(0.05, 1.0) else 0.05
-                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.BottomCenter) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height((ratio * 96).dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(if (entry.direction == "credit") RentOutColors.StatusApproved.copy(alpha = 0.8f) else RentOutColors.IconRose.copy(alpha = 0.8f))
-                                )
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Recent Balance Movement",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (lastFour.isEmpty()) {
+                        Text(
+                            "No ledger activity yet.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        // Bar chart: amount label above bar, date label below
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            lastFour.reversed().forEach { entry ->
+                                val barColor = if (entry.direction == "credit")
+                                    RentOutColors.StatusApproved else RentOutColors.IconRose
+                                val ratio = if (user.brokerageSubscriptionFeeUsd > 0)
+                                    (entry.balanceAfter / user.brokerageSubscriptionFeeUsd).coerceIn(0.08, 1.0)
+                                else 0.08
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    // Amount above bar
+                                    Text(
+                                        "${'$'}${"%.0f".format(entry.balanceAfter)}",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = barColor,
+                                        maxLines = 1
+                                    )
+                                    // The bar itself
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height((ratio * 88).dp)
+                                            .clip(RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp))
+                                            .background(barColor.copy(alpha = 0.85f))
+                                    )
+                                    // Date below bar
+                                    Text(
+                                        formatBrokerageDate(entry.createdAt).take(6), // e.g. "Mar 12"
+                                        fontSize = 9.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1
+                                    )
+                                    // Debit / Credit label
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = barColor.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            if (entry.direction == "credit") "CR" else "DR",
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = barColor,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                    Text("A quick visual of the latest four ledger balances after each event.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Balance after each of the last ${lastFour.size} transactions.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -475,15 +636,50 @@ fun BrokeragePaymentHistoryScreen(
 
 @Composable
 private fun HistoryFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label) },
-        colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = RentOutColors.Primary.copy(alpha = 0.14f),
-            selectedLabelColor = RentOutColors.Primary
-        )
+    // Press animation
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "chip_scale_$label"
     )
+    // Theme-aware colors: selected = solid Primary with white text (readable in both modes)
+    // Unselected = surfaceVariant with onSurfaceVariant text (standard Material contrast)
+    val containerColor by animateColorAsState(
+        targetValue = if (selected) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(200),
+        label = "chip_bg_$label"
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = tween(200),
+        label = "chip_label_$label"
+    )
+    Surface(
+        modifier = Modifier
+            .scale(scale)
+            .clip(RoundedCornerShape(50.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(50.dp),
+        color = containerColor,
+        border = if (!selected) androidx.compose.foundation.BorderStroke(
+            1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+        ) else null
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = labelColor,
+            maxLines = 1
+        )
+    }
 }
 
 @Composable
@@ -541,9 +737,18 @@ private fun BrokerageInsightCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Box(
-                modifier = Modifier.size(42.dp).clip(CircleShape).background(tint.copy(alpha = 0.12f)),
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
@@ -552,12 +757,15 @@ private fun BrokerageInsightCard(
                 value,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
             )
             Text(
                 label,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
             )
         }
     }
