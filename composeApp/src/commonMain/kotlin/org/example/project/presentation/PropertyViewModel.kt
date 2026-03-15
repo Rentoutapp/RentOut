@@ -558,6 +558,19 @@ class PropertyViewModel : ViewModel() {
     // ── Update an existing property on Firestore (edit flow) ─────────────────
     // keepImageUrls  = existing remote image URLs the landlord chose to keep
     // newImageBytes  = freshly picked images to upload and append
+    //
+    // IMPORTANT: We use docRef.update() with only the image fields rather than
+    // docRef.set() (full overwrite). The Firestore security rule for 'update'
+    // blocks any write that touches 'status', 'isVerified', etc. When we call
+    // set() on an existing document the SDK computes a diff that includes every
+    // field — including 'status' — which trips the rule and returns
+    // PERMISSION_DENIED even though we never intended to change 'status'.
+    // Using update() with an explicit field map means only imageUrl and
+    // imageUrls are written, satisfying the security rule.
+    //
+    // Images are uploaded IN PARALLEL using async/awaitAll for speed.
+    // A Mutex guards the per-image progress counter so concurrent coroutines
+    // never corrupt the Uploading(uploaded, total) state.
     fun updateProperty(
         property: Property,
         keepImageUrls: List<String> = emptyList(),
@@ -568,11 +581,9 @@ class PropertyViewModel : ViewModel() {
             try {
                 println("📝 PropertyViewModel.updateProperty() called")
                 println("   Property ID: ${property.id}")
-                println("   Property.imageUrl: ${property.imageUrl}")
-                println("   Property.imageUrls: ${property.imageUrls}")
                 println("   keepImageUrls (${keepImageUrls.size}): $keepImageUrls")
                 println("   newImageBytes count: ${newImageBytes.size}")
-                
+
                 val auth    = Firebase.auth
                 val db      = Firebase.firestore
                 val storage = Firebase.storage
@@ -580,38 +591,62 @@ class PropertyViewModel : ViewModel() {
 
                 val docRef = db.collection("properties").document(property.id)
 
-                // Upload any newly picked images
-                println("🔄 Uploading ${newImageBytes.size} new images...")
-                val uploadedUrls = newImageBytes.mapIndexed { index, bytes ->
-                    val slot = keepImageUrls.size + index
-                    val ref  = storage.reference("property_images/$uid/${property.id}/$slot.jpg")
-                    println("   Uploading image $index to slot $slot...")
-                    ref.putData(buildStorageData(bytes))
-                    val url = ref.getDownloadUrl()
-                    println("   ✅ Uploaded: $url")
-                    url
-                }
+                // ── Parallel upload of new images ─────────────────────────────
+                // Each coroutine uploads one image and atomically increments the
+                // progress counter so the UI bar advances as each photo finishes.
+                println("🔄 Uploading ${newImageBytes.size} new images in parallel…")
+                val progressMutex = Mutex()
+                var uploadedCount = 0
 
-                // Final image list = kept existing + newly uploaded
+                val uploadedUrls: List<String> = newImageBytes
+                    .mapIndexed { index, bytes ->
+                        async {
+                            val slot = keepImageUrls.size + index
+                            val ref  = storage.reference(
+                                "property_images/$uid/${property.id}/$slot.jpg"
+                            )
+                            println("   Uploading image $index → slot $slot…")
+                            ref.putData(buildStorageData(bytes))
+                            val url = ref.getDownloadUrl()
+                            println("   ✅ Uploaded slot $slot: $url")
+                            // Thread-safe progress increment
+                            progressMutex.withLock {
+                                uploadedCount++
+                                _formState.value = PropertyFormState.Uploading(
+                                    uploaded = uploadedCount,
+                                    total    = newImageBytes.size
+                                )
+                            }
+                            Pair(index, url)
+                        }
+                    }
+                    .awaitAll()
+                    // Preserve original pick order regardless of which upload finished first
+                    .sortedBy { it.first }
+                    .map { it.second }
+
+                // Final image list = kept existing + newly uploaded (in pick order)
                 val allImageUrls = keepImageUrls + uploadedUrls
                 println("📦 Final image list (${allImageUrls.size} total):")
                 allImageUrls.forEachIndexed { idx, url -> println("   [$idx] $url") }
 
-                val updatedProperty = property.copy(
-                    landlordId = uid,
-                    imageUrl   = allImageUrls.firstOrNull() ?: property.imageUrl,
-                    imageUrls  = allImageUrls
+                // ── Firestore update (field-level, NOT full set()) ────────────
+                // Writing only the image fields avoids triggering the security
+                // rule that forbids changes to 'status', 'isVerified', etc.
+                println("💾 Updating Firestore image fields only…")
+                docRef.update(
+                    "imageUrl"  to (allImageUrls.firstOrNull() ?: property.imageUrl),
+                    "imageUrls" to allImageUrls
                 )
-                
-                println("💾 Saving to Firestore...")
-                println("   imageUrl: ${updatedProperty.imageUrl}")
-                println("   imageUrls (${updatedProperty.imageUrls.size}): ${updatedProperty.imageUrls}")
 
-                docRef.set(updatedProperty)
-                // Keep _selectedProperty in sync immediately for detail/edit screens.
-                // The real-time landlord listener will also push the update to the dashboard.
-                _selectedProperty.value = updatedProperty
-                println("✅ Property updated successfully!")
+                // Keep _selectedProperty in sync immediately so the detail and
+                // edit screens reflect the new images without waiting for the
+                // real-time landlord listener to push the update.
+                _selectedProperty.value = property.copy(
+                    imageUrl  = allImageUrls.firstOrNull() ?: property.imageUrl,
+                    imageUrls = allImageUrls
+                )
+                println("✅ Property images updated successfully!")
                 _formState.value = PropertyFormState.Success
             } catch (e: Exception) {
                 println("❌ Error updating property: ${e.message}")

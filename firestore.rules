@@ -269,6 +269,16 @@ service cloud.firestore {
 
       // Provider can update their own property details but NOT status or isVerified.
       // Admin can update anything including status (approve/reject flow).
+      //
+      // The image-edit flow (EditPropertyImagesScreen) uses docRef.update() with
+      // only the 'imageUrl' and 'imageUrls' fields. These two fields are explicitly
+      // permitted here — the diff will never touch 'status', 'isVerified' etc. so
+      // the hasAny() guard below passes cleanly.
+      //
+      // IMPORTANT: The old flow used docRef.set() (full overwrite) which included
+      // 'status' in the diff and caused PERMISSION_DENIED. Always use docRef.update()
+      // with an explicit field map for provider-side updates.
+      //
       // NOTE: isAdmin() is checked FIRST and short-circuits — the admin update path
       // does NOT call isActiveUser(), preventing an extra user-doc get() that could
       // cause permission errors if the admin doc has an unexpected status value.
@@ -378,8 +388,13 @@ service cloud.firestore {
         && (request.auth.uid == resource.data.recipientId || isAdmin());
       // Collection queries — filtered by recipientId in app code
       allow list:   if isAuthenticated();
-      // Cloud Functions write via Admin SDK; admin panel can also create notifications
-      allow create: if isAdmin() || isAuthenticated();
+      // Cloud Functions write via Admin SDK (bypass all rules).
+      // Admin panel can also create notifications.
+      // Authenticated users can only create notifications for themselves
+      // (e.g. local in-app notifications). They cannot spam other users.
+      allow create: if isAdmin()
+        || (isAuthenticated()
+            && request.resource.data.recipientId == request.auth.uid);
       // Users can update isRead on their own notifications; admin can update any
       allow update: if isAuthenticated()
         && (

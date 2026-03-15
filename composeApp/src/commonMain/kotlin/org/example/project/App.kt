@@ -383,18 +383,18 @@ fun App() {
             ) {
                 val property = propertyViewModel.selectedProperty.collectAsState().value
                 if (property != null) {
-                    LaunchedEffect(formState) {
-                        if (formState is PropertyFormState.Success) {
-                            propertyViewModel.resetFormState()
-                            navController.popBackStack()
-                        }
-                    }
+                    // Navigation is driven entirely by EditPhotoProgressButton.onComplete
+                    // which calls viewModel.resetFormState() then onBack() AFTER the bar
+                    // reaches 100% and the checkmark is shown. Do NOT add a LaunchedEffect
+                    // here that calls popBackStack() on Success — it would race the animation
+                    // and navigate before the user sees the completion state.
                     EditPropertyImagesScreen(
                         property  = property,
                         formState = formState,
                         viewModel = propertyViewModel,
                         onSave    = { keepUrls, newBytes ->
-                            // Use the LATEST property from selectedProperty state, not the captured one
+                            // Always use the LATEST selectedProperty (not the lambda-captured
+                            // snapshot) so that any real-time listener updates are included.
                             val latestProperty = propertyViewModel.selectedProperty.value
                             if (latestProperty != null) {
                                 propertyViewModel.updateProperty(

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths configuration for RentOut camera capture.
+
+    cache-path: Grants the camera app access to files inside the app's
+    internal cache directory (getCacheDir()). We write a temporary .jpg
+    file here, hand its content:// URI to the camera via ACTION_IMAGE_CAPTURE,
+    and read the bytes back after capture succeeds.
+
+    This is the Android-recommended approach:
+    https://developer.android.com/training/camera-deprecated/photobasics
+-->
+<paths>
+    <cache-path
+        name="camera_captures"
+        path="camera_captures/" />
+</paths>

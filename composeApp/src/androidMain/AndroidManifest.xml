@@ -1,15 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- ── Permissions ──────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Camera: required for taking property photos. Prompted at app startup
+         so users understand the feature before they navigate to Edit Photos. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+
+    <!-- Gallery access: READ_EXTERNAL_STORAGE for API ≤ 32, READ_MEDIA_IMAGES
+         for API 33+ (Android 13 granular media permissions). -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+    <!-- WRITE_EXTERNAL_STORAGE only needed on API ≤ 28 (Android 9 and below).
+         On API 29+ scoped storage is used; no write permission required. -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+
+    <!-- Location: used by the map property picker to detect GPS position. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
     <!-- FCM push notifications (required on Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- ── Hardware features ─────────────────────────────────────────────────── -->
+    <!-- Declare camera as NOT required so the app can be installed on devices
+         without a camera (e.g. tablets). The camera option simply won't work
+         on those devices, but gallery upload still functions normally. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
 
     <application
         android:allowBackup="true"
@@ -69,6 +89,29 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="rentout_default"/>
+
+        <!-- ── FileProvider for camera capture ──────────────────────────────────
+             Shares a content:// URI pointing to a temp file in the app's private
+             cache directory with the system camera app. This is the Android-
+             recommended pattern (ACTION_IMAGE_CAPTURE via TakePicture contract)
+             and avoids the MediaStore IS_PENDING approach that crashes many OEM
+             camera apps on Android 10+ (Samsung, Xiaomi, OPPO, etc.).
+
+             authority: must match the authority used in FileProvider.getUriForFile()
+             in ImagePicker.android.kt ("${packageName}.fileprovider").
+             grantUriPermissions: allows the camera app to read/write the temp file.
+             resource: points to res/xml/file_provider_paths.xml which maps
+             "camera_captures/" inside getCacheDir() to the "camera_captures" name.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths"/>
+        </provider>
     </application>
 
 </manifest>

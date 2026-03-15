@@ -342,7 +342,26 @@ fun EditPropertyImagesScreen(
             }
         }
     }
-    val isLoading = formState is PropertyFormState.Uploading
+    // ── Derive upload progress from formState ─────────────────────────────────
+    // Uploading(uploaded, total) drives the 0→100% bar.
+    // When total == 0 (only kept URLs, no new uploads) the bar jumps straight
+    // to 100% as soon as Uploading is emitted, giving instant visual feedback
+    // for the Firestore metadata-only write.
+    val isLoading = formState is PropertyFormState.Uploading || formState is PropertyFormState.Success
+    val uploadedCount = (formState as? PropertyFormState.Uploading)?.uploaded ?: 0
+    val uploadTotal   = (formState as? PropertyFormState.Uploading)?.total   ?: 0
+
+    // ── Navigate back once the progress bar animation completes ───────────────
+    // We let the ProgressButton's onComplete callback drive navigation so the
+    // user always sees the bar reach 100% + checkmark before the screen pops.
+    // resetFormState() is called inside onComplete so the next visit starts clean.
+    var navigateBack by remember { mutableStateOf(false) }
+    LaunchedEffect(navigateBack) {
+        if (navigateBack) {
+            viewModel.resetFormState()
+            onBack()
+        }
+    }
 
     // Back button animation
     var backPressed by remember { mutableStateOf(false) }
@@ -354,11 +373,6 @@ fun EditPropertyImagesScreen(
     // Image picker
     val imagePicker: ImagePickerLauncher = rememberImagePickerLauncher { picked ->
         if (picked != null) newImages = newImages + picked
-    }
-
-    // Navigate back on success
-    if (formState is PropertyFormState.Success) {
-        LaunchedEffect(formState) { onBack() }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -556,12 +570,39 @@ fun EditPropertyImagesScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // ── Save button ───────────────────────────────────────────
-                    EditSaveButton(
-                        isLoading     = isLoading,
-                        totalCount    = totalCount,
-                        isResidential = isResidential,
-                        onClick       = {
+                    // ── Save button — linear 0 → 100% progress bar ───────────
+                    // The animation duration is gauged to the number of images:
+                    //   • No new uploads (metadata-only): 1 200 ms fast sweep
+                    //   • 1 new image: ~9 000 ms (real upload ~9 s from log)
+                    //   • Each additional image adds ~4 000 ms
+                    // The bar is driven by real Uploading(uploaded,total) state
+                    // so it advances in locked step with actual Firebase Storage
+                    // progress. When the upload finishes before the animation
+                    // completes the bar snaps cleanly to 100%.
+                    val minRequired = if (isResidential) 5 else 1
+                    val saveEnabled = totalCount >= minRequired
+                    val newCount    = newImages.size
+                    val gaugedDurationMs = when {
+                        newCount == 0 -> 1_200
+                        newCount == 1 -> 9_000
+                        else          -> 9_000 + (newCount - 1) * 4_000
+                    }
+                    // Real progress fraction: 0f when idle/no uploads,
+                    // advances per completed image, reaches 1f on Success.
+                    val realProgress: Float = when {
+                        formState is PropertyFormState.Success -> 1f
+                        uploadTotal == 0 -> if (isLoading) 1f else 0f
+                        else -> uploadedCount.toFloat() / uploadTotal.toFloat()
+                    }
+                    EditPhotoProgressButton(
+                        enabled          = saveEnabled,
+                        isLoading        = isLoading,
+                        totalCount       = totalCount,
+                        minRequired      = minRequired,
+                        realProgress     = realProgress,
+                        animDurationMs   = gaugedDurationMs,
+                        onComplete       = { navigateBack = true },
+                        onClick          = {
                             println("💾 EditPropertyImagesScreen: Save button clicked")
                             println("   keptRemoteUrls (${keptRemoteUrls.size}): $keptRemoteUrls")
                             println("   newImages count: ${newImages.size}")
@@ -927,73 +968,233 @@ private fun ResidentialPhotoBannerEdit() {
     }
 }
 
-// ── Save button ───────────────────────────────────────────────────────────────
+// ── Save Photos progress button ───────────────────────────────────────────────
+// A bespoke linear-fill button that:
+//   1. Shows "Save Photos" when idle and enabled.
+//   2. On click: starts a tween from 0 → realProgress (per-image real progress),
+//      and simultaneously animates a time-gauged sweep toward 100%.
+//   3. When realProgress reaches 1f (all uploads + Firestore done) the bar snaps
+//      to 100%, shows a ✓ checkmark pop, then fires onComplete → navigate back.
+//   4. The gauged sweep acts as a visual floor so the bar always appears to be
+//      moving even when a single large image takes several seconds.
 @Composable
-private fun EditSaveButton(
+private fun EditPhotoProgressButton(
+    enabled: Boolean,
     isLoading: Boolean,
     totalCount: Int,
-    isResidential: Boolean,
+    minRequired: Int,
+    realProgress: Float,       // 0f → 1f driven by Uploading(uploaded,total)
+    animDurationMs: Int,       // gauged total animation window in ms
+    onComplete: () -> Unit,
     onClick: () -> Unit
 ) {
-    val minRequired = if (isResidential) 5 else 1
-    val enabled = totalCount >= minRequired && !isLoading
+    // ── States ────────────────────────────────────────────────────────────────
+    var isDone        by remember { mutableStateOf(false) }
+    var hasFiredBack  by remember { mutableStateOf(false) }
+
+    // ── Gauged sweep: animates from 0 → 0.92 over animDurationMs as the visual
+    //    floor. The real progress can jump ahead of this whenever uploads finish.
+    var gaugedTarget  by remember { mutableStateOf(0f) }
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            isDone       = false
+            hasFiredBack = false
+            gaugedTarget = 0f
+            // Animate the floor sweep in small steps so it feels organic
+            val steps      = 60
+            val stepDelay  = animDurationMs.toLong() / steps
+            val stepSize   = 0.92f / steps
+            repeat(steps) {
+                kotlinx.coroutines.delay(stepDelay)
+                gaugedTarget = (gaugedTarget + stepSize).coerceAtMost(0.92f)
+            }
+        } else {
+            gaugedTarget = 0f
+        }
+    }
+
+    // ── Snap to 100% and show checkmark when the real upload is done ──────────
+    LaunchedEffect(realProgress) {
+        if (realProgress >= 1f && isLoading && !isDone) {
+            gaugedTarget = 1f
+            kotlinx.coroutines.delay(350) // let bar visually reach 100%
+            isDone = true
+            kotlinx.coroutines.delay(600) // show checkmark briefly
+            if (!hasFiredBack) {
+                hasFiredBack = true
+                onComplete()
+            }
+        }
+    }
+
+    // ── Animated values ───────────────────────────────────────────────────────
+    // displayProgress = max(gaugedSweep, realProgress) so the bar never goes
+    // backward and always reflects whichever is further ahead.
+    val displayProgress = maxOf(gaugedTarget, realProgress).coerceIn(0f, 1f)
+
+    val animatedProgress by animateFloatAsState(
+        targetValue    = displayProgress,
+        animationSpec  = tween(durationMillis = 300, easing = LinearEasing),
+        label          = "edit_save_progress"
+    )
+
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        if (isPressed) 0.95f else 1f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "save_scale"
+    val isPressed         by interactionSource.collectIsPressedAsState()
+    val buttonScale       by animateFloatAsState(
+        targetValue   = if (isPressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label         = "edit_save_scale"
     )
-    val bgColor by animateColorAsState(
-        if (enabled) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant,
-        label = "save_bg"
+    val cornerRadius by animateDpAsState(
+        targetValue   = if (isLoading) 28.dp else 16.dp,
+        animationSpec = tween(400, easing = FastOutSlowInEasing),
+        label         = "edit_save_corner"
     )
+    val elevation by animateDpAsState(
+        targetValue = if (isLoading || isPressed) 2.dp else if (enabled) 8.dp else 0.dp,
+        label       = "edit_save_elev"
+    )
+
+    // Shimmer sweep while uploading
+    val shimmerTransition = rememberInfiniteTransition(label = "edit_shimmer")
+    val shimmerOffset by shimmerTransition.animateFloat(
+        initialValue   = -1f,
+        targetValue    = 2f,
+        animationSpec  = infiniteRepeatable(tween(1200, easing = LinearEasing), RepeatMode.Restart),
+        label          = "edit_shimmer_offset"
+    )
+
+    // Checkmark pop scale
+    val checkScale by animateFloatAsState(
+        targetValue   = if (isDone) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label         = "edit_check_scale"
+    )
+
+    // Upload arrow bounce
+    val arrowTransition = rememberInfiniteTransition(label = "edit_arrow")
+    val arrowOffset by arrowTransition.animateFloat(
+        initialValue  = -4f,
+        targetValue   = 4f,
+        animationSpec = infiniteRepeatable(tween(500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label         = "edit_arrow_offset"
+    )
+
+    // ── Layout ────────────────────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale)
-            .shadow(if (enabled) 8.dp else 0.dp, RoundedCornerShape(16.dp))
+            .scale(buttonScale)
+            .shadow(elevation, RoundedCornerShape(cornerRadius))
             .height(56.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bgColor)
+            .clip(RoundedCornerShape(cornerRadius))
             .then(
-                if (enabled) Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+                if (enabled && !isLoading)
+                    Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
                 else Modifier
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (isLoading) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
+        if (isLoading || isDone) {
+            // ── Progress / Done state ─────────────────────────────────────────
+            // Track background
+            Box(Modifier.fillMaxSize().background(RentOutColors.Primary.copy(alpha = 0.15f)))
+
+            // Filled progress bar with gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(animatedProgress.coerceIn(0f, 1f))
+                    .align(Alignment.CenterStart)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(RentOutColors.Primary, RentOutColors.PrimaryLight, RentOutColors.Primary)
+                        )
+                    )
+            )
+
+            // Shimmer overlay (hidden when done)
+            if (!isDone) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(animatedProgress.coerceIn(0f, 1f))
+                        .align(Alignment.CenterStart)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors  = listOf(Color.Transparent, Color.White.copy(alpha = 0.30f), Color.Transparent),
+                                startX  = shimmerOffset * 400f,
+                                endX    = shimmerOffset * 400f + 300f
+                            )
+                        )
                 )
-                Text("Saving photos…", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
-        } else {
+
+            // Content: percentage + upload arrow → checkmark
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment    = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier             = Modifier.fillMaxSize()
             ) {
-                Icon(
-                    Icons.Default.Save, null,
-                    tint = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-                Text(
-                    when {
-                        totalCount == 0 -> "Add at least one photo"
-                        isResidential && totalCount < minRequired -> "Add ${minRequired - totalCount} more photo${if (minRequired - totalCount != 1) "s" else ""} to save"
-                        else -> "Save Photos"
-                    },
-                    color = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+                if (isDone) {
+                    Box(
+                        modifier = Modifier
+                            .scale(checkScale)
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.25f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Check, "Done", tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text("Photos Saved!", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                } else {
+                    Text(
+                        "↑",
+                        fontSize     = 18.sp,
+                        fontWeight   = FontWeight.Bold,
+                        color        = Color.White,
+                        modifier     = Modifier.graphicsLayer { translationY = arrowOffset * density }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Saving… ${(animatedProgress * 100).toInt()}%",
+                        fontSize     = 14.sp,
+                        fontWeight   = FontWeight.Bold,
+                        color        = Color.White,
+                        letterSpacing = 0.3.sp
+                    )
+                }
+            }
+
+        } else {
+            // ── Idle state ────────────────────────────────────────────────────
+            val bgColor by animateColorAsState(
+                targetValue = if (enabled) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant,
+                label       = "edit_save_bg"
+            )
+            Box(Modifier.fillMaxSize().background(bgColor), contentAlignment = Alignment.Center) {
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Save, null,
+                        tint     = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = when {
+                            totalCount == 0                                    -> "Add at least one photo"
+                            !enabled                                           -> "Add ${minRequired - totalCount} more photo${if (minRequired - totalCount != 1) "s" else ""} to save"
+                            else                                               -> "Save Photos"
+                        },
+                        color      = if (enabled) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 15.sp
+                    )
+                }
             }
         }
     }

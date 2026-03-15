@@ -16,10 +16,21 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : ComponentActivity() {
 
-    // Android 13+ runtime notification permission request
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { /* permission result — FCM will still receive data messages regardless */ }
+    // ── Multi-permission launcher: requests CAMERA + notifications together ───
+    // Using RequestMultiplePermissions so that on first launch the user sees
+    // both prompts in sequence rather than being asked one at a time across
+    // different sessions. CAMERA is declared in the manifest so it must also
+    // be granted at runtime on API 23+ (Android 6.0+).
+    private val requestMultiplePermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        // Camera: if denied, the ImagePicker gracefully shows a toast when the
+        // user tries to use the camera — they can still use gallery upload.
+        // Notifications: FCM still delivers data messages even if denied on API 33+.
+        // No blocking behaviour — both are handled gracefully by the app.
+        @Suppress("UNUSED_VARIABLE")
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -31,13 +42,32 @@ class MainActivity : ComponentActivity() {
         // Create the notification channel (safe to call multiple times)
         RentOutFirebaseMessagingService.createNotificationChannel(this)
 
-        // Request POST_NOTIFICATIONS permission on Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+        // ── Request runtime permissions on first launch ───────────────────────
+        // Build the list of permissions that have not yet been granted.
+        // Requesting only what is needed avoids showing unnecessary dialogs.
+        val permissionsToRequest = buildList {
+            // CAMERA — required for taking property photos (API 23+).
+            // Prompting at startup lets users understand the feature exists
+            // before they navigate to the Edit Photos screen.
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED
             ) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                add(Manifest.permission.CAMERA)
             }
+
+            // POST_NOTIFICATIONS — required on Android 13+ (API 33+) for FCM
+            // foreground notifications (data messages still arrive without it).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(
+                    this@MainActivity, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            requestMultiplePermissionsLauncher.launch(permissionsToRequest.toTypedArray())
         }
 
         // Fetch current FCM token and upload it to Firestore so Cloud Functions can
