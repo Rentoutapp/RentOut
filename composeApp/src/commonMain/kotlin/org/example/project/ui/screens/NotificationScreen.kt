@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,10 +80,24 @@ fun NotificationScreen(
         }
     }
 
-    val bgColor = if (isDark) Color(0xFF0D1B2A) else Color(0xFFF0F4FA)
+    // ── Animated navy→teal gradient — consistent with all app screens ─────────
+    val bgTransition = rememberInfiniteTransition(label = "notif_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
 
+    Box(modifier = Modifier.fillMaxSize().background(bodyGradient)) {
     Scaffold(
-        containerColor = bgColor,
+        containerColor = Color.Transparent,
         topBar = {
             NotificationTopBar(
                 unreadCount  = unreadCount,
@@ -174,6 +189,7 @@ fun NotificationScreen(
             }
         }
     }
+    } // end gradient Box
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -817,7 +833,7 @@ private fun EmptyTabState(tab: NotifTab, modifier: Modifier = Modifier) {
                 },
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Color.White
             )
             Spacer(Modifier.height(8.dp))
             Text(
@@ -827,7 +843,7 @@ private fun EmptyTabState(tab: NotifTab, modifier: Modifier = Modifier) {
                     NotifTab.ALL -> "When something important happens, you'll see it here."
                 },
                 fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.70f),
                 textAlign = TextAlign.Center,
                 lineHeight = 19.sp
             )
@@ -865,13 +881,13 @@ private fun EmptyNotificationsState(modifier: Modifier = Modifier) {
                 "You're all caught up!",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Color.White
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "No notifications yet.\nWhen something important happens, you'll see it here.",
                 fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.70f),
                 textAlign = TextAlign.Center,
                 lineHeight = 19.sp
             )
@@ -894,7 +910,7 @@ private fun NotifLoadingState(padding: PaddingValues) {
             Spacer(Modifier.height(16.dp))
             Text(
                 "Loading notifications…",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.70f),
                 fontSize = 14.sp
             )
         }

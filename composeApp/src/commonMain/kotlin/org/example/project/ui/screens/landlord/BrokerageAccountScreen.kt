@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -147,18 +148,32 @@ fun BrokerageAccountScreen(
         label = "float_progress"
     )
 
+    // ── Animated navy→teal gradient — consistent with landlord dashboard ──────
+    val bgTransition = rememberInfiniteTransition(label = "brokerage_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(bodyGradient),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            // ── Hero header ───────────────────────────────────────────────────
+            // ── Hero header — transparent so gradient shows through ────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(RentOutColors.PrimaryDark, RentOutColors.Primary)))
                     .statusBarsPadding()
                     .padding(20.dp)
             ) {
@@ -349,13 +364,13 @@ fun BrokerageAccountScreen(
                             "Finance Overview",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
-                            color = MaterialTheme.colorScheme.onBackground
+                            color = Color.White
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             "Swipe horizontally to review every finance metric.",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color.White.copy(alpha = 0.70f)
                         )
                     }
                     LazyRow(
@@ -386,11 +401,11 @@ fun BrokerageAccountScreen(
                     "Recent Activity",
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = Color.White
                 )
                 Text(
                     "See all",
-                    color = RentOutColors.Primary,
+                    color = Color.White.copy(alpha = 0.85f),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
                     modifier = Modifier
@@ -449,26 +464,31 @@ fun BrokeragePaymentHistoryScreen(
     val debitCount = ledgerEntries.count { it.direction == "debit" }
     val creditCount = ledgerEntries.count { it.direction == "credit" }
     val lastFour = ledgerEntries.take(4)
+    // ── Animated navy→teal gradient — consistent with landlord dashboard ──────
+    val histBgTransition = rememberInfiniteTransition(label = "history_bg")
+    val histBgShift by histBgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "hist_bg_shift"
+    )
+    val histBgNavy     = Color(0xFF0E1C3E)
+    val histBgNavyMid  = Color(0xFF1A2B5E)
+    val histBgTealDark = Color(0xFF007A75)
+    val histBgTeal     = Color(0xFF00B4AE)
+    val histBgTop      = lerp(histBgNavy,     histBgNavyMid,  histBgShift * 0.4f)
+    val histBgBottom   = lerp(histBgTealDark, histBgTeal,     histBgShift * 0.6f)
+    val histBodyGradient = Brush.verticalGradient(listOf(histBgTop, histBgBottom))
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        modifier = Modifier.fillMaxSize().background(histBodyGradient),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item {
-            // ── Subtle header: short gradient strip for back/title,
-            // then chips sit on the page background for full contrast ──────────
             Column {
-                // Title strip — softened gradient, less dominant
+                // Title strip — transparent so gradient shows through
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    RentOutColors.Primary.copy(alpha = 0.92f),
-                                    RentOutColors.Primary.copy(alpha = 0.72f)
-                                )
-                            )
-                        )
                         .statusBarsPadding()
                         .padding(horizontal = 20.dp, vertical = 16.dp)
                 ) {
@@ -734,8 +754,8 @@ private fun BrokerageInsightCard(
     Card(
         modifier = modifier.scale(cardScale),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.12f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -748,7 +768,7 @@ private fun BrokerageInsightCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(tint.copy(alpha = 0.12f)),
+                    .background(tint.copy(alpha = 0.22f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
@@ -757,12 +777,12 @@ private fun BrokerageInsightCard(
                 value,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = Color.White,
                 maxLines = 1
             )
             Text(
                 label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Color.White.copy(alpha = 0.70f),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1
@@ -887,9 +907,9 @@ private fun BrokerageEmptyState(title: String, subtitle: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = RentOutColors.Primary, modifier = Modifier.size(44.dp))
-        Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
-        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Color.White.copy(alpha = 0.80f), modifier = Modifier.size(44.dp))
+        Text(title, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+        Text(subtitle, color = Color.White.copy(alpha = 0.70f), fontSize = 13.sp)
     }
 }
 

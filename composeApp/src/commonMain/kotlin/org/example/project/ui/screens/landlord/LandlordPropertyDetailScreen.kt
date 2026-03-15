@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -166,7 +167,22 @@ fun LandlordPropertyDetailScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    // ── Animated navy→teal gradient — consistent with landlord dashboard ──────
+    val bgTransition = rememberInfiniteTransition(label = "prop_detail_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
+    Box(modifier = Modifier.fillMaxSize().background(bodyGradient)) {
 
         // ── Scrollable content ────────────────────────────────────────────────
         Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {

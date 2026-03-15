@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,20 +62,24 @@ fun PaymentScreen(
         }
     }
 
+    // ── Animated navy→teal gradient — consistent with all tenant screens ──────
+    val bgTransition = rememberInfiniteTransition(label = "payment_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
     Box(
-        modifier = Modifier.fillMaxSize().imePadding().background(MaterialTheme.colorScheme.background)
+        modifier = Modifier.fillMaxSize().imePadding().background(bodyGradient)
     ) {
-        // Header gradient
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(RentOutColors.Primary, RentOutColors.Primary.copy(alpha = 0f))
-                    )
-                )
-        )
 
         Column(
             modifier = Modifier
@@ -132,7 +137,7 @@ fun PaymentScreen(
                             else        -> "You can now see the landlord's contact details."
                         }
                         Text(unlockedDesc,
-                            fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 14.sp, color = Color.White.copy(alpha = 0.80f),
                             textAlign = TextAlign.Center)
                     }
                 }
@@ -199,7 +204,7 @@ fun PaymentScreen(
                         Text("Payment via PesePay", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(4.dp))
                         Text("Secure payment powered by PesePay", fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f))
                         Spacer(Modifier.height(16.dp))
 
                         // Supported methods grid
@@ -247,7 +252,7 @@ fun PaymentScreen(
                 Text(
                     "By paying, you agree to our Terms of Service. This is a one-time fee to reveal ${when (providerSubtype) { "brokerage" -> "broker & office"; "agent" -> "agent & landlord"; else -> "landlord" }} contact details for this property.",
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.White.copy(alpha = 0.65f),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )

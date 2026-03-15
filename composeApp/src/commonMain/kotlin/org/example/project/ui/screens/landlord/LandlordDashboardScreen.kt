@@ -5,7 +5,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,8 +35,6 @@ import org.example.project.data.model.dashboardTitle
 import org.example.project.presentation.PropertyListState
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
-import org.example.project.ui.theme.RentOutBackgrounds
-import org.example.project.ui.theme.RentOutTextColors
 import org.example.project.ui.util.DashboardBackHandler
 
 // ── Time-of-day data ──────────────────────────────────────────────────────────
@@ -374,97 +371,90 @@ fun LandlordDashboardScreen(
                     onClick = onAddProperty,
                     icon = { Icon(Icons.Default.Add, "Add") },
                     text = { Text("Add Property", fontWeight = FontWeight.SemiBold) },
-                    containerColor = RentOutColors.Secondary,
+                    containerColor = Color(0xFF00B4AE),
                     contentColor = Color.White,
                     modifier = Modifier.scale(fabScale),
                     interactionSource = interactionSource
                 )
             }
-        }
+        },
+        containerColor = Color.Transparent
     ) { padding ->
-        val isDark = isSystemInDarkTheme()
-        
+
+        // ── Animated body background — navy top breathes toward teal bottom ───
+        val bodyTransition = rememberInfiniteTransition(label = "landlord_bg")
+        val bodyShift by bodyTransition.animateFloat(
+            initialValue = 0f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+            label = "body_shift"
+        )
+        val bodyNavy     = Color(0xFF0E1C3E)
+        val bodyNavyMid  = Color(0xFF1A2B5E)
+        val bodyTealDark = Color(0xFF007A75)
+        val bodyTeal     = Color(0xFF00B4AE)
+        val bodyBgTop    = lerp(bodyNavy,     bodyNavyMid,  bodyShift * 0.4f)
+        val bodyBgBottom = lerp(bodyTealDark, bodyTeal,     bodyShift * 0.6f)
+        val bodyGradient = Brush.verticalGradient(listOf(bodyBgTop, bodyBgBottom))
+
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (isDark) {
-                        Modifier.background(MaterialTheme.colorScheme.background)
-                    } else {
-                        Modifier.background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    RentOutBackgrounds.LightGradientTop,
-                                    RentOutBackgrounds.LightGradientBottom
-                                )
-                            )
-                        )
-                    }
-                )
+                .background(bodyGradient)
                 .padding(padding),
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
             // Stats row
             item {
                 Spacer(Modifier.height(20.dp))
+                // Section title — white on dark gradient
                 Text(
                     user.dashboardTitle,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp),
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = Color.White
                 )
                 Spacer(Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    StatCard("Total", total.toString(), Icons.Default.Home, RentOutColors.IconBlue, Modifier.weight(1f))
-                    StatCard("Approved", approved.toString(), Icons.Default.CheckCircle, RentOutColors.StatusApproved, Modifier.weight(1f))
-                    StatCard("Pending", pending.toString(), Icons.Default.Schedule, RentOutColors.StatusPending, Modifier.weight(1f))
-                    StatCard("Rejected", rejected.toString(), Icons.Default.Cancel, RentOutColors.StatusRejected, Modifier.weight(1f))
+                    StatCard("Total",    total.toString(),    Icons.Default.Home,        RentOutColors.IconBlue,      Modifier.weight(1f))
+                    StatCard("Approved", approved.toString(), Icons.Default.CheckCircle, RentOutColors.StatusApproved,Modifier.weight(1f))
+                    StatCard("Pending",  pending.toString(),  Icons.Default.Schedule,    RentOutColors.StatusPending, Modifier.weight(1f))
+                    StatCard("Rejected", rejected.toString(), Icons.Default.Cancel,      RentOutColors.StatusRejected,Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(24.dp))
-                // Brokerage frozen banner — compact, shown only when account is frozen
+                // Brokerage frozen banner
                 if (user.providerSubtype == "brokerage" && user.brokerageIsFrozen) {
-                    Surface(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .clickable { onBrokerageAccountClick() },
-                        color = RentOutColors.IconRose.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(16.dp)
+                            .background(RentOutColors.IconRose.copy(alpha = 0.18f))
+                            .clickable { onBrokerageAccountClick() }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                Icons.Default.AcUnit,
-                                null,
-                                tint = RentOutColors.IconRose,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.Default.AcUnit, null, tint = Color(0xFFFF8A80), modifier = Modifier.size(20.dp))
                             Text(
                                 "Tenant unlocks frozen — tap $ to top up",
-                                color = RentOutColors.IconRose,
+                                color = Color(0xFFFF8A80),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            Icon(
-                                Icons.Default.ChevronRight,
-                                null,
-                                tint = RentOutColors.IconRose,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(Icons.Default.ChevronRight, null, tint = Color(0xFFFF8A80), modifier = Modifier.size(18.dp))
                         }
                     }
                     Spacer(Modifier.height(12.dp))
                 }
+                // Listings section title — white
                 Text(
                     when (user.providerSubtype) {
                         "agent"     -> "Your Listings"
@@ -474,7 +464,7 @@ fun LandlordDashboardScreen(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 20.dp),
-                    color = MaterialTheme.colorScheme.onBackground
+                    color = Color.White
                 )
                 Spacer(Modifier.height(12.dp))
             }
@@ -488,8 +478,12 @@ fun LandlordDashboardScreen(
                     ) {
                         Text("🏠", fontSize = 64.sp)
                         Spacer(Modifier.height(16.dp))
-                        Text("No listings yet", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("Tap the button below to add your first property", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                        Text("No listings yet", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+                        Text(
+                            "Tap the button below to add your first property",
+                            color = Color.White.copy(alpha = 0.70f),
+                            fontSize = 14.sp
+                        )
                         Spacer(Modifier.height(20.dp))
                         RentOutPrimaryButton("+ Add Your First Property", onAddProperty, Modifier.fillMaxWidth())
                     }
@@ -513,9 +507,9 @@ fun LandlordDashboardScreen(
                         modifier = Modifier.fillMaxWidth().padding(48.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
+                        Icon(Icons.Default.Error, null, tint = Color(0xFFFF8A80), modifier = Modifier.size(48.dp))
                         Spacer(Modifier.height(12.dp))
-                        Text(propertyListState.message, color = MaterialTheme.colorScheme.error)
+                        Text(propertyListState.message, color = Color(0xFFFF8A80))
                     }
                 }
             }
@@ -584,40 +578,31 @@ private fun StatCard(label: String, value: String, icon: ImageVector, tint: Colo
         animationSpec = tween(800, easing = FastOutSlowInEasing),
         label = "stat_anim"
     )
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    // Glass-style card that sits on top of the dark gradient
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(alpha = 0.12f))
+            .padding(12.dp),
+        contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                icon, null,
-                tint = tint,
-                modifier = Modifier
-                    .size(22.dp)
-                    .align(Alignment.CenterHorizontally)
-            )
+            Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
             Spacer(Modifier.height(6.dp))
             Text(
                 animatedValue.toInt().toString(),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = tint,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                color = tint
             )
             Text(
                 label,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                color = Color.White.copy(alpha = 0.70f),
+                fontWeight = FontWeight.Medium
             )
         }
     }

@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,12 +43,26 @@ fun UnlockedPropertiesScreen(
         animationSpec = tween(200), label = "back_rotation"
     )
 
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        // Header
+    // ── Animated navy→teal gradient — matches tenant home & landlord dashboard ─
+    val bgTransition = rememberInfiniteTransition(label = "unlocked_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
+    Column(modifier = Modifier.fillMaxSize().background(bodyGradient)) {
+        // Header — transparent so gradient shows through
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(RentOutColors.Primary, RentOutColors.Primary.copy(alpha = 0f))))
                 .statusBarsPadding()
                 .padding(20.dp)
         ) {
@@ -63,7 +78,7 @@ fun UnlockedPropertiesScreen(
                     }
                     Spacer(Modifier.width(8.dp))
                     Column {
-                        Text("My Unlocked", fontSize = 13.sp, color = Color.White.copy(alpha = 0.8f))
+                        Text("My Unlocked", fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
                         Text("Properties 🔑", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
@@ -75,11 +90,11 @@ fun UnlockedPropertiesScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                     Text("🔑", fontSize = 72.sp)
                     Spacer(Modifier.height(16.dp))
-                    Text("No unlocked properties yet", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text("No unlocked properties yet", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
                     Spacer(Modifier.height(8.dp))
                     Text(
                         "Browse properties and pay \$10 to unlock landlord contact details.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.70f), fontSize = 14.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                     Spacer(Modifier.height(24.dp))
@@ -95,14 +110,14 @@ fun UnlockedPropertiesScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = RentOutColors.StatusApproved.copy(alpha = 0.08f))
+                        colors = CardDefaults.cardColors(containerColor = RentOutColors.StatusApproved.copy(alpha = 0.18f))
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.CheckCircle, null, tint = RentOutColors.StatusApproved)
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 "${unlockedProperties.size} unlocked ${if (unlockedProperties.size == 1) "property" else "properties"} — contact details are visible",
-                                fontSize = 13.sp, color = RentOutColors.TertiaryDark, fontWeight = FontWeight.Medium
+                                fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Medium
                             )
                         }
                     }

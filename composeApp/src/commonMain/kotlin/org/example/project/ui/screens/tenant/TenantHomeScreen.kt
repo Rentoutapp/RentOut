@@ -4,9 +4,9 @@ package org.example.project.ui.screens.tenant
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.graphicsLayer
@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -48,8 +49,6 @@ import org.example.project.presentation.PropertyListState
 import org.example.project.presentation.SortOption
 import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
-import org.example.project.ui.theme.RentOutBackgrounds
-import org.example.project.ui.theme.RentOutTextColors
 import org.example.project.ui.util.DashboardBackHandler
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -158,10 +157,27 @@ fun TenantHomeScreen(
         )
     }
 
-    val isDark = isSystemInDarkTheme()
-    
+    // ── Animated background — same navy→teal palette as splash screen & landlord top bar ──
+    val bgTransition = rememberInfiniteTransition(label = "tenant_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f,
+        targetValue  = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(8_000, easing = LinearEasing),
+            RepeatMode.Reverse
+        ),
+        label = "bg_shift"
+    )
+    val bgNavy      = Color(0xFF0E1C3E)
+    val bgNavyMid   = Color(0xFF1A2B5E)
+    val bgTealDark  = Color(0xFF007A75)
+    val bgTeal      = Color(0xFF00B4AE)
+    val bgTop    = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val animatedBg = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
     Scaffold(
-        containerColor = if (isDark) MaterialTheme.colorScheme.background else TenantCream,
+        containerColor = Color.Transparent,
         floatingActionButton = {
             AnimatedVisibility(
                 visible = isFabVisible,
@@ -190,25 +206,14 @@ fun TenantHomeScreen(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .then(
-                    if (isDark) {
-                        Modifier.background(MaterialTheme.colorScheme.background)
-                    } else {
-                        Modifier.background(TenantCream)
-                    }
-                ),
+                .background(animatedBg),
             contentPadding = PaddingValues(bottom = padding.calculateBottomPadding() + 100.dp)
         ) {
-            // ── Hero header ────────────────────────────────────────────────────
+            // ── Hero header — transparent so animated gradient shows through ──
             item {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(TenantNavy, TenantNavyLight)
-                            )
-                        )
                         .statusBarsPadding()
                         .padding(horizontal = 20.dp)
                         .padding(top = 6.dp, bottom = 18.dp)
@@ -361,45 +366,48 @@ fun TenantHomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Search field — cream background on navy
+                            // Search field — frosted glass on gradient background
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .shadow(0.dp, RoundedCornerShape(16.dp))
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(TenantCream)
+                                    .background(Color.White.copy(alpha = 0.15f))
                             ) {
                                 OutlinedTextField(
                                     value = searchQuery,
                                     onValueChange = onSearchQueryChange,
                                     textStyle = LocalTextStyle.current.copy(
-                                        color = TenantNavy,
+                                        color = Color.White,
                                         fontSize = 14.sp
                                     ),
-                                    placeholder = { Text("Search properties...", color = TenantSlateLight, fontSize = 14.sp) },
-                                    leadingIcon = { Icon(Icons.Default.Search, null, tint = TenantCoral, modifier = Modifier.size(20.dp)) },
+                                    placeholder = { Text("Search properties...", color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Search, null, tint = Color(0xFF1ED8C8), modifier = Modifier.size(20.dp)) },
                                     trailingIcon = if (searchQuery.isNotEmpty()) ({
                                         IconButton(onClick = { onSearchQueryChange("") }) {
-                                            Icon(Icons.Default.Close, null, tint = TenantSlateLight, modifier = Modifier.size(18.dp))
+                                            Icon(Icons.Default.Close, null, tint = Color.White.copy(alpha = 0.70f), modifier = Modifier.size(18.dp))
                                         }
                                     }) else null,
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(16.dp),
-                                    singleLine = true
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor   = Color(0xFF00B4AE),
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.25f),
+                                        cursorColor          = Color.White
+                                    )
                                 )
                             }
-                            // Filter button — FilterList is the best icon for filtering
+                            // Filter button
                             Box {
                                 Box(
                                     modifier = Modifier
                                         .size(52.dp)
-                                        .shadow(4.dp, RoundedCornerShape(14.dp))
                                         .clip(RoundedCornerShape(14.dp))
-                                        .background(if (activeFilter.isActive) TenantCoral else TenantCream.copy(0.20f))
+                                        .background(if (activeFilter.isActive) Color(0xFF00B4AE) else Color.White.copy(alpha = 0.15f))
                                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showFilterSheet = true },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.FilterList, "Filter", tint = if (activeFilter.isActive) Color.White else TenantCream, modifier = Modifier.size(24.dp))
+                                    Icon(Icons.Default.FilterList, "Filter", tint = Color.White, modifier = Modifier.size(24.dp))
                                 }
                                 if (activeFilter.activeCount > 0) {
                                     Box(
@@ -473,12 +481,12 @@ fun TenantHomeScreen(
                             if (!isAllTowns) append(" in $selectedCity")
                             if (activeFilter.isActive) append(" · ${activeFilter.activeCount} filter${if (activeFilter.activeCount > 1) "s" else ""}")
                         },
-                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TenantSlate
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.80f)
                     )
                     if (filtered.isNotEmpty()) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(Icons.Default.CheckCircle, null, tint = TenantSage, modifier = Modifier.size(14.dp))
-                            Text("Verified", fontSize = 12.sp, color = TenantSage, fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF68D391), modifier = Modifier.size(14.dp))
+                            Text("Verified", fontSize = 12.sp, color = Color(0xFF68D391), fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -489,8 +497,8 @@ fun TenantHomeScreen(
                 propertyListState is PropertyListState.Loading -> item {
                     Box(modifier = Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            CircularProgressIndicator(color = TenantCoral, strokeWidth = 3.dp, modifier = Modifier.size(42.dp))
-                            Text("Finding properties...", fontSize = 14.sp, color = TenantSlateLight, fontWeight = FontWeight.Medium)
+                            CircularProgressIndicator(color = Color(0xFF00B4AE), strokeWidth = 3.dp, modifier = Modifier.size(42.dp))
+                            Text("Finding properties...", fontSize = 14.sp, color = Color.White.copy(alpha = 0.75f), fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -498,8 +506,8 @@ fun TenantHomeScreen(
                     Column(modifier = Modifier.fillMaxWidth().padding(48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🏘️", fontSize = 64.sp)
                         Spacer(Modifier.height(16.dp))
-                        Text("No properties found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TenantSlate)
-                        Text("Try adjusting your search or filters", color = TenantSlateLight, fontSize = 14.sp)
+                        Text("No properties found", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color.White)
+                        Text("Try adjusting your search or filters", color = Color.White.copy(alpha = 0.70f), fontSize = 14.sp)
                         if (searchQuery.isNotEmpty() || !selectedCity.equals(ALL_TOWNS, ignoreCase = true) || activeFilter.isActive) {
                             Spacer(Modifier.height(16.dp))
                             RentOutSecondaryButton("Clear All Filters", onClick = { onSearchQueryChange(""); onCityChange(ALL_TOWNS); onClearFilter() })

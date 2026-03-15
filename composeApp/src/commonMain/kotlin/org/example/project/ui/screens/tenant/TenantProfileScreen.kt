@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -120,8 +121,23 @@ fun TenantProfileScreen(
         )
     }
 
+    // ── Animated navy→teal gradient — matches TenantHomeScreen ──────────────
+    val bgTransition = rememberInfiniteTransition(label = "tenant_profile_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
     Column(
-        modifier = Modifier.fillMaxSize().background(ProfileCream).verticalScroll(rememberScrollState())
+        modifier = Modifier.fillMaxSize().background(bodyGradient).verticalScroll(rememberScrollState())
     ) {
         // ── Hero header — redesigned to match landlord profile (name left, image right) ───
         Box(
@@ -278,8 +294,8 @@ fun TenantProfileScreen(
         Card(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(12.dp)
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.12f)),
+            elevation = CardDefaults.cardElevation(0.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -287,9 +303,9 @@ fun TenantProfileScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 ProfileStatTile(Icons.Default.Key, "$displayUnlockedCount", "Unlocked", ProfileAmber)
-                Box(modifier = Modifier.width(1.dp).height(44.dp).background(ProfileCream))
+                Box(modifier = Modifier.width(1.dp).height(44.dp).background(Color.White.copy(alpha = 0.25f)))
                 ProfileStatTile(Icons.Default.CheckCircle, "Active", "Status", ProfileMint)
-                Box(modifier = Modifier.width(1.dp).height(44.dp).background(ProfileCream))
+                Box(modifier = Modifier.width(1.dp).height(44.dp).background(Color.White.copy(alpha = 0.25f)))
                 ProfileStatTile(Icons.Default.Shield, "Tenant", "Role", ProfileCoral)
             }
         }
@@ -299,14 +315,14 @@ fun TenantProfileScreen(
             
             Spacer(Modifier.height(20.dp))
 
-            Text("Account Details", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ProfileSlate, modifier = Modifier.padding(bottom = 10.dp))
+            Text("Account Details", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
 
             // Details card — shows all registration data
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp)
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.10f)),
+                elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(modifier = Modifier.padding(4.dp)) {
                     ProfileDetailRow(Icons.Default.Person, "Full Name", user.name.ifBlank { "Not set" }, ProfileCoral)
@@ -359,7 +375,7 @@ fun TenantProfileScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            Text("Quick Actions", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ProfileSlate, modifier = Modifier.padding(bottom = 10.dp))
+            Text("Quick Actions", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
 
             // Actions
             ProfileActionItem(Icons.Default.Key, ProfileAmber, "My Unlocked Properties", "$displayUnlockedCount properties with visible contacts", onUnlockedClick)
@@ -437,11 +453,11 @@ fun TenantProfileScreen(
 private fun ProfileStatTile(icon: ImageVector, value: String, label: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Box(
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(0.12f)),
+            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(0.22f)),
             contentAlignment = Alignment.Center
         ) { Icon(icon, null, tint = color, modifier = Modifier.size(20.dp)) }
-        Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = ProfileSlate)
-        Text(label, fontSize = 10.sp, color = ProfileSlateLight)
+        Text(value, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.White)
+        Text(label, fontSize = 10.sp, color = Color.White.copy(alpha = 0.70f))
     }
 }
 
@@ -454,19 +470,19 @@ private fun ProfileDetailRow(icon: ImageVector, label: String, value: String, ic
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Box(
-            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(iconColor.copy(0.10f)),
+            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(iconColor.copy(0.22f)),
             contentAlignment = Alignment.Center
         ) { Icon(icon, null, tint = iconColor, modifier = Modifier.size(18.dp)) }
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 11.sp, color = ProfileSlateLight, fontWeight = FontWeight.Medium)
-            Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = ProfileSlate)
+            Text(label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.60f), fontWeight = FontWeight.Medium)
+            Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
         }
     }
 }
 
 @Composable
 private fun ProfileDetailDivider() {
-    Divider(modifier = Modifier.padding(horizontal = 16.dp), color = ProfileCream)
+    Divider(modifier = Modifier.padding(horizontal = 16.dp), color = Color(0xFFF5F0EB).copy(alpha = 0.25f))
 }
 
 // ── Action menu item ──────────────────────────────────────────────────────────
@@ -478,21 +494,21 @@ private fun ProfileActionItem(icon: ImageVector, iconColor: Color, title: String
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp).scale(scale),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.10f)),
+        elevation = CardDefaults.cardElevation(0.dp),
         onClick = onClick
     ) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(iconColor.copy(0.12f)),
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(iconColor.copy(0.22f)),
                 contentAlignment = Alignment.Center
             ) { Icon(icon, null, tint = iconColor, modifier = Modifier.size(22.dp)) }
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = ProfileSlate)
-                Text(subtitle, fontSize = 12.sp, color = ProfileSlateLight)
+                Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = Color.White)
+                Text(subtitle, fontSize = 12.sp, color = Color.White.copy(alpha = 0.65f))
             }
-            Icon(Icons.Default.ChevronRight, null, tint = ProfileSlateLight.copy(0.6f))
+            Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(alpha = 0.50f))
         }
     }
 }

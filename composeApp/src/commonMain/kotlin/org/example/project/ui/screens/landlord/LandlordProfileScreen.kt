@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -51,18 +52,33 @@ fun LandlordProfileScreen(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
+    // ── Animated navy→teal gradient — matches dashboard & tenant home ─────────
+    val bgTransition = rememberInfiniteTransition(label = "landlord_profile_bg")
+    val bgShift by bgTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(8_000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "bg_shift"
+    )
+    val bgNavy     = Color(0xFF0E1C3E)
+    val bgNavyMid  = Color(0xFF1A2B5E)
+    val bgTealDark = Color(0xFF007A75)
+    val bgTeal     = Color(0xFF00B4AE)
+    val bgTop      = lerp(bgNavy,     bgNavyMid,  bgShift * 0.4f)
+    val bgBottom   = lerp(bgTealDark, bgTeal,     bgShift * 0.6f)
+    val bodyGradient = Brush.verticalGradient(listOf(bgTop, bgBottom))
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(bodyGradient)
     ) {
-        // ── Header with gradient ──────────────────────────────────────────────
+        // ── Header with gradient — same navy→teal palette as dashboard ────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.verticalGradient(
-                        listOf(RentOutColors.PrimaryDark, RentOutColors.Primary)
+                    Brush.linearGradient(
+                        listOf(Color(0xFF0E1C3E), Color(0xFF1A2B5E))
                     )
                 )
                 .statusBarsPadding()
@@ -196,7 +212,7 @@ fun LandlordProfileScreen(
                     "Account Information",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.White.copy(alpha = 0.70f),
                     modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
                 )
 
@@ -282,7 +298,7 @@ fun LandlordProfileScreen(
                     "Account",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.White.copy(alpha = 0.70f),
                     modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
                 )
 
@@ -346,7 +362,8 @@ fun LandlordProfileScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(16.dp))
                             
