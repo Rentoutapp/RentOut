@@ -64,11 +64,14 @@ object PropertyClassification {
 
     val secondaryTypes: Map<String, List<String>> = mapOf(
         "Residential" to listOf(
+            "Boarding/Student House",
             "Bedsitter", "Full House", "Cottage", "Room",
             "Full House + Cottage", "Full House Without Cottage",
             "Apartment", "Shared-Apartment", "Garden Flat", "Cluster",
             "Townhouse", "Condo", "Duplex", "Triplex", "Fourplex",
-            "Boarding/Student House"
+            // ── Short Stays ──────────────────────────────────────────────
+            "Airbnb", "Lodge", "Resort", "Motel (Residential)",
+            "Guest House", "Vacation Rental"
         ),
         "Commercial" to listOf(
             "Office", "Store", "Strip Center", "Shopping Mall",
@@ -94,15 +97,49 @@ object PropertyClassification {
 
     val proximityFacilities = listOf(
         "CBD", "Near Town", "Near Hospital", "Near School",
-        "Near University/College", "Near Shopping Center",
+        "Near University", "Near College",
+        "Near Shopping Center",
         "Near Public Transport", "Near Police Station",
         "Near Main Road", "Near Park/Recreation",
         "Near Airport", "Near Industrial Area", "Near Religious Centre"
     )
 
-    // Legacy mapping: fine-grained propType â†’ amenity catalogue key
+    // ── Gweru Universities (with GPS coordinates) ────────────────────────────
+    data class GweruInstitution(val name: String, val lat: Double, val lng: Double)
+
+    val gweruUniversities = listOf(
+        GweruInstitution("Midlands State University (MSU)", -19.4975, 29.8519),
+        GweruInstitution("Women's University in Africa – Gweru Campus", -19.4508, 29.8117),
+        GweruInstitution("Zimbabwe Open University (ZOU) – Midlands Region", -19.4561, 29.8123)
+    )
+
+    val gweruColleges = listOf(
+        GweruInstitution("Gweru Polytechnic College", -19.4575, 29.8210),
+        GweruInstitution("Mkoba Teachers' College", -19.5021, 29.8247),
+        GweruInstitution("United College of Education (UCE)", -19.4891, 29.8036),
+        GweruInstitution("Fairmount Teachers' College", -19.4640, 29.7963),
+        GweruInstitution("Gweru Technical College", -19.4549, 29.8192),
+        GweruInstitution("Christian College of Southern Africa – Gweru", -19.4712, 29.8301)
+    )
+
+    // Short-stay property types (Residential only)
+    val shortStayTypes = setOf(
+        "Airbnb", "Lodge", "Resort", "Motel (Residential)",
+        "Guest House", "Vacation Rental"
+    )
+
+    // Full-house types that show total room count field
+    val fullHouseTypes = setOf(
+        "Full House", "Full House + Cottage", "Full House Without Cottage"
+    )
+
+    // Boarding type
+    val boardingTypes = setOf("Boarding/Student House")
+
+    // Legacy mapping: fine-grained propType → amenity catalogue key
     fun amenityKey(propType: String): String = when {
-        propType == "Room" || propType == "Bedsitter" || propType == "Boarding/Student House" -> "room"
+        propType == "Boarding/Student House" -> "boarding"
+        propType == "Room" || propType == "Bedsitter" -> "room"
         propType == "Full House" || propType == "Full House + Cottage" ||
         propType == "Full House Without Cottage" || propType == "Cottage" ||
         propType == "Garden Flat" || propType == "Cluster" ||
@@ -115,6 +152,7 @@ object PropertyClassification {
         propType == "Warehouse" || propType == "Cold Storage" ||
         propType == "Storage Room" || propType == "Factory/Manufacturing Facility" ||
         propType == "Laboratory" || propType == "Garage" -> "commercial"
+        propType in shortStayTypes -> "apartment"
         else -> "apartment"
     }
 }
@@ -246,11 +284,28 @@ fun AddPropertyScreen(
         else ""
     }
 
-    val isResidential = classification == "Residential"
-    val isRoomType    = propType == "Room"
-    val isLoading     = formState is PropertyFormState.Uploading
-    val uploadState   = formState as? PropertyFormState.Uploading
-    val scrollState   = rememberScrollState()
+    val isResidential    = classification == "Residential"
+    val isRoomType       = propType == "Room"
+    val isBoardingType   = propType == "Boarding/Student House"
+    val isFullHouseType  = propType in PropertyClassification.fullHouseTypes
+    val isLoading        = formState is PropertyFormState.Uploading
+    val uploadState      = formState as? PropertyFormState.Uploading
+    val scrollState      = rememberScrollState()
+
+    // ── New fields for boarding / full-house / institution picker ────────────
+    var boardingRoomType       by remember { mutableStateOf(draft.boardingRoomType) }
+    var boardingRoomOtherDesc  by remember { mutableStateOf(draft.boardingRoomOtherDesc) }
+    var fullHouseTotalRooms    by remember { mutableStateOf(draft.fullHouseTotalRooms) }
+    var selectedInstitution    by remember { mutableStateOf(draft.selectedInstitution) }
+
+    // Auto-toggle "Near University" when Boarding/Student House is selected
+    LaunchedEffect(propType) {
+        if (isBoardingType) {
+            if ("Near University" !in proximityFacilities) {
+                proximityFacilities = proximityFacilities + "Near University"
+            }
+        }
+    }
 
     // â”€â”€ Back button animation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var backPressed  by remember { mutableStateOf(false) }
@@ -266,7 +321,8 @@ fun AddPropertyScreen(
         var valid = true
         if (title.isBlank())                                   { titleErr   = "Property title is required"; valid = false }
         if (price.isBlank() || price.toDoubleOrNull() == null) { priceErr   = "Enter a valid price";        valid = false }
-        if (isResidential) {
+        // Boarding type uses boardingRoomType instead of bedrooms count; full-house uses rooms
+        if (isResidential && !isBoardingType) {
             when {
                 rooms.isBlank() -> { roomsErr = "Enter number of bedrooms"; valid = false }
                 rooms.toIntOrNull() == null || (rooms.toIntOrNull() ?: 0) < 1 -> { roomsErr = "Enter a valid bedroom count"; valid = false }
@@ -314,7 +370,7 @@ fun AddPropertyScreen(
                     securityDeposit        = securityDeposit.toDoubleOrNull() ?: 0.0,
                     depositNotApplicable   = depositNotApplicable,
                     rooms                  = rooms.toIntOrNull() ?: 0,
-                    customBedroomDetails   = "",
+                    customBedroomDetails   = if (isBoardingType) boardingRoomType else "",
                     bathrooms              = bathrooms.toIntOrNull() ?: 0,
                     bathroomType           = bathroomType,
                     customBathroomDetails  = customBathroomDetails.trim(),
@@ -345,7 +401,12 @@ fun AddPropertyScreen(
                     availabilityDate       = availabilityDate,
                     tenantRequirements     = tenantRequirements.toList(),
                     amenities              = selectedAmenityKeys.toList(),
-                    status                 = "pending"
+                    status                 = "pending",
+                    // New boarding/full-house fields
+                    boardingRoomType       = if (isBoardingType) boardingRoomType else "",
+                    boardingRoomOtherDesc  = if (isBoardingType && boardingRoomType == "Other") boardingRoomOtherDesc.trim() else "",
+                    fullHouseTotalRooms    = if (isFullHouseType) fullHouseTotalRooms else "",
+                    selectedInstitution    = selectedInstitution.trim(),
                 )
             )
         }
@@ -570,10 +631,25 @@ fun AddPropertyScreen(
                         onToggle = { facility, on ->
                             proximityFacilities = if (on) proximityFacilities + facility
                                                   else proximityFacilities - facility
+                            // Clear institution if both Near University and Near College are deselected
+                            if (!on && facility in listOf("Near University", "Near College")) {
+                                val stillHasEdu = proximityFacilities.any { it in listOf("Near University", "Near College") }
+                                if (!stillHasEdu) selectedInstitution = ""
+                            }
+                        },
+                        selectedInstitution = selectedInstitution,
+                        onInstitutionSelected = { institution, lat, lng ->
+                            selectedInstitution = institution
+                            // Auto-fill lat/lng from institution coordinates
+                            if (lat != 0.0 && lng != 0.0) {
+                                latitude  = lat.toString()
+                                longitude = lng.toString()
+                            }
                         }
                     )
                     Spacer(Modifier.height(20.dp))
-                    // â”€â”€ 7. Residential-only fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+                    // ── 7. Residential-only fields ──────────────────────────────────────
                     AnimatedVisibility(
                         visible = isResidential,
                         enter = fadeIn() + expandVertically(animationSpec = tween(300)),
@@ -620,26 +696,63 @@ fun AddPropertyScreen(
                             }
                             Spacer(Modifier.height(12.dp))
 
-                            // Bedrooms & Bathrooms row
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                RentOutTextField(
-                                    value           = rooms,
-                                    onValueChange   = {
-                                        // Only allow numeric input
-                                        if (it.all { c -> c.isDigit() }) {
-                                            rooms = it
-                                            roomsErr = ""
-                                        }
-                                    },
-                                    label           = "Bedrooms",
-                                    leadingIcon     = Icons.Default.Bed,
-                                    leadingIconTint = RentOutColors.IconBlue,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    isError         = roomsErr.isNotEmpty(),
-                                    errorMessage    = roomsErr,
-                                    modifier        = Modifier.weight(1f),
-                                    labelFontSize   = 12.sp
-                                )
+                            // Boarding/Student House: show room type selector instead of Bedrooms
+                            AnimatedVisibility(
+                                visible = isBoardingType,
+                                enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+                                exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
+                            ) {
+                                Column {
+                                    BoardingRoomTypeSelector(
+                                        selected    = boardingRoomType,
+                                        otherDesc   = boardingRoomOtherDesc,
+                                        onSelect    = { boardingRoomType = it; if (it != "Other") boardingRoomOtherDesc = "" },
+                                        onOtherDesc = { boardingRoomOtherDesc = it }
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                }
+                            }
+
+                            // Non-boarding: standard Bedrooms & Bathrooms row
+                            AnimatedVisibility(
+                                visible = !isBoardingType,
+                                enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+                                exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    RentOutTextField(
+                                        value           = rooms,
+                                        onValueChange   = {
+                                            if (it.all { c -> c.isDigit() }) { rooms = it; roomsErr = "" }
+                                        },
+                                        label           = "Bedrooms",
+                                        leadingIcon     = Icons.Default.Bed,
+                                        leadingIconTint = RentOutColors.IconBlue,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        isError         = roomsErr.isNotEmpty(),
+                                        errorMessage    = roomsErr,
+                                        modifier        = Modifier.weight(1f),
+                                        labelFontSize   = 12.sp
+                                    )
+                                    RentOutTextField(
+                                        value           = bathrooms,
+                                        onValueChange   = { bathrooms = it },
+                                        label           = "Bathrooms",
+                                        leadingIcon     = Icons.Default.Bathtub,
+                                        leadingIconTint = RentOutColors.IconTeal,
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        modifier        = Modifier.weight(1f),
+                                        labelFontSize   = 12.sp
+                                    )
+                                }
+                            }
+
+                            // Boarding: show Bathrooms alone (no bedroom field)
+                            AnimatedVisibility(
+                                visible = isBoardingType,
+                                enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+                                exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
+                            ) {
                                 RentOutTextField(
                                     value           = bathrooms,
                                     onValueChange   = { bathrooms = it },
@@ -647,11 +760,27 @@ fun AddPropertyScreen(
                                     leadingIcon     = Icons.Default.Bathtub,
                                     leadingIconTint = RentOutColors.IconTeal,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    modifier        = Modifier.weight(1f),
+                                    modifier        = Modifier.fillMaxWidth(),
                                     labelFontSize   = 12.sp
                                 )
                             }
+
                             Spacer(Modifier.height(12.dp))
+
+                            // Full House: total rooms count
+                            AnimatedVisibility(
+                                visible = isFullHouseType,
+                                enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+                                exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
+                            ) {
+                                Column {
+                                    FullHouseRoomCountSection(
+                                        value    = fullHouseTotalRooms,
+                                        onChange = { fullHouseTotalRooms = it }
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                }
+                            }
 
                             // Bathroom Type dropdown
                             Text(
@@ -674,7 +803,7 @@ fun AddPropertyScreen(
                         }
                     }
 
-                    // â”€â”€ 8. Room quantity (only when "Room" type selected) â”€â”€â”€â”€
+                    // ── 8. Room quantity (only when "Room" type selected) ────
                     AnimatedVisibility(
                         visible = isRoomType,
                         enter = fadeIn() + expandVertically(animationSpec = tween(300)),
@@ -1027,10 +1156,12 @@ fun AddPropertyScreen(
                         else -> {
                             // Standard landlord contact
                             ContactDetailsSection(
-                                contact      = contact,
-                                onContact    = { contact = it; contactErr = "" },
-                                contactErr   = contactErr,
-                                isAutoFilled = isContactAutoFilled
+                                contact          = contact,
+                                onContact        = { contact = it; contactErr = "" },
+                                contactErr       = contactErr,
+                                isAutoFilled     = isContactAutoFilled,
+                                landlordFullName = landlordName,
+                                isNameAutoFilled = landlordName.isNotBlank()
                             )
                         }
                     }
@@ -1038,31 +1169,38 @@ fun AddPropertyScreen(
 
                     // ── Form completeness indicator ──────────────────────────────────────────
                     FormCompletenessIndicator(
-                        hasTitle           = title.isNotBlank(),
-                        hasClassification  = classification.isNotBlank() && propType.isNotBlank(),
-                        hasLocationType    = locationType.isNotBlank(),
-                        hasPrice           = price.isNotBlank() && price.toDoubleOrNull() != null,
-                        hasRooms           = !isResidential || rooms.isNotBlank(),
-                        hasBathroomType    = !isResidential || bathroomType.isNotBlank(),
-                        hasDescription     = description.isNotBlank(),
-                        hasAddress         = address.isComplete,
-                        hasAvailability    = availabilityDate.isEmpty() || (availabilityDate.isNotBlank() && availabilityDate != "Select Date"),
-                        hasTenantReqs      = tenantRequirements.isNotEmpty(),
-                        hasProximity       = proximityFacilities.isNotEmpty(),
+                        hasTitle               = title.isNotBlank(),
+                        hasClassification      = classification.isNotBlank() && propType.isNotBlank(),
+                        hasLocationType        = locationType.isNotBlank(),
+                        hasPrice               = price.isNotBlank() && price.toDoubleOrNull() != null,
+                        hasRooms               = !isResidential || rooms.isNotBlank(),
+                        hasBathroomType        = !isResidential || bathroomType.isNotBlank(),
+                        hasDescription         = description.isNotBlank(),
+                        hasAddress             = address.isComplete,
+                        hasAvailability        = availabilityDate.isEmpty() || (availabilityDate.isNotBlank() && availabilityDate != "Select Date"),
+                        hasTenantReqs          = tenantRequirements.isNotEmpty(),
+                        hasProximity           = proximityFacilities.isNotEmpty(),
+                        // Boarding / full-house / room-level fields
+                        isBoardingType         = isBoardingType,
+                        hasBoardingRoomType    = boardingRoomType.isNotBlank(),
+                        isFullHouseType        = isFullHouseType,
+                        hasFullHouseTotalRooms = fullHouseTotalRooms.isNotBlank(),
+                        hasRoomQuantity        = roomQuantity.isNotBlank(),
+                        hasAmenities           = selectedAmenityKeys.isNotEmpty(),
                         // Role-aware contact completeness
-                        providerSubtype    = providerSubtype,
-                        hasContact         = when {
+                        providerSubtype        = providerSubtype,
+                        hasContact             = when {
                             isAgent     -> contact.isNotBlank()
                             isBrokerage -> brokerageContactNumber.isNotBlank()
                             else        -> contact.isNotBlank()
                         },
-                        hasAgentName       = agentName.isNotBlank(),
-                        hasAgentContact    = agentContactNumber.isNotBlank(),
-                        hasLandlordName    = landlordContactName.isNotBlank(),
-                        hasBrokerName      = brokerName.isNotBlank(),
-                        hasBrokerContact   = brokerContactNumber.isNotBlank(),
-                        hasBrokerageAddr   = brokerageAddress.isNotBlank(),
-                        hasBrokerageEmail  = brokerageEmail.isNotBlank()
+                        hasAgentName           = agentName.isNotBlank(),
+                        hasAgentContact        = agentContactNumber.isNotBlank(),
+                        hasLandlordName        = landlordContactName.isNotBlank(),
+                        hasBrokerName          = brokerName.isNotBlank(),
+                        hasBrokerContact       = brokerContactNumber.isNotBlank(),
+                        hasBrokerageAddr       = brokerageAddress.isNotBlank(),
+                        hasBrokerageEmail      = brokerageEmail.isNotBlank()
                     )
 
                     // â”€â”€ Edit mode: image gallery â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1300,8 +1438,9 @@ private fun PropertyTypeGrid(
                     label = "ptg_scale"
                 )
                 val isSelected = type == selected
+                val teal = Color(0xFF00897B)
                 val bgColor by animateColorAsState(
-                    targetValue = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.surfaceVariant,
+                    targetValue = if (isSelected) teal else MaterialTheme.colorScheme.surfaceVariant,
                     label = "ptg_bg"
                 )
                 val textColor by animateColorAsState(
@@ -1309,7 +1448,7 @@ private fun PropertyTypeGrid(
                     label = "ptg_text"
                 )
                 val borderColor by animateColorAsState(
-                    targetValue = if (isSelected) RentOutColors.Primary else MaterialTheme.colorScheme.outline,
+                    targetValue = if (isSelected) teal else MaterialTheme.colorScheme.outline,
                     label = "ptg_border"
                 )
                 Box(
@@ -1613,22 +1752,255 @@ private fun MapPlaceholderSection(
 }
 // â”€â”€â”€ Proximity Facilities Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ── BoardingRoomTypeSelector ──────────────────────────────────────────────────
+@Composable
+private fun BoardingRoomTypeSelector(
+    selected: String,
+    otherDesc: String,
+    onSelect: (String) -> Unit,
+    onOtherDesc: (String) -> Unit
+) {
+    val options = listOf(
+        Triple("1 Person",  Icons.Default.Person,       "One room for one student"),
+        Triple("2 Persons", Icons.Default.Group,         "One room shared by two students"),
+        Triple("3 Persons", Icons.Default.Groups,        "One room shared by three students"),
+        Triple("Other",     Icons.Default.EditNote,      "Custom room arrangement")
+    )
+    val teal = Color(0xFF00897B)
+    val navy = Color(0xFF0E1C3E)
+
+    Column {
+        // Header badge
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(teal.copy(alpha = 0.10f))
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(Icons.Default.Hotel, null, tint = teal, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Room Configuration",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = teal
+            )
+            Spacer(Modifier.weight(1f))
+            AnimatedVisibility(visible = selected.isNotEmpty()) {
+                Surface(
+                    shape = CircleShape,
+                    color = teal,
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    Text(
+                        selected.ifEmpty { "?" },
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "How many students share each room?",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.height(10.dp))
+
+        // 2×2 grid
+        val chunked = options.chunked(2)
+        chunked.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { (label, icon, desc) ->
+                    val isSelected = selected == label
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isPressed by interactionSource.collectIsPressedAsState()
+                    val scale by animateFloatAsState(
+                        if (isPressed) 0.94f else 1f,
+                        spring(stiffness = Spring.StiffnessMediumLow), label = "brt_scale_$label"
+                    )
+                    val bgColor by animateColorAsState(
+                        if (isSelected) teal else MaterialTheme.colorScheme.surfaceVariant,
+                        tween(200), label = "brt_bg_$label"
+                    )
+                    val textColor by animateColorAsState(
+                        if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tween(200), label = "brt_txt_$label"
+                    )
+                    OutlinedCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .scale(scale)
+                            .clickable(interactionSource = interactionSource, indication = null) { onSelect(label) },
+                        shape = RoundedCornerShape(14.dp),
+                        border = androidx.compose.foundation.BorderStroke(
+                            if (isSelected) 2.dp else 1.dp,
+                            if (isSelected) teal else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                        ),
+                        colors = CardDefaults.outlinedCardColors(containerColor = bgColor)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 6.dp)
+                        ) {
+                            Icon(icon, null, tint = textColor, modifier = Modifier.size(26.dp))
+                            Spacer(Modifier.height(6.dp))
+                            Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = textColor)
+                            Spacer(Modifier.height(2.dp))
+                            Text(desc, fontSize = 9.sp, color = textColor.copy(alpha = 0.75f), textAlign = TextAlign.Center, lineHeight = 11.sp)
+                            if (isSelected) {
+                                Spacer(Modifier.height(4.dp))
+                                Icon(Icons.Default.CheckCircle, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                }
+                // Pad last row if odd
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+
+        // "Other" free-text box
+        AnimatedVisibility(
+            visible = selected == "Other",
+            enter = fadeIn() + expandVertically(animationSpec = tween(300)),
+            exit  = fadeOut() + shrinkVertically(animationSpec = tween(300))
+        ) {
+            Column {
+                OutlinedTextField(
+                    value         = otherDesc,
+                    onValueChange = onOtherDesc,
+                    label         = { Text("Describe the room arrangement", fontSize = 12.sp) },
+                    placeholder   = { Text("e.g., Shared dormitory of 6", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)) },
+                    leadingIcon   = { Icon(Icons.Default.EditNote, null, tint = teal) },
+                    modifier      = Modifier.fillMaxWidth(),
+                    minLines      = 2,
+                    maxLines      = 4,
+                    shape         = RoundedCornerShape(14.dp),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences)
+                )
+                Text(
+                    "Tip: Be specific, e.g. \"Shared dormitory of 6\" or \"2 bunk beds per room\"",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                    modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+// ── FullHouseRoomCountSection ─────────────────────────────────────────────────
+@Composable
+private fun FullHouseRoomCountSection(
+    value: String,
+    onChange: (String) -> Unit
+) {
+    val orange = Color(0xFFE65100)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsPressedAsState()
+
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(orange.copy(alpha = 0.09f))
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(Icons.Default.MeetingRoom, null, tint = orange, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Total Rooms in House",
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = orange
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Enter the total number of rooms — a kitchen or bathroom also counts as a room.",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value         = value,
+            onValueChange = { if (it.all { c -> c.isDigit() }) onChange(it) },
+            label         = { Text("Total rooms (incl. kitchen & bathroom)", fontSize = 11.sp) },
+            placeholder   = { Text("e.g., 7", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)) },
+            leadingIcon   = { Icon(Icons.Default.Home, null, tint = orange) },
+            trailingIcon  = {
+                AnimatedVisibility(visible = value.isNotEmpty()) {
+                    Surface(shape = CircleShape, color = orange) {
+                        Text(
+                            "${value.toIntOrNull() ?: 0} rooms",
+                            color = Color.White, fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            },
+            modifier        = Modifier.fillMaxWidth(),
+            shape           = RoundedCornerShape(14.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine      = true
+        )
+        Text(
+            "💡 Hint: Count every room — bedroom, lounge, kitchen, bathroom, study.",
+            fontSize = 10.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+            modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+        )
+    }
+}
+
+// ── ProximityFacilitiesSection ────────────────────────────────────────────────
 @Composable
 private fun ProximityFacilitiesSection(
     selected: Set<String>,
-    onToggle: (String, Boolean) -> Unit
+    onToggle: (String, Boolean) -> Unit,
+    selectedInstitution: String = "",
+    onInstitutionSelected: (String, Double, Double) -> Unit = { _, _, _ -> }
 ) {
-    val facilities = PropertyClassification.proximityFacilities
+    val facilities    = PropertyClassification.proximityFacilities
     val selectedCount = selected.size
+    val hasUniversity = "Near University" in selected
+    val hasCollege    = "Near College"    in selected
+    val showInstitutionPicker = hasUniversity || hasCollege
+    // Determine which institution list to show
+    val institutionList = when {
+        hasUniversity && hasCollege -> PropertyClassification.gweruUniversities + PropertyClassification.gweruColleges
+        hasUniversity -> PropertyClassification.gweruUniversities
+        hasCollege    -> PropertyClassification.gweruColleges
+        else          -> emptyList()
+    }
+    val institutionLabel = when {
+        hasUniversity && hasCollege -> "🎓 Select a University or College in Gweru"
+        hasUniversity -> "🎓 Select a University in Gweru"
+        hasCollege    -> "🏫 Select a College in Gweru"
+        else          -> ""
+    }
+    var dropdownExpanded by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    val teal = RentOutColors.IconTeal
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Selected count badge
         AnimatedVisibility(
             visible = selectedCount > 0,
             enter = fadeIn() + expandVertically(),
             exit  = fadeOut() + shrinkVertically()
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
-                Surface(shape = RoundedCornerShape(20.dp), color = RentOutColors.IconTeal) {
+                Surface(shape = RoundedCornerShape(20.dp), color = teal) {
                     Text(
                         text = "$selectedCount selected",
                         fontSize = 11.sp,
@@ -1640,33 +2012,35 @@ private fun ProximityFacilitiesSection(
             }
         }
 
+        // Facility chips — 2-column grid
         val chunked = facilities.chunked(2)
         chunked.forEach { rowItems ->
             Row(
-                modifier = Modifier.fillMaxWidth(0.9f).padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.Center
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 rowItems.forEach { facility ->
                     val isSelected = facility in selected
+                    val chipColor = teal
                     val interactionSource = remember { MutableInteractionSource() }
                     val isPressed by interactionSource.collectIsPressedAsState()
                     val scale by animateFloatAsState(
                         targetValue = if (isPressed) 0.95f else 1f,
                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                        label = "prox_scale"
+                        label = "prox_scale_$facility"
                     )
                     val bgColor by animateColorAsState(
-                        targetValue = if (isSelected) RentOutColors.IconTeal.copy(alpha = 0.15f)
+                        targetValue = if (isSelected) chipColor.copy(alpha = 0.15f)
                                       else MaterialTheme.colorScheme.surfaceVariant,
-                        label = "prox_bg"
+                        label = "prox_bg_$facility"
                     )
                     val borderColor by animateColorAsState(
-                        targetValue = if (isSelected) RentOutColors.IconTeal else MaterialTheme.colorScheme.outline,
-                        label = "prox_border"
+                        targetValue = if (isSelected) chipColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        label = "prox_border_$facility"
                     )
                     val textColor by animateColorAsState(
-                        targetValue = if (isSelected) RentOutColors.IconTeal else MaterialTheme.colorScheme.onSurfaceVariant,
-                        label = "prox_text"
+                        targetValue = if (isSelected) chipColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                        label = "prox_text_$facility"
                     )
 
                     Row(
@@ -1674,32 +2048,195 @@ private fun ProximityFacilitiesSection(
                             .weight(1f)
                             .scale(scale)
                             .clip(RoundedCornerShape(10.dp))
-                            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                            .border(if (isSelected) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(10.dp))
                             .background(bgColor)
                             .clickable(interactionSource = interactionSource, indication = null) {
                                 onToggle(facility, !isSelected)
                             }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .padding(horizontal = 10.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (isSelected) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = null,
-                                tint = RentOutColors.IconTeal,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
+                        AnimatedVisibility(visible = isSelected) {
+                            Icon(Icons.Default.Check, null, tint = chipColor, modifier = Modifier.size(13.dp).padding(end = 4.dp))
                         }
                         Text(
                             text = facility,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = textColor
+                            color = textColor,
+                            lineHeight = 13.sp
                         )
                     }
                 }
                 if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+
+        // ── Institution Picker (animated, appears when Near University or Near College selected) ──
+        AnimatedVisibility(
+            visible = showInstitutionPicker,
+            enter = fadeIn(tween(300)) + expandVertically(tween(300)),
+            exit  = fadeOut(tween(200)) + shrinkVertically(tween(200))
+        ) {
+            Column(modifier = Modifier.padding(top = 8.dp)) {
+                // Section header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(teal.copy(alpha = 0.09f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.LocationOn, null, tint = teal, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(institutionLabel, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = teal)
+                    Spacer(Modifier.weight(1f))
+                    AnimatedVisibility(visible = selectedInstitution.isNotEmpty()) {
+                        Surface(shape = CircleShape, color = teal) {
+                            Icon(Icons.Default.CheckCircle, null, tint = Color.White,
+                                modifier = Modifier.size(20.dp).padding(3.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Select the institution nearest to the property. Coordinates will be auto-filled.",
+                    fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                )
+                Spacer(Modifier.height(8.dp))
+
+                // Interactive dropdown
+                ExposedDropdownMenuBox(
+                    expanded = dropdownExpanded,
+                    onExpandedChange = { dropdownExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedInstitution.ifEmpty { "Tap to choose institution…" },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Institution", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.School, null, tint = teal) },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                        },
+                        colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                            focusedBorderColor = teal,
+                            unfocusedBorderColor = teal.copy(alpha = 0.4f),
+                            focusedLabelColor = teal
+                        ),
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(14.dp),
+                        textStyle = LocalTextStyle.current.copy(
+                            fontSize = 13.sp,
+                            color = if (selectedInstitution.isEmpty())
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            else MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                    ) {
+                        // Group header if both selected
+                        if (hasUniversity && hasCollege) {
+                            DropdownMenuItem(
+                                text = { Text("🎓 Universities", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = teal) },
+                                onClick = {},
+                                enabled = false
+                            )
+                        }
+                        if (hasUniversity) {
+                            PropertyClassification.gweruUniversities.forEach { inst ->
+                                val isChosen = selectedInstitution == inst.name
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.School, null, tint = if (isChosen) teal else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Column {
+                                                Text(inst.name, fontSize = 13.sp, fontWeight = if (isChosen) FontWeight.Bold else FontWeight.Normal,
+                                                    color = if (isChosen) teal else MaterialTheme.colorScheme.onSurface)
+                                                Text("📍 ${inst.lat}, ${inst.lng}", fontSize = 10.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        onInstitutionSelected(inst.name, inst.lat, inst.lng)
+                                        dropdownExpanded = false
+                                    },
+                                    trailingIcon = if (isChosen) {{ Icon(Icons.Default.CheckCircle, null, tint = teal, modifier = Modifier.size(18.dp)) }} else null
+                                )
+                            }
+                        }
+                        if (hasUniversity && hasCollege) {
+                            Divider(modifier = Modifier.padding(vertical = 4.dp))
+                            DropdownMenuItem(
+                                text = { Text("🏫 Colleges", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = teal) },
+                                onClick = {},
+                                enabled = false
+                            )
+                        }
+                        if (hasCollege) {
+                            PropertyClassification.gweruColleges.forEach { inst ->
+                                val isChosen = selectedInstitution == inst.name
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.AccountBalance, null,
+                                                tint = if (isChosen) teal else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp))
+                                            Spacer(Modifier.width(8.dp))
+                                            Column {
+                                                Text(inst.name, fontSize = 13.sp, fontWeight = if (isChosen) FontWeight.Bold else FontWeight.Normal,
+                                                    color = if (isChosen) teal else MaterialTheme.colorScheme.onSurface)
+                                                Text("📍 ${inst.lat}, ${inst.lng}", fontSize = 10.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        onInstitutionSelected(inst.name, inst.lat, inst.lng)
+                                        dropdownExpanded = false
+                                    },
+                                    trailingIcon = if (isChosen) {{ Icon(Icons.Default.CheckCircle, null, tint = teal, modifier = Modifier.size(18.dp)) }} else null
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Show selected institution info card
+                AnimatedVisibility(
+                    visible = selectedInstitution.isNotEmpty(),
+                    enter = fadeIn(tween(250)) + expandVertically(tween(250)),
+                    exit  = fadeOut(tween(200)) + shrinkVertically(tween(200))
+                ) {
+                    val allInstitutions = PropertyClassification.gweruUniversities + PropertyClassification.gweruColleges
+                    val inst = allInstitutions.find { it.name == selectedInstitution }
+                    if (inst != null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = teal.copy(alpha = 0.06f))
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.LocationOn, null, tint = teal, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(inst.name, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = teal)
+                                    Text("Lat: ${inst.lat}  •  Lng: ${inst.lng}", fontSize = 10.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                                    Text("✅ Coordinates auto-filled in map section", fontSize = 9.sp,
+                                        color = Color(0xFF388E3C), modifier = Modifier.padding(top = 2.dp))
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -2832,7 +3369,34 @@ object PropertyAmenities {
         AmenityDef("canteen",           "Canteen / Cafeteria",    Icons.Default.Restaurant)
     ) + universalAmenities
 
+    // Boarding/Student House specific amenities
+    val boardingAmenities = listOf(
+        AmenityDef("own_entrance",      "Own Entrance",           Icons.Default.DoorFront),
+        AmenityDef("own_bathroom",      "Own Bathroom",           Icons.Default.Bathtub),
+        AmenityDef("shared_bathroom",   "Shared Bathroom",        Icons.Default.People),
+        AmenityDef("en_suite",          "En-Suite",               Icons.Default.Shower),
+        AmenityDef("shared_kitchen",    "Shared Kitchen",         Icons.Default.OutdoorGrill),
+        AmenityDef("kitchenette",       "Kitchenette",            Icons.Default.Kitchen),
+        AmenityDef("wifi",              "WiFi",                   Icons.Default.Wifi),
+        AmenityDef("furnished",         "Furnished",              Icons.Default.Chair),
+        AmenityDef("semi_furnished",    "Semi-Furnished",         Icons.Default.TableBar),
+        AmenityDef("electricity",       "Electricity Incl.",      Icons.Default.ElectricBolt),
+        AmenityDef("water",             "Water Incl.",            Icons.Default.WaterDrop),
+        AmenityDef("duties",            "Duties",                 Icons.Default.CleaningServices),
+        AmenityDef("self_care",         "Self-Care",              Icons.Default.SelfImprovement),
+        AmenityDef("laundry_access",    "Laundry Access",         Icons.Default.LocalLaundryService),
+        AmenityDef("study_room",        "Study Room",             Icons.Default.MenuBook),
+        AmenityDef("common_room",       "Common Room",            Icons.Default.Weekend),
+        AmenityDef("backup_power",      "Backup Power",           Icons.Default.BatteryChargingFull),
+        AmenityDef("cctv",              "CCTV",                   Icons.Default.Videocam),
+        AmenityDef("security_guard",    "Security Guard",         Icons.Default.Security),
+        AmenityDef("gated",             "Gated",                  Icons.Default.Lock),
+        AmenityDef("parking",           "Parking",                Icons.Default.LocalParking),
+        AmenityDef("heater",            "Heater",                 Icons.Default.Thermostat)
+    ) + universalAmenities.filter { it.key !in setOf("air_conditioning", "cctv", "security_guard", "gated", "parking") }
+
     fun forType(amenityKey: String): List<AmenityDef> = when (amenityKey) {
+        "boarding"   -> boardingAmenities.distinctBy { it.key }
         "room"       -> roomAmenities.distinctBy { it.key }
         "house"      -> houseAmenities.distinctBy { it.key }
         "commercial" -> commercialAmenities.distinctBy { it.key }
@@ -2921,16 +3485,17 @@ private fun AmenityChip(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "amenity_scale"
     )
+    val teal = Color(0xFF00897B)
     val bgColor by animateColorAsState(
-        targetValue = if (checked) RentOutColors.Primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
+        targetValue = if (checked) teal.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant,
         label = "amenity_bg"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.outline,
+        targetValue = if (checked) teal else MaterialTheme.colorScheme.outline,
         label = "amenity_border"
     )
     val contentColor by animateColorAsState(
-        targetValue = if (checked) RentOutColors.Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (checked) teal else MaterialTheme.colorScheme.onSurfaceVariant,
         label = "amenity_content"
     )
 
@@ -2972,6 +3537,13 @@ private fun FormCompletenessIndicator(
     hasAvailability: Boolean,
     hasTenantReqs: Boolean,
     hasProximity: Boolean,
+    // Boarding / full-house / room fields
+    isBoardingType: Boolean = false,
+    hasBoardingRoomType: Boolean = false,
+    isFullHouseType: Boolean = false,
+    hasFullHouseTotalRooms: Boolean = false,
+    hasRoomQuantity: Boolean = false,
+    hasAmenities: Boolean = false,
     // Role-aware fields
     providerSubtype: String = "landlord",
     hasAgentName: Boolean = false,
@@ -2997,6 +3569,10 @@ private fun FormCompletenessIndicator(
         add("Availability" to hasAvailability)
         add("Tenant Type"  to hasTenantReqs)
         add("Proximity"    to hasProximity)
+        add("Amenities"    to hasAmenities)
+        if (isBoardingType) add("Room Config"  to hasBoardingRoomType)
+        if (isFullHouseType) add("Total Rooms"  to hasFullHouseTotalRooms)
+        add("Available Rms" to hasRoomQuantity)
         when {
             isAgent -> {
                 add("Agent Name"    to hasAgentName)
@@ -3358,10 +3934,12 @@ private fun ContactDetailsSection(
     contact: String,
     onContact: (String) -> Unit,
     contactErr: String,
-    isAutoFilled: Boolean
+    isAutoFilled: Boolean,
+    landlordFullName: String = "",
+    isNameAutoFilled: Boolean = false
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        if (isAutoFilled) {
+        if (isAutoFilled || isNameAutoFilled) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3376,6 +3954,16 @@ private fun ContactDetailsSection(
             }
             Spacer(Modifier.height(8.dp))
         }
+        RentOutTextField(
+            value           = landlordFullName,
+            onValueChange   = {},
+            label           = "Full Name",
+            leadingIcon     = Icons.Default.Person,
+            leadingIconTint = RentOutColors.IconTeal,
+            labelFontSize   = 12.sp,
+            enabled         = false
+        )
+        Spacer(Modifier.height(10.dp))
         RentOutTextField(
             value           = contact,
             onValueChange   = onContact,
