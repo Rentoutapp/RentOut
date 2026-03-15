@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -108,12 +109,31 @@ fun LandlordDashboardScreen(
 
     Scaffold(
         topBar = {
+            // Animated background matching the splash screen palette —
+            // deep navy breathes slowly toward teal, mirroring the logo's two-tone split.
+            val topBarTransition = rememberInfiniteTransition(label = "topbar_bg")
+            val topBarShift by topBarTransition.animateFloat(
+                initialValue = 0f,
+                targetValue  = 1f,
+                animationSpec = infiniteRepeatable(
+                    tween(8_000, easing = LinearEasing),
+                    RepeatMode.Reverse
+                ),
+                label = "topbar_shift"
+            )
+            val topBarNavy     = Color(0xFF0E1C3E)
+            val topBarNavyMid  = Color(0xFF1A2B5E)
+            val topBarTealDark = Color(0xFF007A75)
+            val topBarTeal     = Color(0xFF00B4AE)
+            val bgLeft  = lerp(topBarNavy,    topBarNavyMid,  topBarShift * 0.4f)
+            val bgRight = lerp(topBarTealDark, topBarTeal,    topBarShift * 0.6f)
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
                         Brush.horizontalGradient(
-                            listOf(RentOutColors.Primary, RentOutColors.PrimaryDark)
+                            listOf(bgLeft, bgRight)
                         )
                     )
                     .statusBarsPadding()
