@@ -28,6 +28,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Image
 import androidx.compose.ui.text.font.FontWeight
+import org.example.project.ui.util.DashboardBackHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,8 +45,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 
 @Composable
 fun RoleSelectionScreen(
-    onRoleSelected: (role: String, subtype: String) -> Unit
+    onRoleSelected: (role: String, subtype: String) -> Unit,
+    // Called when user presses back on Role Selection.
+    // App.kt wires this to onDashboardBackPress (double-back-to-exit).
+    onBackPress: () -> Unit = {}
 ) {
+    // Role Selection is a root screen — there is no screen behind it after
+    // the intro video. Intercept back and delegate to the host so the
+    // double-back-press-to-exit pattern applies here too.
+    DashboardBackHandler(onBackPress = onBackPress)
+
     var selectedRole by remember { mutableStateOf("") }
     var selectedSubtype by remember { mutableStateOf("") }
     val isDark = isSystemInDarkTheme()

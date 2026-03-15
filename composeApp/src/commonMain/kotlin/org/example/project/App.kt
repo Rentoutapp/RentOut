@@ -15,9 +15,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.russhwolf.settings.Settings
+import kotlinx.coroutines.launch
 import org.example.project.data.local.LocalSettingsRepository
 import org.example.project.data.model.User
 import org.example.project.presentation.*
+import org.example.project.ui.util.showToast
+import org.example.project.ui.util.rememberExitApp
 import org.example.project.ui.screens.NotificationScreen
 import org.example.project.ui.navigation.NavRoutes
 import org.example.project.ui.screens.auth.*
@@ -70,6 +73,39 @@ fun App() {
 
         // Current logged-in user
         val currentUser = (authState as? AuthState.Success)?.user
+
+        // ── Double-back-press-to-exit state ───────────────────────────────────
+        // Shared between all dashboard/home screens. On first back press, a Toast
+        // is shown ("Press back again to exit"). On second press within 2 000 ms,
+        // the activity is finished. This matches the industry-standard pattern used
+        // by WhatsApp, Google Maps, Gmail, etc.
+        //
+        // backPressedOnce is reset to false after 2 000 ms by the coroutine below.
+        // It is NOT remembered across process death — that is intentional: if the
+        // user backgrounds the app and returns, they should have to press twice again.
+        var backPressedOnce by remember { mutableStateOf(false) }
+        val exitApp = rememberExitApp()           // platform actual: Activity.finish() / no-op
+        val coroutineScope = rememberCoroutineScope()
+
+        // The lambda passed to each dashboard's onBackPress parameter.
+        // Captures backPressedOnce via a snapshot-aware read so recomposition
+        // always sees the latest value without re-registering BackHandler.
+        val onDashboardBackPress: () -> Unit = {
+            if (backPressedOnce) {
+                // Second press within the 2-second window — exit cleanly.
+                exitApp()
+            } else {
+                backPressedOnce = true
+                // showToast() is an expect/actual: Toast on Android, no-op on iOS.
+                showToast("Press back again to exit")
+                // Reset the flag after 2 000 ms so a slow second press
+                // is treated as a fresh first press, not an exit trigger.
+                coroutineScope.launch {
+                    kotlinx.coroutines.delay(2_000)
+                    backPressedOnce = false
+                }
+            }
+        }
 
         // Start/restart notification listener whenever the logged-in user changes.
         // This covers: fresh login, remember-me session restore, and back-navigation.
@@ -131,7 +167,8 @@ fun App() {
                         navController.navigate(NavRoutes.SPLASH) {
                             popUpTo(NavRoutes.INTRO) { inclusive = true }
                         }
-                    }
+                    },
+                    onBackPress = onDashboardBackPress
                 )
             }
 
@@ -142,7 +179,8 @@ fun App() {
                         authViewModel.selectRole(role)
                         authViewModel.selectSubtype(subtype)
                         navController.navigate("auth?prefillEmail=&prefillPassword=")
-                    }
+                    },
+                    onBackPress = onDashboardBackPress
                 )
             }
 
@@ -300,7 +338,11 @@ fun App() {
                         navController.navigate(NavRoutes.ROLE_SELECTION) {
                             popUpTo(0) { inclusive = true }
                         }
-                    }
+                    },
+                    // Back is silently consumed on SuspendedScreen — the user must
+                    // log out explicitly. Pass a no-op so the back press never
+                    // reaches the system and accidentally pops the back stack.
+                    onBackPress = { /* silently consumed — suspended users cannot navigate back */ }
                 )
             }
 
@@ -348,6 +390,7 @@ fun App() {
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
+                    onBackPress = onDashboardBackPress
                 )
             }
 
@@ -713,6 +756,7 @@ fun App() {
                         authViewModel.onEvent(AuthEvent.Logout)
                         navController.navigate(NavRoutes.ROLE_SELECTION) { popUpTo(0) { inclusive = true } }
                     },
+                    onBackPress = onDashboardBackPress,
                     applyFilters = { props, query, city, filter ->
                         propertyViewModel.applyFilters(props, query, city, filter)
                     }

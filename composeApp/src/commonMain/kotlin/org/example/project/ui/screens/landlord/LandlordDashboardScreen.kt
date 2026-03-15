@@ -37,6 +37,7 @@ import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
 import org.example.project.ui.theme.RentOutBackgrounds
 import org.example.project.ui.theme.RentOutTextColors
+import org.example.project.ui.util.DashboardBackHandler
 
 // ── Time-of-day data ──────────────────────────────────────────────────────────
 private enum class TimeOfDay(
@@ -74,8 +75,19 @@ fun LandlordDashboardScreen(
     onNotificationsClick: () -> Unit = {},
     onProfileClick: () -> Unit,
     onBrokerageAccountClick: () -> Unit = {},
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    // Called when the user presses back on the dashboard.
+    // The host (App.kt) implements the double-back-press-to-exit pattern
+    // using a platform Toast so commonMain stays platform-agnostic.
+    onBackPress: () -> Unit = {}
 ) {
+    // ── Double-back-press-to-exit ─────────────────────────────────────────────
+    // Intercept the system back button so it never calls finish() directly.
+    // DashboardBackHandler is an expect/actual: BackHandler on Android, no-op on iOS.
+    // The host (App.kt) owns the exit logic — shows a Toast on first press,
+    // exits on second press within 2 000 ms (WhatsApp / Gmail pattern).
+    DashboardBackHandler(onBackPress = onBackPress)
+
     val listState = rememberLazyListState()
     val hasProperties = propertyListState is PropertyListState.Success &&
             (propertyListState as PropertyListState.Success).properties.isNotEmpty()

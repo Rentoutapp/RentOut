@@ -17,13 +17,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import org.example.project.ui.components.IntroVideoPlayer
+import org.example.project.ui.util.DashboardBackHandler
 
 @Composable
 fun IntroScreen(
     onGetStarted: () -> Unit,
     onAutoLogin: (() -> Unit)? = null,   // called instead of onGetStarted when rememberMeActive
-    rememberMeActive: Boolean = false
+    rememberMeActive: Boolean = false,
+    // Called when user presses back on the intro screen.
+    // App.kt wires this to onDashboardBackPress (double-back-to-exit).
+    onBackPress: () -> Unit = {}
 ) {
+    // The intro screen is the entry point of the app — there is no screen
+    // behind it to pop back to. Intercept back and delegate to the host so
+    // the double-back-press-to-exit pattern applies here too.
+    DashboardBackHandler(onBackPress = onBackPress)
 
     // ── Animation stage flags ─────────────────────────────────────────────
     var videoEnded       by remember { mutableStateOf(false) }

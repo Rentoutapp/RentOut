@@ -20,9 +20,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.example.project.ui.components.RentOutPrimaryButton
 import org.example.project.ui.theme.RentOutColors
+import org.example.project.ui.util.DashboardBackHandler
 
 @Composable
-fun SuspendedScreen(onContactSupport: () -> Unit, onLogout: () -> Unit) {
+fun SuspendedScreen(
+    onContactSupport: () -> Unit,
+    onLogout: () -> Unit,
+    // Back is blocked on the suspended screen — the user has no legitimate
+    // screen to return to and must either contact support or log out.
+    onBackPress: () -> Unit = {}
+) {
+    // Consume all back presses silently — the suspended screen is a dead end.
+    // The user must tap "Log Out" to leave. This prevents navigation tricks
+    // that could bypass the suspension (e.g. rapid back-press to dashboard).
+    DashboardBackHandler(onBackPress = onBackPress)
     val infiniteTransition = rememberInfiniteTransition(label = "suspended_pulse")
     val pulse by infiniteTransition.animateFloat(
         initialValue = 0.95f, targetValue = 1.05f,

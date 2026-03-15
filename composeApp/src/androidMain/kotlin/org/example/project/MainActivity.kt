@@ -13,6 +13,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.google.firebase.messaging.FirebaseMessaging
+import org.example.project.ui.util.AppContext
 
 class MainActivity : ComponentActivity() {
 
@@ -38,6 +39,11 @@ class MainActivity : ComponentActivity() {
         // on all API levels when edge-to-edge is enabled.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         super.onCreate(savedInstanceState)
+
+        // Initialise the application-level Context holder so showToast() can
+        // obtain a Context from outside of a @Composable scope (e.g. from
+        // a coroutine launched by the double-back-press exit handler).
+        AppContext.init(this)
 
         // Create the notification channel (safe to call multiple times)
         RentOutFirebaseMessagingService.createNotificationChannel(this)

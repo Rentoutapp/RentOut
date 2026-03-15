@@ -50,6 +50,7 @@ import org.example.project.ui.components.*
 import org.example.project.ui.theme.RentOutColors
 import org.example.project.ui.theme.RentOutBackgrounds
 import org.example.project.ui.theme.RentOutTextColors
+import org.example.project.ui.util.DashboardBackHandler
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -91,6 +92,10 @@ fun TenantHomeScreen(
     onNotificationsClick: () -> Unit = {},
     onProfileClick: () -> Unit,
     onLogout: () -> Unit,
+    // Called when the user presses back on the home screen.
+    // The host (App.kt) implements the double-back-press-to-exit pattern
+    // using a platform Toast so commonMain stays platform-agnostic.
+    onBackPress: () -> Unit = {},
     applyFilters: (List<Property>, String, String, PropertyFilter) -> List<Property> = { props, query, city, _ ->
         props.filter { p ->
             (city.isBlank() || city.equals(ALL_TOWNS, ignoreCase = true) || p.city.equals(city, ignoreCase = true)) &&
@@ -98,6 +103,13 @@ fun TenantHomeScreen(
         }
     }
 ) {
+    // ── Double-back-press-to-exit ─────────────────────────────────────────────
+    // Intercept the system back button so it never calls finish() directly.
+    // DashboardBackHandler is an expect/actual: BackHandler on Android, no-op on iOS.
+    // The host (App.kt) owns the exit logic — shows a Toast on first press,
+    // exits on second press within 2 000 ms (WhatsApp / Gmail pattern).
+    DashboardBackHandler(onBackPress = onBackPress)
+
     val listState = rememberLazyListState()
     val isFabVisible by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
 
